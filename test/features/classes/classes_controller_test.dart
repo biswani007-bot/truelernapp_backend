@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:truelearn/core/error/failures.dart';
+import 'package:truelearn/core/storage/secure_storage_service.dart';
 import 'package:truelearn/features/classes/data/repositories/classes_repository_impl.dart';
 import 'package:truelearn/features/classes/domain/entities/class_entity.dart';
 import 'package:truelearn/features/classes/domain/repositories/classes_repository.dart';
@@ -38,20 +39,63 @@ class FakeDashboardRepository implements DashboardRepository {
       const DashboardEntity();
 }
 
+class FakeSecureStorage implements SecureStorageService {
+  final Map<String, String> _data = {};
+
+  @override
+  Future<String?> getAccessToken() async => _data['access_token'];
+
+  @override
+  Future<void> saveAccessToken(String token) async => _data['access_token'] = token;
+
+  @override
+  Future<void> deleteAccessToken() async => _data.remove('access_token');
+
+  @override
+  Future<String?> getRefreshToken() async => _data['refresh_token'];
+
+  @override
+  Future<void> saveRefreshToken(String token) async => _data['refresh_token'] = token;
+
+  @override
+  Future<void> deleteRefreshToken() async => _data.remove('refresh_token');
+
+  @override
+  Future<String?> getUserId() async => _data['user_id'];
+
+  @override
+  Future<void> saveUserId(String id) async => _data['user_id'] = id;
+
+  @override
+  Future<String?> getActiveChildId() async => _data['active_child_id'];
+
+  @override
+  Future<void> saveActiveChildId(String childId) async => _data['active_child_id'] = childId;
+
+  @override
+  Future<void> deleteActiveChildId() async => _data.remove('active_child_id');
+
+  @override
+  Future<void> clearAuthSession() async => _data.clear();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late FakeClassesRepository fakeRepo;
   late FakeDashboardRepository fakeDashRepo;
+  late FakeSecureStorage fakeStorage;
   late ProviderContainer container;
 
   setUp(() {
     fakeRepo = FakeClassesRepository();
     fakeDashRepo = FakeDashboardRepository();
+    fakeStorage = FakeSecureStorage();
     container = ProviderContainer(
       overrides: [
         classesRepositoryProvider.overrideWithValue(fakeRepo),
         dashboardRepositoryProvider.overrideWithValue(fakeDashRepo),
+        secureStorageProvider.overrideWithValue(fakeStorage),
       ],
     );
   });

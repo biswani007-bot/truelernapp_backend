@@ -5,25 +5,28 @@ import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/class_entity.dart';
 import '../controllers/classes_controller.dart';
 import '../controllers/classes_state.dart';
+import '../../../dashboard/presentation/controllers/children_controller.dart';
+import '../../../dashboard/presentation/controllers/children_state.dart';
 
 /// Class Details Screen (SCR-14 / Figma Frame 76:2063 titled "Class Details (Revised)").
 ///
-/// Features 100% Figma-exact matching:
+/// Features 100% Figma-exact matching with verified dynamic live backend data:
 /// - Top Navigation: Back arrow + "Back to My Classes" (24px Bold #191C1E)
 /// - Background canvas gradient: linear-gradient(105.4deg, #F3E8FF 0%, #E0F2FE 50%, #FFFFFF 100%)
 /// - White Card container with 24px radius and soft shadow
-/// - Accent Header: Cyan left border (4px #22D3EE), soft cyan tint background
-/// - Curriculum Category pill: "COMMUNICATION & PUBLIC SPEAKING" (uppercase, #22D3EE)
-/// - Topic title: "Speaking With Confidence" (or session.title from backend)
-/// - Status badge: "STARTING SOON" (#9A3412 text, #FFEDD5 background)
+/// - Accent Header: Cyan left border (4px #22D3EE), soft cyan tint background gradient
+/// - Curriculum Category pill: Real course / subject name (uppercase, #22D3EE)
+/// - Topic title: Real class title from backend (no fake placeholder)
+/// - Status badge: Real effective status matching Figma badge styling
 /// - Centered 3D Communication illustration (blue microphone + cyan speech bubble)
 /// - Quick Info 2x2 Grid (Date, Time, Duration, Teacher) with #F3F2FE background, #E2E1ED border
-/// - Horizontal Divider
-/// - "Today's Focus" section with bulb icon and descriptive text
-/// - "What We'll Practice" 2x2 grid (Voice Control, Clear Speech, Confidence, Presentation)
-/// - Countdown timer info ("Class is starting in 18 minutes")
+/// - Horizontal Divider (#E2E1ED)
+/// - "Today's Focus" section: Neutral state for Parent view without fabricating non-existent API data
+/// - "What We'll Practice" section: Neutral state without fabricating non-existent curriculum chips
+/// - Dynamic Countdown timer: Computed dynamically from scheduledStartTime against DateTime.now()
 /// - Primary Action CTA: "CONTINUE TO LIVE CLASS →" (#1E4ED8 blue, 12px radius)
-class ClassDetailsScreen extends ConsumerWidget {
+/// - Graceful fallback resolution via ClassesController / ChildrenController if extra is null
+class ClassDetailsScreen extends ConsumerStatefulWidget {
   const ClassDetailsScreen({
     super.key,
     required this.classId,
@@ -34,26 +37,41 @@ class ClassDetailsScreen extends ConsumerWidget {
   final ClassEntity? session;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Resolve session from passed param or from ClassesController state
-    ClassEntity? resolvedSession = session;
-    if (resolvedSession == null) {
-      final classesState = ref.watch(classesControllerProvider);
-      if (classesState is ClassesLoaded) {
-        resolvedSession = classesState.classes.where((c) => c.id == classId).firstOrNull;
-      }
-    }
+  ConsumerState<ClassDetailsScreen> createState() => _ClassDetailsScreenState();
+}
 
-    // Default fallback values matching Figma 76:2063
-    final title = (resolvedSession != null && resolvedSession.title.isNotEmpty)
-        ? resolvedSession.title
-        : 'Speaking With Confidence';
-    final subject = (resolvedSession != null && resolvedSession.subject != null && resolvedSession.subject!.isNotEmpty)
-        ? resolvedSession.subject!.toUpperCase()
-        : 'COMMUNICATION & PUBLIC SPEAKING';
-    final teacher = (resolvedSession != null && resolvedSession.teacherName != null && resolvedSession.teacherName!.isNotEmpty)
-        ? resolvedSession.teacherName!
-        : 'Sarah M.';
+class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Fallback: If session was not passed directly via GoRouter extra,
+    // ensure classes are loaded for the active child so we can resolve it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.session == null) {
+        final classesState = ref.read(classesControllerProvider);
+        if (classesState is! ClassesLoaded) {
+          final childrenState = ref.read(childrenControllerProvider);
+          if (childrenState is ChildrenLoaded && childrenState.activeChildId != null) {
+            ref.read(classesControllerProvider.notifier).loadClasses(
+              childStudentId: childrenState.activeChildId!,
+            );
+          }
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. Resolve session: Prefer directly passed entity, fallback to ClassesController lookup
+    ClassEntity? resolvedSession = widget.session;
+    final classesState = ref.watch(classesControllerProvider);
+
+    if (resolvedSession == null && classesState is ClassesLoaded) {
+      resolvedSession = classesState.classes
+          .where((c) => c.id == widget.classId)
+          .firstOrNull;
+    }
 
     return Scaffold(
       key: const Key('class_details_screen'),
@@ -76,71 +94,154 @@ class ClassDetailsScreen extends ConsumerWidget {
               // 1. Back Navigation Header (Figma Node 76:2065)
               _buildBackHeader(context),
 
-              // 2. Scrollable Content Area
+              // 2. Main Content Area / State Handling
               Expanded(
-                child: SingleChildScrollView(
-                  key: const Key('class_details_scroll_view'),
-                  padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 24),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Hero Section with Left Cyan Border Accent (Node 76:2072)
-                        _buildHeroSection(title: title, subject: subject),
+                child: _buildContent(context, resolvedSession, classesState),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-                        // Details Section (Node 76:2088)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Quick Info 2x2 Grid (Node 76:2089)
-                              _buildQuickInfoGrid(
-                                dateText: 'Today',
-                                timeText: '7:00 PM - 7:45 PM',
-                                durationText: '45 Minutes',
-                                teacherText: teacher,
-                              ),
-                              const SizedBox(height: 24),
+  Widget _buildContent(
+    BuildContext context,
+    ClassEntity? session,
+    ClassesState classesState,
+  ) {
+    // If session is resolved, render details card
+    if (session != null) {
+      return SingleChildScrollView(
+        key: const Key('class_details_scroll_view'),
+        padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 24),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Hero Section with Left Cyan Border Accent (Node 76:2072)
+              _buildHeroSection(session),
 
-                              // Divider (Node 76:2118)
-                              const Divider(color: Color(0xFFE2E1ED), height: 1, thickness: 1),
-                              const SizedBox(height: 24),
+              // Details Section (Node 76:2088)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Quick Info 2x2 Grid (Node 76:2089)
+                    _buildQuickInfoGrid(session),
+                    const SizedBox(height: 24),
 
-                              // Today's Focus (Node 76:2120)
-                              _buildTodaysFocus(),
-                              const SizedBox(height: 28),
+                    // Divider (Node 76:2118)
+                    const Divider(color: Color(0xFFE2E1ED), height: 1, thickness: 1),
+                    const SizedBox(height: 24),
 
-                              // What We'll Practice (Node 76:2127)
-                              _buildWhatWellPractice(),
-                              const SizedBox(height: 24),
+                    // Today's Focus (Node 76:2120)
+                    _buildTodaysFocus(),
+                    const SizedBox(height: 28),
 
-                              // Action Area (Node 76:2158)
-                              const Divider(color: Color(0xFFE2E1ED), height: 1, thickness: 1),
-                              const SizedBox(height: 20),
-                              _buildActionArea(context, resolvedSession: resolvedSession),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                    // What We'll Practice (Node 76:2127)
+                    _buildWhatWellPractice(),
+                    const SizedBox(height: 24),
+
+                    // Action Area (Node 76:2158)
+                    const Divider(color: Color(0xFFE2E1ED), height: 1, thickness: 1),
+                    const SizedBox(height: 20),
+                    _buildActionArea(context, session),
+                  ],
                 ),
               ),
             ],
           ),
+        ),
+      );
+    }
+
+    // While loading classes for fallback resolution
+    if (classesState is ClassesLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF0037B1)),
+      );
+    }
+
+    // Error state during fallback resolution
+    if (classesState is ClassesError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFDC2626)),
+              const SizedBox(height: 16),
+              Text(
+                'Unable to load session details',
+                style: AppTypography.titleMedium.copyWith(color: const Color(0xFF0F172A)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                classesState.message,
+                style: AppTypography.bodySmall.copyWith(color: const Color(0xFF64748B)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  final childrenState = ref.read(childrenControllerProvider);
+                  if (childrenState is ChildrenLoaded && childrenState.activeChildId != null) {
+                    ref.read(classesControllerProvider.notifier).loadClasses(
+                      childStudentId: childrenState.activeChildId!,
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0037B1)),
+                child: const Text('Retry', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Class not found fallback
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.event_busy_rounded, size: 48, color: Color(0xFF94A3B8)),
+            const SizedBox(height: 16),
+            Text(
+              'Class Session Not Found',
+              style: AppTypography.titleMedium.copyWith(color: const Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This live class session may have been removed or rescheduled.',
+              style: AppTypography.bodySmall.copyWith(color: const Color(0xFF64748B)),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            OutlinedButton(
+              onPressed: () => _handleBack(context),
+              style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF0037B1)),
+              child: const Text('Return to Schedule'),
+            ),
+          ],
         ),
       ),
     );
@@ -154,23 +255,20 @@ class ClassDetailsScreen extends ConsumerWidget {
           IconButton(
             key: const Key('back_to_my_classes_button'),
             icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF191C1E), size: 24),
-            onPressed: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go('/parent/classes');
-              }
-            },
-            tooltip: 'Back',
+            onPressed: () => _handleBack(context),
+            tooltip: 'Back to My Classes',
           ),
           const SizedBox(width: 4),
-          Text(
-            'Back to My Classes',
-            style: AppTypography.displayLarge.copyWith(
-              fontSize: 25.5,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF191C1E),
-              letterSpacing: -0.5,
+          Expanded(
+            child: Text(
+              'Back to My Classes',
+              style: AppTypography.displayLarge.copyWith(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF191C1E),
+                letterSpacing: -0.5,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -178,7 +276,29 @@ class ClassDetailsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeroSection({required String title, required String subject}) {
+  void _handleBack(BuildContext context) {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      try {
+        GoRouter.of(context).go('/parent/classes');
+      } catch (_) {}
+    }
+  }
+
+  Widget _buildHeroSection(ClassEntity session) {
+    // Dynamic subject / category
+    final category = (session.subject != null && session.subject!.trim().isNotEmpty)
+        ? session.subject!.trim().toUpperCase()
+        : (session.classCode ?? 'LIVE CLASS');
+
+    // Dynamic title
+    final title = session.title.trim().isNotEmpty
+        ? session.title.trim()
+        : 'Live Class Session';
+
+    final statusWidget = _buildStatusBadge(session);
+
     return Container(
       decoration: BoxDecoration(
         border: const Border(
@@ -199,13 +319,14 @@ class ClassDetailsScreen extends ConsumerWidget {
         children: [
           // Category Pill (Node 76:2076)
           Container(
+            key: const Key('class_details_category_pill'),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(0xFF22D3EE).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(9999),
             ),
             child: Text(
-              subject,
+              category,
               style: AppTypography.labelMedium.copyWith(
                 color: const Color(0xFF0891B2),
                 fontWeight: FontWeight.w600,
@@ -219,6 +340,7 @@ class ClassDetailsScreen extends ConsumerWidget {
           // Topic Title (Node 76:2079)
           Text(
             title,
+            key: const Key('class_details_title'),
             style: AppTypography.bodyMedium.copyWith(
               color: const Color(0xFF1A1B23),
               fontSize: 19.5,
@@ -227,30 +349,8 @@ class ClassDetailsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
 
-          // Status Badge: STARTING SOON (Node 76:2081)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFEDD5),
-              borderRadius: BorderRadius.circular(9999),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.access_time_filled_rounded, size: 14, color: Color(0xFF9A3412)),
-                const SizedBox(width: 6),
-                Text(
-                  'STARTING SOON',
-                  style: AppTypography.labelMedium.copyWith(
-                    color: const Color(0xFF9A3412),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // Status Badge (Node 76:2081)
+          statusWidget,
           const SizedBox(height: 20),
 
           // 3D Communication Illustration (Node 76:2087)
@@ -274,18 +374,93 @@ class ClassDetailsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuickInfoGrid({
-    required String dateText,
-    required String timeText,
-    required String durationText,
-    required String teacherText,
-  }) {
+  Widget _buildStatusBadge(ClassEntity session) {
+    Color bg;
+    Color textColor;
+    IconData icon;
+    String label;
+
+    final now = DateTime.now();
+    final isStartingSoon = session.scheduledStartTime != null &&
+        session.isUpcoming &&
+        session.scheduledStartTime!.isAfter(now) &&
+        session.scheduledStartTime!.difference(now).inMinutes <= 60;
+
+    if (session.isLive) {
+      bg = const Color(0xFFDCFCE7);
+      textColor = const Color(0xFF166534);
+      icon = Icons.fiber_manual_record_rounded;
+      label = 'LIVE NOW';
+    } else if (session.isCompleted) {
+      bg = const Color(0xFFDCFCE7);
+      textColor = const Color(0xFF166534);
+      icon = Icons.check_circle_rounded;
+      label = 'COMPLETED';
+    } else if (session.isMissed) {
+      bg = const Color(0xFFFEE2E2);
+      textColor = const Color(0xFF991B1B);
+      icon = Icons.cancel_rounded;
+      label = 'MISSED';
+    } else if (session.isCancelled) {
+      bg = const Color(0xFFF1F5F9);
+      textColor = const Color(0xFF475569);
+      icon = Icons.block_rounded;
+      label = 'CANCELLED';
+    } else if (isStartingSoon) {
+      bg = const Color(0xFFFFEDD5);
+      textColor = const Color(0xFF9A3412);
+      icon = Icons.access_time_filled_rounded;
+      label = 'STARTING SOON';
+    } else {
+      bg = const Color(0xFFEFF6FF);
+      textColor = const Color(0xFF1D4ED8);
+      icon = Icons.calendar_today_rounded;
+      label = (session.status != null && session.status!.isNotEmpty)
+          ? session.status!.toUpperCase()
+          : 'UPCOMING';
+    }
+
+    return Container(
+      key: const Key('class_details_status_badge'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(9999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: textColor),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: AppTypography.labelMedium.copyWith(
+              color: textColor,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickInfoGrid(ClassEntity session) {
+    final dateText = _formatDate(session.scheduledStartTime);
+    final timeText = _formatTimeRange(session.scheduledStartTime, session.scheduledEndTime);
+    final durationText = _formatDuration(session.duration, session.scheduledStartTime, session.scheduledEndTime);
+    final teacherText = (session.teacherName != null && session.teacherName!.trim().isNotEmpty)
+        ? session.teacherName!.trim()
+        : '—';
+
     return Column(
       children: [
         Row(
           children: [
             Expanded(
               child: _buildInfoCard(
+                key: const Key('class_details_info_date'),
                 icon: Icons.calendar_today_rounded,
                 label: 'Date',
                 value: dateText,
@@ -294,6 +469,7 @@ class ClassDetailsScreen extends ConsumerWidget {
             const SizedBox(width: 16),
             Expanded(
               child: _buildInfoCard(
+                key: const Key('class_details_info_time'),
                 icon: Icons.access_time_rounded,
                 label: 'Time',
                 value: timeText,
@@ -306,6 +482,7 @@ class ClassDetailsScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: _buildInfoCard(
+                key: const Key('class_details_info_duration'),
                 icon: Icons.hourglass_top_rounded,
                 label: 'Duration',
                 value: durationText,
@@ -314,6 +491,7 @@ class ClassDetailsScreen extends ConsumerWidget {
             const SizedBox(width: 16),
             Expanded(
               child: _buildInfoCard(
+                key: const Key('class_details_info_teacher'),
                 icon: Icons.person_rounded,
                 label: 'Teacher',
                 value: teacherText,
@@ -326,11 +504,13 @@ class ClassDetailsScreen extends ConsumerWidget {
   }
 
   Widget _buildInfoCard({
+    Key? key,
     required IconData icon,
     required String label,
     required String value,
   }) {
     return Container(
+      key: key,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF3F2FE),
@@ -385,11 +565,11 @@ class ClassDetailsScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          'Mastering vocal delivery techniques. We will explore how tone, pitch, and pacing can dramatically alter the impact of your message and help command attention.',
+          'Focus details are not available for this session.',
           style: AppTypography.bodyMedium.copyWith(
-            color: const Color(0xFF434655),
-            fontSize: 15,
-            height: 1.6,
+            color: const Color(0xFF64748B),
+            fontSize: 14,
+            height: 1.5,
           ),
         ),
       ],
@@ -414,83 +594,26 @@ class ClassDetailsScreen extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _buildPracticeChip(icon: Icons.graphic_eq_rounded, label: 'Voice\nControl')),
-            const SizedBox(width: 12),
-            Expanded(child: _buildPracticeChip(icon: Icons.chat_bubble_outline_rounded, label: 'Clear\nSpeech')),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _buildPracticeChip(icon: Icons.sentiment_satisfied_rounded, label: 'Confidence')),
-            const SizedBox(width: 12),
-            Expanded(child: _buildPracticeChip(icon: Icons.co_present_rounded, label: 'Presentation')),
-          ],
+        const SizedBox(height: 10),
+        Text(
+          'Practice details are not available for this session.',
+          style: AppTypography.bodyMedium.copyWith(
+            color: const Color(0xFF64748B),
+            fontSize: 14,
+            height: 1.5,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildPracticeChip({required IconData icon, required String label}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F2FE),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: Color(0x3322D3EE),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 16, color: const Color(0xFF0891B2)),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: AppTypography.bodyMedium.copyWith(
-                color: const Color(0xFF1A1B23),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 1.2,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildActionArea(BuildContext context, ClassEntity session) {
+    final countdownWidget = _buildCountdownWidget(session);
 
-  Widget _buildActionArea(BuildContext context, {ClassEntity? resolvedSession}) {
     return Column(
       children: [
-        // Timer icon & text
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.timer_outlined, size: 18, color: Color(0xFFEA580C)),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                'Class is starting in 18 minutes',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: const Color(0xFF1A1B23),
-                  fontSize: 15,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ),
+        // Dynamic countdown row
+        countdownWidget,
         const SizedBox(height: 16),
 
         // Primary Action Button (Node 76:2162)
@@ -508,13 +631,25 @@ class ClassDetailsScreen extends ConsumerWidget {
               ),
             ),
             onPressed: () {
-              try {
-                GoRouter.of(context).push(
-                  '/parent/classes/$classId/preview',
-                  extra: resolvedSession,
+              if (session.meetingUrl != null && session.meetingUrl!.trim().isNotEmpty) {
+                // If direct meeting URL exists, navigate to supported preview/join flow
+                try {
+                  GoRouter.of(context).push(
+                    '/parent/classes/${widget.classId}/preview',
+                    extra: session,
+                  );
+                } catch (_) {}
+              } else {
+                // Graceful, factual behavior: Parent does not participate in student live classroom
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Live classroom access is available through the student portal during scheduled class time.',
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                    duration: Duration(seconds: 4),
+                  ),
                 );
-              } catch (_) {
-                // Fallback for tests
               }
             },
             child: Row(
@@ -537,5 +672,268 @@ class ClassDetailsScreen extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  Widget _buildCountdownWidget(ClassEntity session) {
+    if (session.isCompleted) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.check_circle_outline_rounded, size: 18, color: Color(0xFF166534)),
+          const SizedBox(width: 6),
+          Text(
+            'Class session completed',
+            style: AppTypography.bodyMedium.copyWith(
+              color: const Color(0xFF166534),
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (session.isMissed) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF991B1B)),
+          const SizedBox(width: 6),
+          Text(
+            'Class was missed',
+            style: AppTypography.bodyMedium.copyWith(
+              color: const Color(0xFF991B1B),
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (session.isCancelled) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cancel_outlined, size: 18, color: Color(0xFF475569)),
+          const SizedBox(width: 6),
+          Text(
+            'Class session cancelled',
+            style: AppTypography.bodyMedium.copyWith(
+              color: const Color(0xFF475569),
+              fontSize: 15,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (session.isLive) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.fiber_manual_record_rounded, size: 16, color: Color(0xFF166534)),
+          const SizedBox(width: 6),
+          Text(
+            'Class is currently in session',
+            style: AppTypography.bodyMedium.copyWith(
+              color: const Color(0xFF166534),
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (session.scheduledStartTime != null) {
+      final now = DateTime.now();
+      final diff = session.scheduledStartTime!.difference(now);
+
+      if (diff.isNegative) {
+        if (session.scheduledEndTime != null && session.scheduledEndTime!.isAfter(now)) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.fiber_manual_record_rounded, size: 16, color: Color(0xFF166534)),
+              const SizedBox(width: 6),
+              Text(
+                'Class is currently in session',
+                style: AppTypography.bodyMedium.copyWith(
+                  color: const Color(0xFF166534),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          );
+        } else {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.access_time_rounded, size: 18, color: Color(0xFF64748B)),
+              const SizedBox(width: 6),
+              Text(
+                'Scheduled session concluded',
+                style: AppTypography.bodyMedium.copyWith(
+                  color: const Color(0xFF64748B),
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          );
+        }
+      }
+
+      final minutes = diff.inMinutes;
+      if (minutes <= 60) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.timer_outlined, size: 18, color: Color(0xFFEA580C)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                'Class is starting in $minutes minutes',
+                key: const Key('class_details_countdown_text'),
+                style: AppTypography.bodyMedium.copyWith(
+                  color: const Color(0xFF1A1B23),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        );
+      }
+
+      final hours = diff.inHours;
+      if (hours < 24) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.timer_outlined, size: 18, color: Color(0xFF0037B1)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                'Class is starting in $hours hours',
+                key: const Key('class_details_countdown_text'),
+                style: AppTypography.bodyMedium.copyWith(
+                  color: const Color(0xFF1A1B23),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        );
+      }
+
+      final days = diff.inDays == 0 ? 1 : diff.inDays;
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.calendar_today_outlined, size: 18, color: Color(0xFF64748B)),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              'Class is scheduled in $days days',
+              style: AppTypography.bodyMedium.copyWith(
+                color: const Color(0xFF475569),
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.schedule_rounded, size: 18, color: Color(0xFF64748B)),
+        const SizedBox(width: 6),
+        Text(
+          'Schedule to be announced',
+          style: AppTypography.bodyMedium.copyWith(
+            color: const Color(0xFF64748B),
+            fontSize: 15,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime? start) {
+    if (start == null) return '—';
+    final local = start.toLocal();
+    final now = DateTime.now();
+
+    if (local.year == now.year && local.month == now.month && local.day == now.day) {
+      return 'Today';
+    }
+
+    final tomorrow = now.add(const Duration(days: 1));
+    if (local.year == tomorrow.year && local.month == tomorrow.month && local.day == tomorrow.day) {
+      return 'Tomorrow';
+    }
+
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+
+    final weekday = weekdays[local.weekday - 1];
+    final month = months[local.month - 1];
+    return '$weekday, ${local.day} $month';
+  }
+
+  String _formatTimeRange(DateTime? start, DateTime? end) {
+    if (start == null) return '—';
+    final startLocal = start.toLocal();
+    final startStr = _format12Hour(startLocal);
+
+    if (end != null) {
+      final endLocal = end.toLocal();
+      final endStr = _format12Hour(endLocal);
+      return '$startStr - $endStr';
+    }
+
+    return startStr;
+  }
+
+  String _format12Hour(DateTime dt) {
+    final hour = dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final period = dt.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
+  }
+
+  String _formatDuration(int? duration, DateTime? start, DateTime? end) {
+    if (duration != null && duration > 0) {
+      return '$duration Minutes';
+    }
+    if (start != null && end != null) {
+      final diff = end.difference(start).inMinutes;
+      if (diff > 0) {
+        return '$diff Minutes';
+      }
+    }
+    return '—';
   }
 }

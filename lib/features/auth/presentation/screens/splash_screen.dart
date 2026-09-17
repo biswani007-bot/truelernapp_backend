@@ -37,11 +37,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   void _bootstrap() {
-    // Artificial smooth delay for splash screen display (pure static frontend)
+    // Check secure storage session in background during splash duration
+    ref.read(authControllerProvider.notifier).checkSession();
+
     _timer = Timer(const Duration(milliseconds: 2500), () {
       if (!mounted) return;
 
-      // Pure frontend routing based on local auth state without any network/backend calls
       final authState = ref.read(authControllerProvider);
       if (authState is Authenticated) {
         context.go(AppRoutePaths.parentDashboard);

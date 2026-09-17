@@ -54,7 +54,7 @@ class FakeChildrenController extends Notifier<ChildrenState> implements Children
       );
 
   @override
-  Future<void> loadChildren() async {}
+  Future<void> loadChildren({bool isRefresh = false}) async {}
 
   @override
   Future<void> retry() async {}

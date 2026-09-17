@@ -37,6 +37,15 @@ class FakeSecureStorage implements SecureStorageService {
 
   @override
   Future<void> saveUserId(String id) async {}
+
+  @override
+  Future<void> deleteActiveChildId() async {}
+
+  @override
+  Future<String?> getActiveChildId() async => null;
+
+  @override
+  Future<void> saveActiveChildId(String childId) async {}
 }
 
 void main() {
@@ -46,7 +55,7 @@ void main() {
 
     setUp(() {
       fakeStorage = FakeSecureStorage();
-      interceptor = AuthInterceptor(storageService: fakeStorage);
+      interceptor = AuthInterceptor(storageService: fakeStorage, dio: Dio());
     });
 
     test('attaches Bearer token when a valid token exists in secure storage', () async {

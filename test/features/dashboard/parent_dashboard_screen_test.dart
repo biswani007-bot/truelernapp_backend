@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:truelearn/core/error/failures.dart';
+import 'package:truelearn/core/storage/secure_storage_service.dart';
 import 'package:truelearn/features/auth/data/models/auth_response.dart';
 import 'package:truelearn/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:truelearn/features/auth/presentation/controllers/auth_state.dart';
+import 'package:truelearn/features/classes/domain/entities/class_entity.dart';
 import 'package:truelearn/features/dashboard/data/repositories/dashboard_repository_impl.dart';
 import 'package:truelearn/features/dashboard/domain/entities/child_entity.dart';
 import 'package:truelearn/features/dashboard/domain/entities/dashboard_entity.dart';
@@ -13,7 +15,6 @@ import 'package:truelearn/features/dashboard/domain/repositories/dashboard_repos
 import 'package:truelearn/features/dashboard/presentation/screens/parent_dashboard_screen.dart';
 import 'package:truelearn/features/dashboard/presentation/widgets/bento_snapshot_grid.dart';
 import 'package:truelearn/features/dashboard/presentation/widgets/child_selector_row.dart';
-import 'package:truelearn/features/dashboard/presentation/widgets/error_dashboard_widget.dart';
 import 'package:truelearn/features/dashboard/presentation/widgets/featured_class_card.dart';
 import 'package:truelearn/features/dashboard/presentation/widgets/my_learning_section.dart';
 
@@ -37,12 +38,52 @@ class FakeDashboardRepository implements DashboardRepository {
     if (failure != null) throw failure!;
     return dashboard ??
         const DashboardEntity(
-          attendanceRate: 95.0,
-          upcomingClassesCount: 3,
-          pendingAssignmentsCount: 2,
-          totalBalanceDue: 150.0,
+          attendanceRate: 100.0,
+          upcomingClassesCount: 1,
+          pendingAssignmentsCount: 0,
+          totalBalanceDue: 0.0,
         );
   }
+}
+
+class FakeSecureStorage implements SecureStorageService {
+  final Map<String, String> _data = {};
+
+  @override
+  Future<String?> getAccessToken() async => _data['access_token'];
+
+  @override
+  Future<void> saveAccessToken(String token) async => _data['access_token'] = token;
+
+  @override
+  Future<void> deleteAccessToken() async => _data.remove('access_token');
+
+  @override
+  Future<String?> getRefreshToken() async => _data['refresh_token'];
+
+  @override
+  Future<void> saveRefreshToken(String token) async => _data['refresh_token'] = token;
+
+  @override
+  Future<void> deleteRefreshToken() async => _data.remove('refresh_token');
+
+  @override
+  Future<String?> getUserId() async => _data['user_id'];
+
+  @override
+  Future<void> saveUserId(String id) async => _data['user_id'] = id;
+
+  @override
+  Future<String?> getActiveChildId() async => _data['active_child_id'];
+
+  @override
+  Future<void> saveActiveChildId(String childId) async => _data['active_child_id'] = childId;
+
+  @override
+  Future<void> deleteActiveChildId() async => _data.remove('active_child_id');
+
+  @override
+  Future<void> clearAuthSession() async => _data.clear();
 }
 
 class FakeAuthController extends AuthController {
@@ -58,9 +99,37 @@ void main() {
   GoogleFonts.config.allowRuntimeFetching = false;
 
   late FakeDashboardRepository fakeRepo;
+  late FakeSecureStorage fakeStorage;
 
   setUp(() {
     fakeRepo = FakeDashboardRepository();
+    fakeStorage = FakeSecureStorage();
+
+    fakeRepo.children = [
+      const ChildEntity(studentId: 'child_1', firstName: 'Sarah', lastName: 'Connor', grade: 'Grade 4'),
+      const ChildEntity(studentId: 'child_2', firstName: 'Alex', lastName: 'Mercer', grade: 'Grade 3'),
+    ];
+    fakeRepo.dashboard = const DashboardEntity(
+      attendanceRate: 100.0,
+      upcomingClassesCount: 1,
+      pendingAssignmentsCount: 0,
+      totalBalanceDue: 0.0,
+      activeTopic: 'Junior Foundation',
+      featuredClass: ClassEntity(
+        id: 'cls_1',
+        title: 'Junior Foundation first class',
+        subject: 'Foundation',
+        teacherName: 'Elizabeth Vance',
+        status: 'UPCOMING',
+      ),
+      enrolledBatches: [
+        EnrolledBatchEntity(
+          id: 'b_1',
+          batchName: 'Batch 1 — Junior Foundation, Ages 6 to 10',
+          instructor: 'Elizabeth Vance',
+        ),
+      ],
+    );
   });
 
   Widget createTestWidget({
@@ -77,6 +146,7 @@ void main() {
     return ProviderScope(
       overrides: [
         dashboardRepositoryProvider.overrideWithValue(fakeRepo),
+        secureStorageProvider.overrideWithValue(fakeStorage),
         authControllerProvider.overrideWith(() => FakeAuthController(authState)),
       ],
       child: const MaterialApp(
@@ -85,38 +155,66 @@ void main() {
     );
   }
 
-  testWidgets('renders pure frontend Figma 76:3476 Student Dashboard without backend calls', (tester) async {
+  testWidgets('renders Figma 76:3476 Student Dashboard with active child and real dashboard metrics', (tester) async {
     await tester.pumpWidget(createTestWidget());
     await tester.pumpAndSettle();
 
-    // Verify error dashboard is never shown
-    expect(find.byType(ErrorDashboardWidget), findsNothing);
-
-    // Verify Child Selector strip (Figma Node 76:3579)
+    // Verify Child Selector strip
     expect(find.byType(ChildSelectorRow), findsOneWidget);
+    expect(find.text('Sarah'), findsOneWidget);
     expect(find.text('Alex'), findsOneWidget);
-    expect(find.text('Mia'), findsOneWidget);
 
-    // Verify Figma Greeting header (Node 76:3511)
-    expect(find.text("Hi, Alex! Let's go on today's adventure!"), findsOneWidget);
+    // Verify Greeting header
+    expect(find.text("Hi, Sarah! Let's go on today's adventure!"), findsOneWidget);
 
-    // Verify Featured Primary Card (Node 76:3513)
+    // Verify Featured Primary Card
     expect(find.byType(FeaturedClassCard), findsOneWidget);
     expect(find.text("TODAY'S CLASS"), findsOneWidget);
-    expect(find.text('Speaking with Confidence'), findsOneWidget);
+    expect(find.text('Junior Foundation first class'), findsOneWidget);
     expect(find.text('Join Class'), findsOneWidget);
 
-    // Verify My Learning section (Node 76:3530)
+    // Verify My Learning section
     expect(find.byType(MyLearningSection), findsOneWidget);
     expect(find.text('My Learning'), findsOneWidget);
-    expect(find.text('Core Concepts & Basics'), findsOneWidget);
-    expect(find.text('Understanding Feelings'), findsOneWidget);
+    expect(find.text('Batch 1 — Junior Foundation, Ages 6 to 10'), findsOneWidget);
 
-    // Verify Bento Grid snapshot (Figma Node 76:3646)
+    // Verify Bento Grid snapshot
     expect(find.byType(BentoSnapshotGrid), findsOneWidget);
     expect(find.text('Attendance'), findsOneWidget);
     expect(find.byKey(const Key('bento_attendance_card')), findsOneWidget);
     expect(find.text('Assignments'), findsOneWidget);
-    expect(find.text('2'), findsOneWidget);
+    expect(find.text('0'), findsOneWidget);
+  });
+
+  testWidgets('switching child updates active greeting and requests selected child dashboard', (tester) async {
+    await tester.pumpWidget(createTestWidget());
+    await tester.pumpAndSettle();
+
+    expect(find.text("Hi, Sarah! Let's go on today's adventure!"), findsOneWidget);
+
+    // Tap on Alex
+    await tester.tap(find.text('Alex'));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Hi, Alex! Let's go on today's adventure!"), findsOneWidget);
+    expect(await fakeStorage.getActiveChildId(), 'child_2');
+  });
+
+  testWidgets('refresh keeps active child stable and does not reset to first child', (tester) async {
+    await tester.pumpWidget(createTestWidget());
+    await tester.pumpAndSettle();
+
+    // Select Alex
+    await tester.tap(find.text('Alex'));
+    await tester.pumpAndSettle();
+    expect(find.text("Hi, Alex! Let's go on today's adventure!"), findsOneWidget);
+
+    // Trigger pull to refresh
+    await tester.fling(find.byKey(const Key('dashboard_scroll_view')), const Offset(0, 300), 1000);
+    await tester.pumpAndSettle();
+
+    // Active child MUST still be Alex
+    expect(find.text("Hi, Alex! Let's go on today's adventure!"), findsOneWidget);
+    expect(await fakeStorage.getActiveChildId(), 'child_2');
   });
 }

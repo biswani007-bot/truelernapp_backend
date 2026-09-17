@@ -15,6 +15,10 @@ abstract interface class SecureStorageService {
   Future<void> saveUserId(String id);
   Future<String?> getUserId();
 
+  Future<void> saveActiveChildId(String childId);
+  Future<String?> getActiveChildId();
+  Future<void> deleteActiveChildId();
+
   Future<void> clearAuthSession();
 }
 
@@ -67,6 +71,21 @@ class FlutterSecureStorageServiceImpl implements SecureStorageService {
   @override
   Future<String?> getUserId() async {
     return _storage.read(key: StorageKeys.userId);
+  }
+
+  @override
+  Future<void> saveActiveChildId(String childId) async {
+    await _storage.write(key: StorageKeys.activeChildId, value: childId);
+  }
+
+  @override
+  Future<String?> getActiveChildId() async {
+    return _storage.read(key: StorageKeys.activeChildId);
+  }
+
+  @override
+  Future<void> deleteActiveChildId() async {
+    await _storage.delete(key: StorageKeys.activeChildId);
   }
 
   @override

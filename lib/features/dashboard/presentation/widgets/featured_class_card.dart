@@ -82,7 +82,9 @@ class FeaturedClassCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(9999),
                           ),
                           child: Text(
-                            upcomingClass?.subject ?? 'Communication & Public Speaking',
+                            upcomingClass != null
+                                ? (upcomingClass!.subject ?? 'Live Class')
+                                : 'Schedule',
                             style: AppTypography.labelSmall.copyWith(
                               color: const Color(0xFF22D3EE),
                               fontWeight: FontWeight.w500,
@@ -94,7 +96,7 @@ class FeaturedClassCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          upcomingClass?.title ?? 'Speaking with Confidence',
+                          upcomingClass?.title ?? 'No live class today',
                           style: AppTypography.titleMedium.copyWith(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
@@ -106,8 +108,10 @@ class FeaturedClassCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           upcomingClass != null
-                              ? 'Instructor: ${upcomingClass!.teacherName ?? "Ms. Sarah"} • ${_formatTimeShort(upcomingClass!)}'
-                              : 'Instructor: Ms. Sarah • 4:00 PM',
+                              ? (upcomingClass!.teacherName != null && upcomingClass!.teacherName!.isNotEmpty
+                                  ? 'Instructor: ${upcomingClass!.teacherName} • ${_formatTimeShort(upcomingClass!)}'
+                                  : _formatTimeShort(upcomingClass!))
+                              : 'Check upcoming classes in schedule',
                           style: AppTypography.bodySmall.copyWith(
                             color: const Color(0xFF434655),
                             fontSize: 15,
@@ -138,7 +142,7 @@ class FeaturedClassCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   ),
                   child: Text(
-                    'Join Class',
+                    upcomingClass != null ? 'Join Class' : 'View Classes',
                     style: AppTypography.buttonText.copyWith(
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
@@ -155,7 +159,7 @@ class FeaturedClassCard extends StatelessWidget {
   }
 
   String _formatTimeShort(ClassEntity session) {
-    if (session.scheduledStartTime == null) return '4:00 PM';
+    if (session.scheduledStartTime == null) return 'Scheduled';
     final dt = session.scheduledStartTime!;
     final hour = dt.hour;
     final minute = dt.minute.toString().padLeft(2, '0');

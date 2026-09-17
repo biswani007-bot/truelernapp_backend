@@ -3,20 +3,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../dashboard/domain/entities/child_entity.dart';
+import '../../../dashboard/presentation/controllers/children_controller.dart';
+import '../../../dashboard/presentation/controllers/children_state.dart';
 import '../../domain/entities/class_entity.dart';
+import '../controllers/classes_controller.dart';
+import '../controllers/classes_state.dart';
 import '../widgets/classes_date_navigator.dart';
 import '../widgets/classes_event_card.dart';
 import '../widgets/classes_filter_tabs.dart';
+import '../widgets/classes_skeleton.dart';
 import '../widgets/classes_student_selector.dart';
 import '../widgets/empty_classes_widget.dart';
+import '../widgets/error_classes_widget.dart';
 
-/// Parent Classes Schedule Screen — PURE FRONTEND PRESENTATION ONLY.
+/// Parent Classes Schedule Screen (SCR-13).
 ///
-/// Figma Source of Truth: Parent(full app)_TreLern, Frame 76:1820.
-///
-/// STRICT RULES:
-/// - NO backend calls. NO API fetches.
-/// - Static data from Figma: Alex (Age 9), Mia (Age 12), static classes.
+/// Figma Source of Truth: `Parent(full app)_TreLern`, Frame 76:1820 (`Classes Shedule`, 390 × 952).
+/// Authoritative API: GET `/api/parent/children/{childStudentId}/live-classes`
+/// Authentication: Bearer token (Parent role) attached via AuthInterceptor.
 class ParentClassesScreen extends ConsumerStatefulWidget {
   const ParentClassesScreen({super.key});
 
@@ -25,81 +29,96 @@ class ParentClassesScreen extends ConsumerStatefulWidget {
 }
 
 class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
-  // Figma Frame 76:1820: Wed 26 selected
   DateTime _selectedDate = DateTime(2026, 8, 26);
+  bool _isDateFilterActive = false;
   String _selectedFilter = 'Upcoming';
 
-  // Static Figma-accurate children — Alex (Age 9) and Mia (Age 12) only.
-  static const _figmaChildren = [
-    ChildEntity(
-      studentId: 'alex_1',
-      firstName: 'Alex',
-      lastName: '',
-      grade: 'Age 9',
-    ),
-    ChildEntity(
-      studentId: 'mia_2',
-      firstName: 'Mia',
-      lastName: '',
-      grade: 'Age 12',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final childrenState = ref.read(childrenControllerProvider);
+      if (childrenState is! ChildrenLoaded) {
+        ref.read(childrenControllerProvider.notifier).loadChildren();
+      } else if (childrenState.activeChildId != null) {
+        final classesState = ref.read(classesControllerProvider);
+        if (classesState is! ClassesLoaded && classesState is! ClassesLoading) {
+          ref.read(classesControllerProvider.notifier).loadClasses(
+            childStudentId: childrenState.activeChildId,
+          );
+        }
+      }
+    });
+  }
 
-  int _activeChildIndex = 0;
-  ChildEntity get _activeChild => _figmaChildren[_activeChildIndex];
-
-  // Static Figma-accurate classes — no API fetching.
-  static final _figmaClasses = [
-    ClassEntity(
-      id: 'fb_1',
-      title: 'Public Speaking Workshop',
-      subject: 'Communication & Confidence',
-      status: 'UPCOMING',
-      scheduledStartTime: DateTime(2026, 8, 26, 16, 0),
-      scheduledEndTime: DateTime(2026, 8, 26, 17, 0),
-      teacherName: 'Ms. Sarah',
-    ),
-    ClassEntity(
-      id: 'fb_2',
-      title: 'Creative Thinking Demo',
-      subject: 'Junior Foundation',
-      status: 'UPCOMING',
-      scheduledStartTime: DateTime(2026, 8, 27, 10, 0),
-      scheduledEndTime: DateTime(2026, 8, 27, 11, 0),
-      teacherName: 'Ms. Sarah',
-    ),
-  ];
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
 
   Future<void> _onRefresh() async {
-    // No-op — pure frontend presentation, no backend refresh.
+    final childrenState = ref.read(childrenControllerProvider);
+    final childId = childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+    await Future.wait([
+      ref.read(classesControllerProvider.notifier).loadClasses(childStudentId: childId),
+      ref.read(childrenControllerProvider.notifier).loadChildren(isRefresh: true),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Static data only — no ref.watch/listen to any backend-backed provider.
-    final allClasses = _figmaClasses;
-    List<ClassEntity> filteredClasses;
-    if (_selectedDate.year == 2026 && _selectedDate.month == 8 && _selectedDate.day == 26) {
-      // Default Figma Frame 76:1820 view on Wed Aug 26 displays upcoming schedule
-      filteredClasses = allClasses;
-    } else {
-      filteredClasses = allClasses.where((c) {
-        final start = c.scheduledStartTime;
-        if (start == null) return false;
-        return start.year == _selectedDate.year &&
-            start.month == _selectedDate.month &&
-            start.day == _selectedDate.day;
-      }).toList();
-    }
+    final childrenState = ref.watch(childrenControllerProvider);
+    final classesState = ref.watch(classesControllerProvider);
 
-    if (_selectedFilter.toLowerCase() == 'completed') {
-      filteredClasses = filteredClasses.where((c) => c.isCompleted).toList();
-    } else if (_selectedFilter.toLowerCase() == 'upcoming') {
-      filteredClasses = filteredClasses.where((c) => !c.isCompleted).toList();
-    } else if (_selectedFilter.toLowerCase() == 'cancelled') {
-      filteredClasses = filteredClasses.where((c) => c.status?.toUpperCase() == 'CANCELLED').toList();
-    } else if (_selectedFilter.toLowerCase() == 'missed') {
-      filteredClasses = filteredClasses.where((c) => c.status?.toUpperCase() == 'MISSED').toList();
+    // Synchronize active child changes with ClassesController
+    ref.listen<ChildrenState>(childrenControllerProvider, (previous, next) {
+      if (next is ChildrenLoaded) {
+        final prevId = previous is ChildrenLoaded ? previous.activeChildId : null;
+        if (prevId != next.activeChildId && next.activeChildId != null) {
+          ref.read(classesControllerProvider.notifier).loadClasses(
+            childStudentId: next.activeChildId,
+          );
+        }
+      }
+    });
+
+    final List<ChildEntity> children = childrenState is ChildrenLoaded ? childrenState.children : [];
+    final ChildEntity? activeChild = childrenState is ChildrenLoaded ? childrenState.activeChild : null;
+
+    // Filter classes based on selected filter tab and optional date selection
+    List<ClassEntity> filteredClasses = [];
+    if (classesState is ClassesLoaded) {
+      final allClasses = classesState.classes;
+
+      // 1. Filter by status tab
+      List<ClassEntity> statusFiltered;
+      switch (_selectedFilter.toLowerCase()) {
+        case 'completed':
+          statusFiltered = allClasses.where((c) => c.isCompleted).toList();
+          break;
+        case 'missed':
+          statusFiltered = allClasses.where((c) => c.isMissed).toList();
+          break;
+        case 'cancelled':
+          statusFiltered = allClasses.where((c) => c.isCancelled).toList();
+          break;
+        case 'upcoming':
+        default:
+          statusFiltered = allClasses
+              .where((c) => c.isUpcoming && !c.isCompleted && !c.isMissed && !c.isCancelled)
+              .toList();
+          break;
+      }
+
+      // 2. Filter by date if active
+      if (_isDateFilterActive) {
+        filteredClasses = statusFiltered.where((c) {
+          final start = c.scheduledStartTime;
+          if (start == null) return false;
+          return _isSameDay(start, _selectedDate);
+        }).toList();
+      } else {
+        filteredClasses = statusFiltered;
+      }
     }
 
     return Scaffold(
@@ -124,9 +143,10 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
               Expanded(
                 child: _buildScheduleView(
                   context,
+                  classesState: classesState,
                   classes: filteredClasses,
-                  activeChild: _activeChild,
-                  children: _figmaChildren,
+                  activeChild: activeChild,
+                  children: children,
                 ),
               ),
             ],
@@ -184,9 +204,9 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
     );
   }
 
-
   Widget _buildScheduleView(
     BuildContext context, {
+    required ClassesState classesState,
     required List<ClassEntity> classes,
     required ChildEntity? activeChild,
     required List<ChildEntity> children,
@@ -209,11 +229,8 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
                     ClassesStudentSelector(
                       activeChild: activeChild,
                       children: children,
-                      onChildSelected: (newId) {
-                        final idx = _figmaChildren.indexWhere(
-                          (c) => c.studentId == newId,
-                        );
-                        if (idx != -1) setState(() => _activeChildIndex = idx);
+                      onChildSelected: (newStudentId) {
+                        ref.read(childrenControllerProvider.notifier).setActiveChild(newStudentId);
                       },
                     ),
                   const SizedBox(height: 16),
@@ -223,7 +240,13 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
                     selectedDate: _selectedDate,
                     onDateSelected: (date) {
                       setState(() {
-                        _selectedDate = date;
+                        if (_isDateFilterActive && _isSameDay(_selectedDate, date)) {
+                          // Tap same day again to show all events for the filter
+                          _isDateFilterActive = false;
+                        } else {
+                          _selectedDate = date;
+                          _isDateFilterActive = true;
+                        }
                       });
                     },
                   ),
@@ -258,7 +281,9 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
 
                   // Heading: Upcoming Events (Node 76:1894 / 76:1895)
                   Text(
-                    'Upcoming Events',
+                    _selectedFilter.toLowerCase() == 'upcoming'
+                        ? 'Upcoming Events'
+                        : '$_selectedFilter Events',
                     style: AppTypography.displayLarge.copyWith(
                       fontSize: 25.5,
                       fontWeight: FontWeight.w600,
@@ -272,8 +297,25 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
             ),
           ),
 
-          // 5. Events List (Node 76:1896)
-          if (classes.isEmpty)
+          // 5. Events List / Loading / Error / Empty (Node 76:1896)
+          if (classesState is ClassesLoading)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: ClassesSkeleton(),
+              ),
+            )
+          else if (classesState is ClassesError)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                child: ErrorClassesWidget(
+                  message: classesState.message,
+                  onRetry: () => ref.read(classesControllerProvider.notifier).retry(),
+                ),
+              ),
+            )
+          else if (classes.isEmpty)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -302,7 +344,7 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
                               extra: session,
                             );
                           } catch (_) {
-                            // Fallback if rendered outside GoRouter (e.g. isolated test harness)
+                            // Fallback if rendered outside GoRouter in isolated tests
                           }
                         },
                       ),
@@ -321,7 +363,9 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
                 child: OutlinedButton(
                   key: const Key('explore_programs_button'),
                   onPressed: () {
-                    context.push('/parent/classes/program');
+                    try {
+                      context.push('/parent/classes/program');
+                    } catch (_) {}
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF0037B1),

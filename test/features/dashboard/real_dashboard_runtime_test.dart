@@ -35,6 +35,15 @@ class LiveVerificationStorage implements SecureStorageService {
   Future<void> saveUserId(String id) async => _data['user_id'] = id;
 
   @override
+  Future<void> saveActiveChildId(String childId) async => _data['active_child_id'] = childId;
+
+  @override
+  Future<String?> getActiveChildId() async => _data['active_child_id'];
+
+  @override
+  Future<void> deleteActiveChildId() async => _data.remove('active_child_id');
+
+  @override
   Future<void> clearAuthSession() async => _data.clear();
 
   bool hasAccessToken() => _data.containsKey('access_token') && _data['access_token']!.isNotEmpty;
@@ -83,17 +92,21 @@ void main() {
             print('  Child: id=${child.studentId}, name=${child.displayName}, grade=${child.grade}');
           }
 
-          if (children.isNotEmpty) {
-            final firstChildId = children.first.studentId;
-            print('Querying dashboard for child $firstChildId...');
-            final dashboard = await dashboardRepo.getChildDashboard(childStudentId: firstChildId);
-            print('  attendanceRate: ${dashboard.attendanceRate}');
-            print('  upcomingClassesCount: ${dashboard.upcomingClassesCount}');
-            print('  pendingAssignmentsCount: ${dashboard.pendingAssignmentsCount}');
-            print('  totalBalanceDue: ${dashboard.totalBalanceDue}');
-          } else {
+          if (children.isEmpty) {
             print('Parent has 0 linked children on backend.');
             print('EmptyDashboardWidget correctly handles this state.');
+          } else {
+            for (final child in children) {
+              print('----------------------------------------------------');
+              print('Querying dashboard for child ${child.displayName} (id: ${child.studentId})...');
+              final dashboard = await dashboardRepo.getChildDashboard(childStudentId: child.studentId);
+              print('  attendanceRate: ${dashboard.attendanceRate}');
+              print('  upcomingClassesCount: ${dashboard.upcomingClassesCount}');
+              print('  featuredClass: ${dashboard.featuredClass?.title}, teacher: ${dashboard.featuredClass?.teacherName}');
+              print('  enrolledBatches: ${dashboard.enrolledBatches.map((b) => b.batchName).toList()}');
+              print('  pendingAssignmentsCount: ${dashboard.pendingAssignmentsCount}');
+              print('  totalBalanceDue: ${dashboard.totalBalanceDue}');
+            }
           }
         } catch (e) {
           print('Error querying parent children: $e');

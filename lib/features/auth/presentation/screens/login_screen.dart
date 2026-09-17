@@ -83,7 +83,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final success = await ref.read(authControllerProvider.notifier).login(
           email: _identifierController.text.trim(),
-          password: _passwordController.text.isEmpty ? 'password123' : _passwordController.text,
+          password: _passwordController.text,
         );
 
     if (!mounted) return;

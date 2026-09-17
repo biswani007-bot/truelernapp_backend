@@ -49,6 +49,7 @@ class FakeSecureStorage implements SecureStorageService {
   String? accessToken;
   String? refreshToken;
   String? userId;
+  String? activeChildId;
   bool clearAuthSessionCalled = false;
 
   @override
@@ -76,11 +77,21 @@ class FakeSecureStorage implements SecureStorageService {
   Future<String?> getUserId() async => userId;
 
   @override
+  Future<void> saveActiveChildId(String childId) async => activeChildId = childId;
+
+  @override
+  Future<String?> getActiveChildId() async => activeChildId;
+
+  @override
+  Future<void> deleteActiveChildId() async => activeChildId = null;
+
+  @override
   Future<void> clearAuthSession() async {
     clearAuthSessionCalled = true;
     accessToken = null;
     refreshToken = null;
     userId = null;
+    activeChildId = null;
   }
 }
 

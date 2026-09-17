@@ -2,24 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/route_paths.dart';
+import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../classes/domain/entities/class_entity.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../auth/presentation/controllers/auth_state.dart';
 import '../../domain/entities/dashboard_entity.dart';
 import '../../domain/entities/child_entity.dart';
 import '../widgets/bento_snapshot_grid.dart';
 import '../widgets/child_selector_row.dart';
 import '../widgets/featured_class_card.dart';
 import '../widgets/my_learning_section.dart';
+import '../controllers/children_controller.dart';
+import '../controllers/children_state.dart';
+import '../controllers/dashboard_controller.dart';
+import '../controllers/dashboard_state.dart';
 
-/// Student Dashboard Screen — PURE FRONTEND PRESENTATION ONLY.
+/// Student Dashboard Screen (Parent Experience).
 ///
 /// Figma Source of Truth: Parent(full app)_TreLern, Frame 76:3476.
 ///
-/// STRICT RULES:
-/// - NO backend calls. NO ref.watch/listen to any repository-backed provider.
-/// - ALL data is statically derived from Figma Node 76:3476.
-/// - Children: Alex (Age 9) and Mia (Age 12) — EXACTLY as shown in Figma.
-/// - No "Ethan" or any other child not present in Figma.
+/// Integrated with real backend APIs:
+/// - GET /api/parent/children (linked wards)
+/// - GET /api/parent/children/{childStudentId}/dashboard (attendance, live classes, batches, assignments)
 class ParentDashboardScreen extends ConsumerStatefulWidget {
   const ParentDashboardScreen({super.key});
 
@@ -31,8 +35,8 @@ class ParentDashboardScreen extends ConsumerStatefulWidget {
 class _ParentDashboardScreenState
     extends ConsumerState<ParentDashboardScreen> {
 
-  // Static Figma-accurate children (Node 76:3579) — EXACTLY Alex + Mia.
-  static const _figmaChildren = [
+  // Initial fallback children only shown during initial cold start before first network response
+  static const _figmaFallbackChildren = [
     ChildEntity(
       studentId: 'alex_1',
       firstName: 'Alex',
@@ -47,33 +51,131 @@ class _ParentDashboardScreenState
     ),
   ];
 
-  // Active child selection — local UI state only, no backend.
-  int _activeChildIndex = 0;
-  ChildEntity get _activeChild => _figmaChildren[_activeChildIndex];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final authState = ref.read(authControllerProvider);
+      String? role = authState is Authenticated ? authState.user?.role : null;
+      if (role == null) {
+        final token = await ref.read(secureStorageProvider).getAccessToken();
+        if (token != null) {
+          role = AuthController.decodeJwt(token)?['role'] as String?;
+        }
+      }
+      final isStudent = (role ?? '').toLowerCase() == 'student';
+
+      if (isStudent) {
+        ref.read(dashboardControllerProvider.notifier).loadStudentDashboard();
+      } else {
+        ref.read(childrenControllerProvider.notifier).loadChildren();
+      }
+    });
+  }
 
   Future<void> _onRefresh() async {
-    // No-op — pure frontend presentation, no backend refresh.
+    final authState = ref.read(authControllerProvider);
+    String? role = authState is Authenticated ? authState.user?.role : null;
+    if (role == null) {
+      final token = await ref.read(secureStorageProvider).getAccessToken();
+      if (token != null) {
+        role = AuthController.decodeJwt(token)?['role'] as String?;
+      }
+    }
+    final isStudent = (role ?? '').toLowerCase() == 'student';
+
+    if (isStudent) {
+      await ref.read(dashboardControllerProvider.notifier).loadStudentDashboard(isRefresh: true);
+    } else {
+      await ref.read(childrenControllerProvider.notifier).loadChildren(isRefresh: true);
+      final childrenState = ref.read(childrenControllerProvider);
+      final activeId = childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+      if (activeId != null) {
+        await ref.read(dashboardControllerProvider.notifier).loadDashboard(
+              childStudentId: activeId,
+              isRefresh: true,
+            );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // ── Static Figma data — NO provider watches ─────────────────────────────
-    const upcomingClass = ClassEntity(
-      id: 'mock_speaking_1',
-      title: 'Speaking with Confidence',
-      subject: 'Communication & Public Speaking',
-      teacherName: 'Ms. Sarah',
-      status: 'UPCOMING',
-      scheduledStartTime: null,
-      scheduledEndTime: null,
-    );
+    final authState = ref.watch(authControllerProvider);
+    final userRole = authState is Authenticated ? authState.user?.role : null;
+    final isStudent = (userRole ?? '').toLowerCase() == 'student';
 
-    const dashboard = DashboardEntity(
-      attendanceRate: 72.0,
-      upcomingClassesCount: 3,
-      pendingAssignmentsCount: 2,
-      totalBalanceDue: 0.0,
-    );
+    // Only listen for children state updates in Parent mode
+    if (!isStudent) {
+      ref.listen<ChildrenState>(childrenControllerProvider, (prev, next) {
+        if (next is ChildrenLoaded && next.activeChildId != null) {
+          final prevChildId = prev is ChildrenLoaded ? prev.activeChildId : null;
+          if (prevChildId != next.activeChildId) {
+            ref.read(dashboardControllerProvider.notifier).loadDashboard(
+                  childStudentId: next.activeChildId,
+                );
+          }
+        }
+      });
+    }
+
+    final childrenState = ref.watch(childrenControllerProvider);
+    final dashboardState = ref.watch(dashboardControllerProvider);
+
+    // Resolve active child and child list (only relevant in Parent mode)
+    final List<ChildEntity> displayChildren;
+    final ChildEntity? activeChild;
+
+    if (!isStudent) {
+      if (childrenState is ChildrenLoaded) {
+        displayChildren = childrenState.children;
+        activeChild = childrenState.activeChild ??
+            (displayChildren.isNotEmpty ? displayChildren.first : null);
+      } else if (childrenState is ChildrenLoading) {
+        // During initial cold load only, display Figma fallback children
+        displayChildren = _figmaFallbackChildren;
+        activeChild = _figmaFallbackChildren.first;
+      } else {
+        displayChildren = const [];
+        activeChild = null;
+      }
+    } else {
+      displayChildren = const [];
+      activeChild = null;
+    }
+
+    // Resolve dashboard entity from state
+    final DashboardEntity dashboard;
+    if (dashboardState is DashboardLoaded) {
+      if (isStudent) {
+        dashboard = dashboardState.dashboard;
+      } else if (activeChild == null || dashboardState.childStudentId == activeChild.studentId) {
+        dashboard = dashboardState.dashboard;
+      } else {
+        dashboard = const DashboardEntity();
+      }
+    } else {
+      dashboard = const DashboardEntity();
+    }
+
+    final upcomingClass = dashboard.featuredClass;
+    final activeTopic = dashboard.activeTopic ??
+        (dashboard.enrolledBatches.isNotEmpty
+            ? dashboard.enrolledBatches.first.batchName
+            : 'Curriculum');
+
+    final String greetingName;
+    if (isStudent) {
+      greetingName = dashboard.studentName ??
+          (authState is Authenticated ? authState.user?.name : null) ??
+          '';
+    } else {
+      greetingName = activeChild?.firstName ?? '';
+    }
+
+    final greetingText = greetingName.isNotEmpty
+        ? 'Hi, $greetingName! Let\'s go on today\'s adventure!'
+        : 'Welcome! Let\'s go on today\'s adventure!';
 
     return Scaffold(
       key: const Key('parent_dashboard_screen'),
@@ -96,17 +198,50 @@ class _ParentDashboardScreenState
               // Header — Figma Node 76:3501
               _buildTopAppBar(context),
 
-              // Child Selector — Figma Node 76:3579 (static: Alex + Mia only)
-              ChildSelectorRow(
-                children: _figmaChildren,
-                activeChildId: _activeChild.studentId,
-                onSelectChild: (childId) {
-                  final idx = _figmaChildren.indexWhere(
-                    (c) => c.studentId == childId,
-                  );
-                  if (idx != -1) setState(() => _activeChildIndex = idx);
-                },
-              ),
+              // Child Selector — Figma Node 76:3579 (Parent only)
+              if (!isStudent)
+                ChildSelectorRow(
+                  children: displayChildren,
+                  activeChildId: activeChild?.studentId,
+                  onSelectChild: (childId) {
+                    ref.read(childrenControllerProvider.notifier).setActiveChild(childId);
+                    ref.read(dashboardControllerProvider.notifier).loadDashboard(
+                          childStudentId: childId,
+                        );
+                  },
+                ),
+
+              // Error banner if children or dashboard encountered an error
+              if ((!isStudent && childrenState is ChildrenError) || dashboardState is DashboardError)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFF87171)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Color(0xFFB91C1C), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          (!isStudent && childrenState is ChildrenError)
+                              ? childrenState.message
+                              : (dashboardState as DashboardError).message,
+                          style: AppTypography.bodySmall.copyWith(color: const Color(0xFFB91C1C)),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _onRefresh,
+                        child: const Text('Retry', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
 
               // Scrollable body
               Expanded(
@@ -125,7 +260,7 @@ class _ParentDashboardScreenState
                       children: [
                         // Greeting — Figma Node 76:3511
                         Text(
-                          'Hi, ${_activeChild.firstName}! Let\'s go on today\'s adventure!',
+                          greetingText,
                           style: AppTypography.displayLarge.copyWith(
                             fontSize: 30,
                             fontWeight: FontWeight.w700,
@@ -144,13 +279,15 @@ class _ParentDashboardScreenState
                         const SizedBox(height: 24),
 
                         // My Learning Section — Figma Node 76:3530
-                        const MyLearningSection(),
+                        MyLearningSection(
+                          enrolledBatches: dashboard.enrolledBatches,
+                        ),
                         const SizedBox(height: 24),
 
                         // Bento Snapshot Grid — Figma Node 76:3646
                         BentoSnapshotGrid(
                           dashboard: dashboard,
-                          activeTopic: 'Speaking With Confidence',
+                          activeTopic: activeTopic,
                         ),
                         const SizedBox(height: 32),
                       ],

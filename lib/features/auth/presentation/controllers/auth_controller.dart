@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/error/error_handler.dart';
+import '../../data/models/auth_response.dart';
 import '../../data/models/login_request.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../data/repositories/auth_repository_impl.dart';
@@ -20,7 +22,16 @@ class AuthController extends Notifier<AuthState> {
     try {
       final token = await _repository.checkPersistedSession();
       if (token != null && token.isNotEmpty) {
-        state = Authenticated(accessToken: token);
+        final decoded = decodeJwt(token);
+        final role = decoded?['role'] as String?;
+        final userId = decoded?['userId'] as String? ?? '';
+        state = Authenticated(
+          accessToken: token,
+          user: UserDto(
+            id: userId,
+            role: role,
+          ),
+        );
         return true;
       }
     } catch (_) {
@@ -29,6 +40,18 @@ class AuthController extends Notifier<AuthState> {
 
     state = const Unauthenticated();
     return false;
+  }
+
+  static Map<String, dynamic>? decodeJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final normalized = base64Url.normalize(parts[1]);
+      final payload = utf8.decode(base64Url.decode(normalized));
+      return json.decode(payload) as Map<String, dynamic>?;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Submits credentials to POST /api/auth/login.

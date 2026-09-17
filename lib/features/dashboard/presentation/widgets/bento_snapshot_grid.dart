@@ -25,7 +25,12 @@ class BentoSnapshotGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final assignmentsPending = dashboard.pendingAssignmentsCount != null
         ? '${dashboard.pendingAssignmentsCount}'
-        : '2';
+        : '0';
+
+    final attendancePercentage = dashboard.attendanceRate != null
+        ? '${dashboard.attendanceRate!.round()}%'
+        : '0%';
+    final attendanceProgress = (dashboard.attendanceRate ?? 0) / 100.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,14 +46,12 @@ class BentoSnapshotGrid extends StatelessWidget {
                 icon: Icons.trending_up_rounded,
                 iconColor: const Color(0xFF434655),
                 label: 'Progress',
-                value: dashboard.attendanceRate != null
-                    ? '${dashboard.attendanceRate!.round()}%'
-                    : '72%',
+                value: attendancePercentage,
                 onTap: () => context.go(AppRoutePaths.learningProgress),
                 footer: ClipRRect(
                   borderRadius: BorderRadius.circular(9999),
                   child: LinearProgressIndicator(
-                    value: (dashboard.attendanceRate ?? 72) / 100.0,
+                    value: attendanceProgress,
                     backgroundColor: const Color(0xFFE2E1ED),
                     valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFA855F7)),
                     minHeight: 6,
@@ -67,7 +70,7 @@ class BentoSnapshotGrid extends StatelessWidget {
                 icon: Icons.calendar_today_rounded,
                 iconColor: const Color(0xFF434655),
                 label: 'Attendance',
-                value: '94%',
+                value: attendancePercentage,
                 footer: Text(
                   '+2% this week',
                   style: AppTypography.labelSmall.copyWith(
@@ -93,7 +96,7 @@ class BentoSnapshotGrid extends StatelessWidget {
                 iconColor: const Color(0xFF8A4CFC),
                 label: 'Assignments',
                 labelColor: const Color(0xFF8A4CFC),
-                value: assignmentsPending != '0' ? assignmentsPending : '2',
+                value: assignmentsPending,
                 valueColor: const Color(0xFF8A4CFC),
                 footer: Text(
                   'Pending',

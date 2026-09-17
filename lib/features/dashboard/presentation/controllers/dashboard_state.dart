@@ -15,10 +15,14 @@ final class DashboardLoading extends DashboardState {
   const DashboardLoading();
 }
 
-/// Dashboard data successfully loaded.
+/// Dashboard data successfully loaded for a specific child context.
 final class DashboardLoaded extends DashboardState {
-  const DashboardLoaded({required this.dashboard});
+  const DashboardLoaded({
+    required this.childStudentId,
+    required this.dashboard,
+  });
 
+  final String childStudentId;
   final DashboardEntity dashboard;
 }
 

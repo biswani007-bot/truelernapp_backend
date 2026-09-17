@@ -118,7 +118,7 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
 
-  dio.interceptors.add(AuthInterceptor(storageService: storage));
+  dio.interceptors.add(AuthInterceptor(storageService: storage, dio: dio));
 
   return dio;
 });

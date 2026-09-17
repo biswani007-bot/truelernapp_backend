@@ -25,9 +25,20 @@ class UserDto {
       roleName = null;
     }
 
+    final firstName = json['firstName'] as String?;
+    final lastName = json['lastName'] as String?;
+    final String? combinedName;
+    if (firstName != null || lastName != null) {
+      combinedName = '${firstName ?? ''} ${lastName ?? ''}'.trim();
+    } else if (json['name'] is String) {
+      combinedName = json['name'] as String?;
+    } else {
+      combinedName = null;
+    }
+
     return UserDto(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
-      name: json['name'] as String?,
+      name: combinedName,
       email: json['email'] as String?,
       role: roleName,
     );

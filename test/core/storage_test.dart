@@ -44,16 +44,26 @@ void main() {
       expect(id, 'usr_456');
     });
 
+    test('saveActiveChildId and getActiveChildId persist active child ID correctly', () async {
+      await storageService.saveActiveChildId('child_123');
+      final id = await storageService.getActiveChildId();
+      expect(id, 'child_123');
+      await storageService.deleteActiveChildId();
+      expect(await storageService.getActiveChildId(), isNull);
+    });
+
     test('clearAuthSession removes all authenticated session keys', () async {
       await storageService.saveAccessToken('token_to_clear');
       await storageService.saveRefreshToken('refresh_to_clear');
       await storageService.saveUserId('user_to_clear');
+      await storageService.saveActiveChildId('child_to_clear');
 
       await storageService.clearAuthSession();
 
       expect(await storageService.getAccessToken(), isNull);
       expect(await storageService.getRefreshToken(), isNull);
       expect(await storageService.getUserId(), isNull);
+      expect(await storageService.getActiveChildId(), isNull);
     });
   });
 }

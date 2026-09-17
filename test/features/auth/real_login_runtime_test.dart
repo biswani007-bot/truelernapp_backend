@@ -60,6 +60,15 @@ class LiveVerificationStorage implements SecureStorageService {
   Future<void> saveUserId(String id) async => _data['user_id'] = id;
 
   @override
+  Future<void> saveActiveChildId(String childId) async => _data['active_child_id'] = childId;
+
+  @override
+  Future<String?> getActiveChildId() async => _data['active_child_id'];
+
+  @override
+  Future<void> deleteActiveChildId() async => _data.remove('active_child_id');
+
+  @override
   Future<void> clearAuthSession() async => _data.clear();
 
   bool hasAccessToken() => _data.containsKey('access_token') && _data['access_token']!.isNotEmpty;

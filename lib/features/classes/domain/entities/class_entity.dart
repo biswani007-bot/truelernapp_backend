@@ -7,9 +7,11 @@ class ClassEntity {
   const ClassEntity({
     required this.id,
     required this.title,
+    this.classCode,
     this.subject,
     this.scheduledStartTime,
     this.scheduledEndTime,
+    this.duration,
     this.status,
     this.teacherName,
     this.teacherAvatar,
@@ -19,6 +21,9 @@ class ClassEntity {
 
   /// Unique identifier of the live class session (_id).
   final String id;
+
+  /// Unique class code (e.g. "LVC-0004").
+  final String? classCode;
 
   /// Title or topic of the class.
   final String title;
@@ -31,6 +36,9 @@ class ClassEntity {
 
   /// Scheduled end timestamp.
   final DateTime? scheduledEndTime;
+
+  /// Duration in minutes (e.g. 45, 90, 240).
+  final int? duration;
 
   /// Status string (e.g. "UPCOMING", "LIVE", "COMPLETED", "CANCELLED").
   final String? status;
@@ -51,10 +59,20 @@ class ClassEntity {
   bool get isLive => status?.toUpperCase() == 'LIVE';
 
   /// Helper flag to check if the session is upcoming.
-  bool get isUpcoming => status?.toUpperCase() == 'UPCOMING' || status?.toUpperCase() == 'SCHEDULED';
+  bool get isUpcoming =>
+      status?.toUpperCase() == 'UPCOMING' ||
+      status?.toUpperCase() == 'SCHEDULED';
 
   /// Helper flag to check if the session has completed.
-  bool get isCompleted => status?.toUpperCase() == 'COMPLETED';
+  bool get isCompleted =>
+      status?.toUpperCase() == 'COMPLETED' ||
+      status?.toUpperCase() == 'ATTENDED';
+
+  /// Helper flag to check if the session was missed.
+  bool get isMissed => status?.toUpperCase() == 'MISSED';
+
+  /// Helper flag to check if the session was cancelled.
+  bool get isCancelled => status?.toUpperCase() == 'CANCELLED';
 
   @override
   bool operator ==(Object other) =>

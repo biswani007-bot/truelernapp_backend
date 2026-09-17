@@ -13,9 +13,11 @@ class ClassDto {
   const ClassDto({
     required this.id,
     required this.title,
+    this.classCode,
     this.subject,
     this.scheduledStartTime,
     this.scheduledEndTime,
+    this.duration,
     this.status,
     this.teacherName,
     this.teacherAvatar,
@@ -24,10 +26,12 @@ class ClassDto {
   });
 
   final String id;
+  final String? classCode;
   final String title;
   final String? subject;
   final DateTime? scheduledStartTime;
   final DateTime? scheduledEndTime;
+  final int? duration;
   final String? status;
   final String? teacherName;
   final String? teacherAvatar;
@@ -64,8 +68,8 @@ class ClassDto {
     final startTime = parseDateTime(json['scheduledStartTime'] ?? json['startTime'] ?? json['startDate']);
     final endTime = parseDateTime(json['scheduledEndTime'] ?? json['endTime'] ?? json['endDate']);
 
-    // Resolve status
-    final status = json['status']?.toString();
+    // Resolve status (prioritize effectiveStatus from live API with status fallback)
+    final status = (json['effectiveStatus'] ?? json['status'])?.toString();
 
     // Resolve teacher (can be nested map, string, or null)
     String? teacherName;
@@ -87,12 +91,20 @@ class ClassDto {
     final meetingUrl = json['meetingUrl']?.toString() ?? json['url']?.toString();
     final roomName = json['roomName']?.toString() ?? json['room']?.toString();
 
+    // Resolve classCode and duration
+    final classCode = json['classCode']?.toString();
+    final duration = (json['duration'] is num)
+        ? (json['duration'] as num).toInt()
+        : int.tryParse(json['duration']?.toString() ?? '');
+
     return ClassDto(
       id: id,
+      classCode: classCode,
       title: title,
       subject: subject,
       scheduledStartTime: startTime,
       scheduledEndTime: endTime,
+      duration: duration,
       status: status,
       teacherName: teacherName,
       teacherAvatar: teacherAvatar,
@@ -104,10 +116,12 @@ class ClassDto {
   /// Maps DTO to domain entity.
   ClassEntity toEntity() => ClassEntity(
         id: id,
+        classCode: classCode,
         title: title,
         subject: subject,
         scheduledStartTime: scheduledStartTime,
         scheduledEndTime: scheduledEndTime,
+        duration: duration,
         status: status,
         teacherName: teacherName,
         teacherAvatar: teacherAvatar,

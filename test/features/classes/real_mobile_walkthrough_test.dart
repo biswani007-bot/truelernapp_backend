@@ -40,6 +40,15 @@ class MobileWalkthroughStorage implements SecureStorageService {
   @override
   Future<void> clearAuthSession() async => _data.clear();
 
+  @override
+  Future<String?> getActiveChildId() async => _data['active_child_id'];
+
+  @override
+  Future<void> saveActiveChildId(String childId) async => _data['active_child_id'] = childId;
+
+  @override
+  Future<void> deleteActiveChildId() async => _data.remove('active_child_id');
+
   bool hasAccessToken() => _data.containsKey('access_token') && _data['access_token']!.isNotEmpty;
 }
 
