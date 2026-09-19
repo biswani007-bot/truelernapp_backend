@@ -52,28 +52,74 @@ class DashboardDto {
       attendanceRate = parseDouble(att['attendancePercentage']);
     }
 
-    // 2. Upcoming classes count & Featured Class
+    // 2. Upcoming classes count & Featured Class (Today's Class)
     int? upcomingCount = parseInt(json['upcomingClassesCount']);
     ClassEntity? featured;
     if (json['upcomingLiveClasses'] is List) {
       final list = json['upcomingLiveClasses'] as List;
       upcomingCount ??= list.length;
-      if (list.isNotEmpty && list.first is Map<String, dynamic>) {
-        final first = list.first as Map<String, dynamic>;
-        final startStr = first['startDate'] as String?;
-        final startDt = startStr != null ? DateTime.tryParse(startStr) : null;
-        final duration = parseInt(first['duration']) ?? 60;
-        final endDt = startDt?.add(Duration(minutes: duration));
 
-        featured = ClassEntity(
-          id: (first['id'] ?? first['_id'] ?? '').toString(),
-          title: (first['classTitle'] ?? first['title'] ?? 'Live Class').toString(),
-          subject: first['courseName'] as String?,
-          teacherName: first['instructor'] as String?,
+      final now = DateTime.now();
+      final List<_DashboardClassCandidate> todayCandidates = [];
+
+      for (final item in list) {
+        if (item is! Map<String, dynamic>) continue;
+        final startStr = item['startDate'] as String?;
+        final startDt = startStr != null ? DateTime.tryParse(startStr) : null;
+        if (startDt == null) continue;
+
+        final localStart = startDt.toLocal();
+        final isToday = localStart.year == now.year &&
+            localStart.month == now.month &&
+            localStart.day == now.day;
+
+        if (!isToday) continue;
+
+        final duration = parseInt(item['duration']) ?? 60;
+        final endDt = startDt.add(Duration(minutes: duration));
+
+        String? teacherName;
+        final rawTeacher = item['instructor'] ?? item['teacher'];
+        if (rawTeacher is Map) {
+          final resolvedName = rawTeacher['name']?.toString() ??
+              ([rawTeacher['firstName'], rawTeacher['lastName']]
+                  .where((s) => s != null && s.toString().trim().isNotEmpty)
+                  .join(' '));
+          teacherName = resolvedName.isNotEmpty ? resolvedName : null;
+        } else if (rawTeacher != null) {
+          teacherName = rawTeacher.toString();
+        }
+
+        final entity = ClassEntity(
+          id: (item['id'] ?? item['_id'] ?? '').toString(),
+          title: (item['classTitle'] ?? item['title'] ?? 'Live Class').toString(),
+          subject: item['courseName']?.toString() ?? item['subject']?.toString(),
+          teacherName: teacherName,
           scheduledStartTime: startDt,
           scheduledEndTime: endDt,
-          status: first['status'] as String? ?? 'UPCOMING',
+          status: item['effectiveStatus']?.toString() ?? item['status']?.toString() ?? 'UPCOMING',
         );
+
+        todayCandidates.add(_DashboardClassCandidate(
+          entity: entity,
+          startLocal: localStart,
+          endLocal: endDt.toLocal(),
+        ));
+      }
+
+      if (todayCandidates.isNotEmpty) {
+        // Sort today's classes chronologically by start time
+        todayCandidates.sort((a, b) => a.startLocal.compareTo(b.startLocal));
+
+        // Prefer the current ongoing or next upcoming class today
+        for (final cand in todayCandidates) {
+          if (cand.endLocal.isAfter(now)) {
+            featured = cand.entity;
+            break;
+          }
+        }
+        // If all classes today have ended, show the latest completed session today
+        featured ??= todayCandidates.last.entity;
       }
     }
 
@@ -131,3 +177,16 @@ class DashboardDto {
         enrolledBatches: enrolledBatches,
       );
 }
+
+class _DashboardClassCandidate {
+  const _DashboardClassCandidate({
+    required this.entity,
+    required this.startLocal,
+    required this.endLocal,
+  });
+
+  final ClassEntity entity;
+  final DateTime startLocal;
+  final DateTime endLocal;
+}
+

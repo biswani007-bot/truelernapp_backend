@@ -28,24 +28,67 @@ class ClassesDateNavigator extends StatefulWidget {
 
 class _ClassesDateNavigatorState extends State<ClassesDateNavigator> {
   late final ScrollController _scrollController;
-  late final List<DateTime> _dates;
+  late List<DateTime> _dates;
   static const double _itemWidth = 48.0;
   static const double _itemSpacing = 8.0;
   static const double _itemPitch = _itemWidth + _itemSpacing; // 56.0
 
-  // Monday August 17, 2026 as base anchor: Mon Aug 24 is index 7, Wed Aug 26 is index 9
-  static final DateTime _baseStartDate = DateTime(2026, 8, 17);
+  static const int _pastDays = 30;
+  static const int _futureDays = 90;
+
+  DateTime _normalize(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
 
   @override
   void initState() {
     super.initState();
-    // Generate 60 days to allow smooth, extensive horizontal scrolling
-    _dates = List.generate(60, (index) => _baseStartDate.add(Duration(days: index)));
+    final anchor = _normalize(widget.initialAnchorDate ?? widget.selectedDate);
+    _dates = List.generate(
+      _pastDays + _futureDays + 1,
+      (index) => anchor.subtract(Duration(days: _pastDays - index)),
+    );
 
-    // Initial scroll offset to show Mon 24 as the leading card (index 7 * 56.0 = 392.0)
-    // exactly as in Figma Frame 76:1820
-    const initialOffset = 7 * _itemPitch;
+    // Initial scroll offset so that the anchor/selected date is visible with 1 previous day on the left
+    final anchorIndex = _pastDays;
+    final initialOffset = ((anchorIndex - 1) * _itemPitch).clamp(0.0, double.infinity);
     _scrollController = ScrollController(initialScrollOffset: initialOffset);
+  }
+
+  @override
+  void didUpdateWidget(covariant ClassesDateNavigator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final oldAnchor = _normalize(oldWidget.initialAnchorDate ?? oldWidget.selectedDate);
+    final newAnchor = _normalize(widget.initialAnchorDate ?? widget.selectedDate);
+    if (!_isSameDay(oldAnchor, newAnchor)) {
+      setState(() {
+        _dates = List.generate(
+          _pastDays + _futureDays + 1,
+          (index) => newAnchor.subtract(Duration(days: _pastDays - index)),
+        );
+      });
+      _scrollToDate(widget.selectedDate);
+    } else if (!_isSameDay(oldWidget.selectedDate, widget.selectedDate)) {
+      _scrollToDate(widget.selectedDate);
+    }
+  }
+
+  void _scrollToDate(DateTime target) {
+    if (!_scrollController.hasClients) return;
+    final index = _dates.indexWhere((d) => _isSameDay(d, target));
+    if (index == -1) return;
+    final targetOffset = ((index - 1) * _itemPitch).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
+    _scrollController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+    );
   }
 
   @override

@@ -85,8 +85,8 @@ void main() {
       title: 'Intro to Advanced Next.js',
       subject: 'Junior Foundation',
       status: 'UPCOMING',
-      scheduledStartTime: DateTime(2026, 8, 27, 10, 0),
-      scheduledEndTime: DateTime(2026, 8, 27, 11, 0),
+      scheduledStartTime: DateTime(2026, 8, 26, 18, 0),
+      scheduledEndTime: DateTime(2026, 8, 26, 19, 0),
       teacherName: 'Elizabeth Vance',
     ),
     ClassEntity(
@@ -94,8 +94,8 @@ void main() {
       title: 'Completed Class',
       subject: 'Junior Foundation',
       status: 'ATTENDED',
-      scheduledStartTime: DateTime(2026, 8, 25, 9, 0),
-      scheduledEndTime: DateTime(2026, 8, 25, 10, 0),
+      scheduledStartTime: DateTime(2026, 8, 26, 9, 0),
+      scheduledEndTime: DateTime(2026, 8, 26, 10, 0),
       teacherName: 'Elizabeth Vance',
     ),
   ];
@@ -103,6 +103,7 @@ void main() {
   Widget createSubject({
     ChildrenState? childrenState,
     ClassesState? classesState,
+    DateTime? currentDate,
   }) {
     final cState = childrenState ??
         const ChildrenLoaded(
@@ -116,6 +117,7 @@ void main() {
       overrides: [
         childrenControllerProvider.overrideWith(() => FakeChildrenController(cState)),
         classesControllerProvider.overrideWith(() => FakeClassesController(clState)),
+        currentDeviceDateProvider.overrideWithValue(currentDate ?? DateTime(2026, 8, 26)),
       ],
       child: const MaterialApp(
         home: Scaffold(

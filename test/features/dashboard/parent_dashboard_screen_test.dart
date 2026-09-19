@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 import 'package:truelearn/core/error/failures.dart';
 import 'package:truelearn/core/storage/secure_storage_service.dart';
 import 'package:truelearn/features/auth/data/models/auth_response.dart';
@@ -217,4 +218,166 @@ void main() {
     expect(find.text("Hi, Alex! Let's go on today's adventure!"), findsOneWidget);
     expect(await fakeStorage.getActiveChildId(), 'child_2');
   });
+
+  testWidgets('tapping Join Class navigates to SCR-13 My Classes (/parent/classes)', (tester) async {
+    String? pushedLocation;
+
+    final router = GoRouter(
+      initialLocation: '/dashboard',
+      routes: [
+        GoRoute(
+          path: '/dashboard',
+          builder: (context, state) => const ParentDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/parent/classes',
+          builder: (context, state) {
+            pushedLocation = state.uri.toString();
+            return const Scaffold(body: Text('SCR-13 Classes'));
+          },
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          dashboardRepositoryProvider.overrideWithValue(fakeRepo),
+          secureStorageProvider.overrideWithValue(fakeStorage),
+          authControllerProvider.overrideWith(() => FakeAuthController(const Authenticated(
+            accessToken: 'tok',
+            user: UserDto(id: 'p1', email: 'parent@truelearn.com', role: 'PARENT', name: 'John Walker'),
+          ))),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Join Class'), findsOneWidget);
+    await tester.tap(find.text('Join Class'));
+    await tester.pumpAndSettle();
+
+    expect(pushedLocation, '/parent/classes');
+    expect(find.text('SCR-13 Classes'), findsOneWidget);
+  });
+
+  testWidgets('when no upcoming class, button is View Classes and navigates to SCR-13', (tester) async {
+    fakeRepo.dashboard = const DashboardEntity(
+      attendanceRate: 95.0,
+      upcomingClassesCount: 0,
+      pendingAssignmentsCount: 1,
+      totalBalanceDue: 0.0,
+      featuredClass: null,
+    );
+
+    String? pushedLocation;
+    final router = GoRouter(
+      initialLocation: '/dashboard',
+      routes: [
+        GoRoute(
+          path: '/dashboard',
+          builder: (context, state) => const ParentDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/parent/classes',
+          builder: (context, state) {
+            pushedLocation = state.uri.toString();
+            return const Scaffold(body: Text('SCR-13 Classes'));
+          },
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          dashboardRepositoryProvider.overrideWithValue(fakeRepo),
+          secureStorageProvider.overrideWithValue(fakeStorage),
+          authControllerProvider.overrideWith(() => FakeAuthController(const Authenticated(
+            accessToken: 'tok',
+            user: UserDto(id: 'p1', email: 'parent@truelearn.com', role: 'PARENT', name: 'John Walker'),
+          ))),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('View Classes'), findsOneWidget);
+    await tester.tap(find.text('View Classes'));
+    await tester.pumpAndSettle();
+
+    expect(pushedLocation, '/parent/classes');
+    expect(find.text('SCR-13 Classes'), findsOneWidget);
+  });
+
+  testWidgets('future class scheduled days ahead is NOT shown under TODAY\'S CLASS; shows empty state', (tester) async {
+    final futureDate = DateTime.now().add(const Duration(days: 12));
+    fakeRepo.dashboard = DashboardEntity(
+      attendanceRate: 100.0,
+      upcomingClassesCount: 1,
+      pendingAssignmentsCount: 0,
+      totalBalanceDue: 0.0,
+      featuredClass: ClassEntity(
+        id: 'future-class-sarah',
+        title: 'Junior Foundation first class',
+        subject: 'Junior Foundation',
+        teacherName: 'Elizabeth Vance',
+        scheduledStartTime: futureDate,
+        scheduledEndTime: futureDate.add(const Duration(hours: 1)),
+        status: 'SCHEDULED',
+      ),
+    );
+
+    await tester.pumpWidget(createTestWidget());
+    await tester.pumpAndSettle();
+
+    // Section header "TODAY'S CLASS" must exist
+    expect(find.text("TODAY'S CLASS"), findsOneWidget);
+
+    // Future class title MUST NOT be displayed in today's class
+    expect(find.text('Junior Foundation first class'), findsNothing);
+
+    // Empty state should be displayed
+    expect(find.text('No live class today'), findsOneWidget);
+    expect(find.text('Check upcoming classes in schedule'), findsOneWidget);
+    expect(find.text('View Classes'), findsOneWidget);
+  });
+
+  testWidgets('class scheduled for today IS shown under TODAY\'S CLASS with Join Class button', (tester) async {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day, 16, 0);
+    fakeRepo.dashboard = DashboardEntity(
+      attendanceRate: 100.0,
+      upcomingClassesCount: 1,
+      pendingAssignmentsCount: 0,
+      totalBalanceDue: 0.0,
+      featuredClass: ClassEntity(
+        id: 'today-class-sarah',
+        title: 'Today Foundation Session',
+        subject: 'Junior Foundation',
+        teacherName: 'Elizabeth Vance',
+        scheduledStartTime: todayDate,
+        scheduledEndTime: todayDate.add(const Duration(hours: 1)),
+        status: 'SCHEDULED',
+      ),
+    );
+
+    await tester.pumpWidget(createTestWidget());
+    await tester.pumpAndSettle();
+
+    // Section header "TODAY'S CLASS" must exist
+    expect(find.text("TODAY'S CLASS"), findsOneWidget);
+
+    // Today's class title MUST be displayed
+    expect(find.text('Today Foundation Session'), findsOneWidget);
+    expect(find.textContaining('Elizabeth Vance'), findsOneWidget);
+    expect(find.text('Join Class'), findsOneWidget);
+  });
 }
+

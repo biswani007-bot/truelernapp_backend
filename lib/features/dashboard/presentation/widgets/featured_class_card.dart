@@ -160,7 +160,7 @@ class FeaturedClassCard extends StatelessWidget {
 
   String _formatTimeShort(ClassEntity session) {
     if (session.scheduledStartTime == null) return 'Scheduled';
-    final dt = session.scheduledStartTime!;
+    final dt = session.scheduledStartTime!.toLocal();
     final hour = dt.hour;
     final minute = dt.minute.toString().padLeft(2, '0');
     final ampm = hour >= 12 ? 'PM' : 'AM';

@@ -16,6 +16,11 @@ import '../widgets/classes_student_selector.dart';
 import '../widgets/empty_classes_widget.dart';
 import '../widgets/error_classes_widget.dart';
 
+/// Provider for current device date (defaults to DateTime.now() in local timezone; overrideable for testing).
+final currentDeviceDateProvider = Provider<DateTime>((ref) {
+  return DateTime.now();
+});
+
 /// Parent Classes Schedule Screen (SCR-13).
 ///
 /// Figma Source of Truth: `Parent(full app)_TreLern`, Frame 76:1820 (`Classes Shedule`, 390 × 952).
@@ -29,13 +34,20 @@ class ParentClassesScreen extends ConsumerStatefulWidget {
 }
 
 class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
-  DateTime _selectedDate = DateTime(2026, 8, 26);
-  bool _isDateFilterActive = false;
+  late DateTime _selectedDate;
   String _selectedFilter = 'Upcoming';
+  GoRouterDelegate? _routerDelegate;
+  String? _lastObservedGlobalPath;
+
+  DateTime _getToday() {
+    final now = ref.read(currentDeviceDateProvider);
+    return DateTime(now.year, now.month, now.day);
+  }
 
   @override
   void initState() {
     super.initState();
+    _selectedDate = _getToday();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final childrenState = ref.read(childrenControllerProvider);
       if (childrenState is! ChildrenLoaded) {
@@ -51,11 +63,59 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _subscribeToRouter();
+  }
+
+  void _subscribeToRouter() {
+    try {
+      final router = GoRouter.of(context);
+      if (_routerDelegate != router.routerDelegate) {
+        _routerDelegate?.removeListener(_onRouteChanged);
+        _routerDelegate = router.routerDelegate;
+        _routerDelegate?.addListener(_onRouteChanged);
+        _lastObservedGlobalPath = _routerDelegate?.currentConfiguration.uri.path;
+      }
+    } catch (_) {}
+  }
+
+  void _onRouteChanged() {
+    try {
+      final currentPath = _routerDelegate?.currentConfiguration.uri.path ?? '';
+      if (_lastObservedGlobalPath != null && _lastObservedGlobalPath != currentPath) {
+        if (!_lastObservedGlobalPath!.startsWith('/parent/classes') &&
+            currentPath.startsWith('/parent/classes')) {
+          final today = _getToday();
+          if (!_isSameDay(_selectedDate, today)) {
+            setState(() {
+              _selectedDate = today;
+            });
+          }
+        }
+      }
+      _lastObservedGlobalPath = currentPath;
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _routerDelegate?.removeListener(_onRouteChanged);
+    super.dispose();
+  }
+
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   Future<void> _onRefresh() async {
+    final today = _getToday();
+    if (mounted && !_isSameDay(_selectedDate, today)) {
+      setState(() {
+        _selectedDate = today;
+      });
+    }
     final childrenState = ref.read(childrenControllerProvider);
     final childId = childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
     await Future.wait([
@@ -68,6 +128,22 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
   Widget build(BuildContext context) {
     final childrenState = ref.watch(childrenControllerProvider);
     final classesState = ref.watch(classesControllerProvider);
+
+    // Re-entry detection: whenever user navigates into /parent/classes from outside
+    // (e.g. from Dashboard, Profile, or Assignment tabs), reset selected viewing date
+    // to current device date.
+    try {
+      final currentGlobalPath = GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
+      if (_lastObservedGlobalPath != null && _lastObservedGlobalPath != currentGlobalPath) {
+        if (!_lastObservedGlobalPath!.startsWith('/parent/classes') &&
+            currentGlobalPath.startsWith('/parent/classes')) {
+          _selectedDate = _getToday();
+        }
+      }
+      _lastObservedGlobalPath = currentGlobalPath;
+    } catch (_) {
+      // Safe fallback when rendered without GoRouter in isolated widget tests
+    }
 
     // Synchronize active child changes with ClassesController
     ref.listen<ChildrenState>(childrenControllerProvider, (previous, next) {
@@ -84,7 +160,7 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
     final List<ChildEntity> children = childrenState is ChildrenLoaded ? childrenState.children : [];
     final ChildEntity? activeChild = childrenState is ChildrenLoaded ? childrenState.activeChild : null;
 
-    // Filter classes based on selected filter tab and optional date selection
+    // Filter classes based on selected filter tab and selected calendar date
     List<ClassEntity> filteredClasses = [];
     if (classesState is ClassesLoaded) {
       final allClasses = classesState.classes;
@@ -109,16 +185,12 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
           break;
       }
 
-      // 2. Filter by date if active
-      if (_isDateFilterActive) {
-        filteredClasses = statusFiltered.where((c) {
-          final start = c.scheduledStartTime;
-          if (start == null) return false;
-          return _isSameDay(start, _selectedDate);
-        }).toList();
-      } else {
-        filteredClasses = statusFiltered;
-      }
+      // 2. Filter strictly by selected calendar date (converting to device local timezone)
+      filteredClasses = statusFiltered.where((c) {
+        final start = c.scheduledStartTime;
+        if (start == null) return false;
+        return _isSameDay(start.toLocal(), _selectedDate);
+      }).toList();
     }
 
     return Scaffold(
@@ -238,15 +310,10 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
                   // 2. Date Navigator Strip (Node 76:1837)
                   ClassesDateNavigator(
                     selectedDate: _selectedDate,
+                    initialAnchorDate: _getToday(),
                     onDateSelected: (date) {
                       setState(() {
-                        if (_isDateFilterActive && _isSameDay(_selectedDate, date)) {
-                          // Tap same day again to show all events for the filter
-                          _isDateFilterActive = false;
-                        } else {
-                          _selectedDate = date;
-                          _isDateFilterActive = true;
-                        }
+                        _selectedDate = date;
                       });
                     },
                   ),

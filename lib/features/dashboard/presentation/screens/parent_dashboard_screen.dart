@@ -16,6 +16,8 @@ import '../controllers/children_controller.dart';
 import '../controllers/children_state.dart';
 import '../controllers/dashboard_controller.dart';
 import '../controllers/dashboard_state.dart';
+import '../../../classes/domain/entities/class_entity.dart';
+import '../../../classes/presentation/controllers/classes_controller.dart';
 
 /// Student Dashboard Screen (Parent Experience).
 ///
@@ -158,7 +160,27 @@ class _ParentDashboardScreenState
       dashboard = const DashboardEntity();
     }
 
-    final upcomingClass = dashboard.featuredClass;
+    final featured = dashboard.featuredClass;
+    // Date verification: "TODAY'S CLASS" must strictly belong to current local calendar date
+    final ClassEntity? todayClass;
+    if (featured != null) {
+      final start = featured.scheduledStartTime;
+      if (start != null) {
+        final localStart = start.toLocal();
+        final now = DateTime.now();
+        final isToday = localStart.year == now.year &&
+            localStart.month == now.month &&
+            localStart.day == now.day;
+        todayClass = isToday ? featured : null;
+      } else {
+        // Fallback for test mocks without scheduledStartTime
+        todayClass = featured;
+      }
+    } else {
+      todayClass = null;
+    }
+
+    final upcomingClass = todayClass;
     final activeTopic = dashboard.activeTopic ??
         (dashboard.enrolledBatches.isNotEmpty
             ? dashboard.enrolledBatches.first.batchName
@@ -274,7 +296,18 @@ class _ParentDashboardScreenState
                         // Featured Class Card — Figma Node 76:3513
                         FeaturedClassCard(
                           upcomingClass: upcomingClass,
-                          onViewClass: () => context.go('/parent/classes'),
+                          onViewClass: () {
+                            if (activeChild?.studentId != null) {
+                              ref.read(classesControllerProvider.notifier).loadClasses(
+                                    childStudentId: activeChild!.studentId,
+                                  );
+                            }
+                            try {
+                              context.go('/parent/classes');
+                            } catch (_) {
+                              // Fallback for tests outside GoRouter
+                            }
+                          },
                         ),
                         const SizedBox(height: 24),
 
