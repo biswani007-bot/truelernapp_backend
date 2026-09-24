@@ -133,18 +133,20 @@ class ClassesEventCard extends StatelessWidget {
   String _formatDateTime(DateTime? start, DateTime? end) {
     if (start == null) return 'Schedule TBA';
 
+    final localStart = start.toLocal();
+
     const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
 
-    final dayName = weekdays[start.weekday - 1];
-    final dayNum = start.day;
-    final monthName = months[start.month - 1];
+    final dayName = weekdays[localStart.weekday - 1];
+    final dayNum = localStart.day;
+    final monthName = months[localStart.month - 1];
 
-    final hour = start.hour;
-    final minute = start.minute.toString().padLeft(2, '0');
+    final hour = localStart.hour;
+    final minute = localStart.minute.toString().padLeft(2, '0');
     final ampm = hour >= 12 ? 'PM' : 'AM';
     final formattedHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
 

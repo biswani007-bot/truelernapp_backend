@@ -36,6 +36,13 @@ abstract final class AppRoutePaths {
   static const String parentSecurityPrivacy = '/parent/security-privacy';
   static const String parentLoginMethods = '/parent/security/login-methods';
   static const String parentLoginDevices = '/parent/security/login-devices';
+  static const String parentRecentSecurityActivity = '/parent/security/recent-activity';
+  static const String parentPersonalInfo = '/parent/security/personal-info';
+  static const String parentPrivacyPreferences = '/parent/security/privacy-preferences';
+  static const String parentCommunicationPreferences = '/parent/security/communication-preferences';
+  static const String parentDataPrivacy = '/parent/security/data-privacy';
+  static const String parentPrivacyPolicy = '/parent/security/privacy-policy';
+  static const String parentTermsConditions = '/parent/security/terms-conditions';
   static const String paymentSuccessful = '/parent/payment-successful';
   static const String parentMessages = '/parent/messages';
   static const String achievements = '/parent/achievements';

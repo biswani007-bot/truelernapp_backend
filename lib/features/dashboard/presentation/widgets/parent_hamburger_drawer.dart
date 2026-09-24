@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../auth/presentation/controllers/auth_state.dart';
+import '../controllers/parent_profile_controller.dart';
+import '../controllers/parent_profile_state.dart';
 
 /// Parent Hamburger Drawer — Default State.
 ///
@@ -161,6 +164,30 @@ class ParentHamburgerDrawer extends ConsumerWidget {
         ? activeItem!
         : getDrawerActiveItemForPath(currentPath);
 
+    final profileState = ref.watch(parentProfileControllerProvider);
+    final authState = ref.watch(authControllerProvider);
+
+    if (profileState is ParentProfileInitial) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(parentProfileControllerProvider.notifier).loadProfile();
+      });
+    }
+
+    final String displayName;
+    final String displayEmail;
+    if (profileState is ParentProfileLoaded) {
+      displayName = profileState.profile.fullName;
+      displayEmail = profileState.profile.email;
+    } else if (authState is Authenticated && authState.user != null) {
+      displayName = (authState.user!.name != null && authState.user!.name!.isNotEmpty)
+          ? authState.user!.name!
+          : 'Parent';
+      displayEmail = authState.user!.email ?? '';
+    } else {
+      displayName = 'Parent';
+      displayEmail = '';
+    }
+
     return Drawer(
       key: const Key('parent_hamburger_drawer'),
       width: 332,
@@ -245,22 +272,28 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Hi, PPs',
+                              displayName,
+                              key: const Key('drawer_parent_name'),
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w700,
                                 height: 24 / 16,
                                 color: const Color(0xFF1A1B23),
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              'Parent',
+                              displayEmail.isNotEmpty ? displayEmail : 'Parent',
+                              key: const Key('drawer_parent_email'),
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 height: 16 / 12,
                                 color: const Color(0xFF434655),
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),

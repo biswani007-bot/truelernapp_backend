@@ -65,4 +65,27 @@ class DashboardEntity {
       totalBalanceDue != null ||
       featuredClass != null ||
       enrolledBatches.isNotEmpty;
+
+  DashboardEntity copyWith({
+    String? studentName,
+    double? attendanceRate,
+    int? upcomingClassesCount,
+    int? pendingAssignmentsCount,
+    double? totalBalanceDue,
+    String? activeTopic,
+    ClassEntity? featuredClass,
+    bool clearFeaturedClass = false,
+    List<EnrolledBatchEntity>? enrolledBatches,
+  }) {
+    return DashboardEntity(
+      studentName: studentName ?? this.studentName,
+      attendanceRate: attendanceRate ?? this.attendanceRate,
+      upcomingClassesCount: upcomingClassesCount ?? this.upcomingClassesCount,
+      pendingAssignmentsCount: pendingAssignmentsCount ?? this.pendingAssignmentsCount,
+      totalBalanceDue: totalBalanceDue ?? this.totalBalanceDue,
+      activeTopic: activeTopic ?? this.activeTopic,
+      featuredClass: clearFeaturedClass ? null : (featuredClass ?? this.featuredClass),
+      enrolledBatches: enrolledBatches ?? this.enrolledBatches,
+    );
+  }
 }

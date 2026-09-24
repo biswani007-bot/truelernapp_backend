@@ -107,9 +107,23 @@ void main() {
               print('  pendingAssignmentsCount: ${dashboard.pendingAssignmentsCount}');
               print('  totalBalanceDue: ${dashboard.totalBalanceDue}');
             }
+            // Explicitly assert Sarah has Word Puzzle as Today's Class on real backend
+            final sarah = children.firstWhere((c) => c.displayName.contains('Sarah'));
+            final sarahDash = await dashboardRepo.getChildDashboard(childStudentId: sarah.studentId);
+            expect(sarahDash.featuredClass, isNotNull);
+            expect(sarahDash.featuredClass!.title, equals('Word Puzzle'));
+            expect(sarahDash.featuredClass!.teacherName, equals('Elizabeth Vance'));
+            print('VERIFIED: Sarah Connor dashboard featuredClass is "Word Puzzle" by Elizabeth Vance.');
+
+            // Explicitly assert Ram has null (No live class today)
+            final ram = children.firstWhere((c) => c.displayName.contains('Ram'));
+            final ramDash = await dashboardRepo.getChildDashboard(childStudentId: ram.studentId);
+            expect(ramDash.featuredClass, isNull);
+            print('VERIFIED: Ram Pearson dashboard featuredClass is null ("No live class today").');
           }
         } catch (e) {
           print('Error querying parent children: $e');
+          rethrow;
         }
         print('============================================================');
       },

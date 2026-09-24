@@ -9,6 +9,11 @@ class ChildEntity {
     this.lastName,
     this.avatar,
     this.grade,
+    this.studentCode,
+    this.gender,
+    this.relationshipType,
+    this.status,
+    this.dateOfBirth,
   });
 
   /// The student's unique identifier — required for all child-context API calls.
@@ -17,6 +22,11 @@ class ChildEntity {
   final String? lastName;
   final String? avatar;
   final String? grade;
+  final String? studentCode;
+  final String? gender;
+  final String? relationshipType;
+  final String? status;
+  final String? dateOfBirth;
 
   /// Derived display name: firstName + lastName (trimmed).
   String get displayName {

@@ -167,13 +167,17 @@ class DashboardDto {
   }
 
   /// Converts DTO to domain entity.
-  DashboardEntity toEntity() => DashboardEntity(
+  DashboardEntity toEntity({
+    ClassEntity? overrideFeaturedClass,
+    bool useOverride = false,
+  }) =>
+      DashboardEntity(
         attendanceRate: attendanceRate,
         upcomingClassesCount: upcomingClassesCount,
         pendingAssignmentsCount: pendingAssignmentsCount,
         totalBalanceDue: totalBalanceDue,
         activeTopic: activeTopic,
-        featuredClass: featuredClass,
+        featuredClass: useOverride ? overrideFeaturedClass : featuredClass,
         enrolledBatches: enrolledBatches,
       );
 }

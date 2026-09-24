@@ -180,7 +180,11 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
         case 'upcoming':
         default:
           statusFiltered = allClasses
-              .where((c) => c.isUpcoming && !c.isCompleted && !c.isMissed && !c.isCancelled)
+              .where((c) =>
+                  (c.isUpcoming || c.isLive) &&
+                  !c.isCompleted &&
+                  !c.isMissed &&
+                  !c.isCancelled)
               .toList();
           break;
       }

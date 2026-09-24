@@ -77,6 +77,27 @@ class ApiClient {
     }
   }
 
+  /// Safe PATCH request returning raw [Response] or throwing mapped [Failure].
+  Future<Response<T>> patch<T>(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      return await dio.patch<T>(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+        cancelToken: cancelToken,
+      );
+    } catch (e) {
+      throw ErrorHandler.handle(e);
+    }
+  }
+
   /// Safe DELETE request returning raw [Response] or throwing mapped [Failure].
   Future<Response<T>> delete<T>(
     String path, {

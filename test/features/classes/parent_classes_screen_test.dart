@@ -221,4 +221,26 @@ void main() {
 
     expect(find.text('Mia'), findsOneWidget);
   });
+
+  testWidgets('Live class (status == "live") is visible in Upcoming filter for today', (tester) async {
+    final liveClass = ClassEntity(
+      id: 'cls_live_word_puzzle',
+      title: 'Word Puzzle',
+      subject: 'Junior Foundation',
+      status: 'live',
+      scheduledStartTime: DateTime(2026, 8, 26, 12, 45),
+      scheduledEndTime: DateTime(2026, 8, 26, 15, 15),
+      teacherName: 'Elizabeth Vance',
+    );
+
+    await tester.pumpWidget(createSubject(
+      classesState: ClassesLoaded(classes: [liveClass]),
+    ));
+    await tester.pumpAndSettle();
+
+    // Upcoming is default tab; verify Word Puzzle is visible
+    expect(find.text('Word Puzzle'), findsOneWidget);
+    expect(find.byType(ClassesEventCard), findsOneWidget);
+    expect(find.byType(EmptyClassesWidget), findsNothing);
+  });
 }

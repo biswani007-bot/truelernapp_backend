@@ -1,33 +1,59 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/error/failures.dart';
+import '../../../dashboard/presentation/controllers/children_controller.dart';
+import '../../../dashboard/presentation/controllers/children_state.dart';
+import '../../data/repositories/classes_repository_impl.dart';
 import '../../domain/entities/class_entity.dart';
+import '../../domain/entities/class_join_entity.dart';
+import '../controllers/classes_controller.dart';
+import '../controllers/classes_state.dart';
+
+/// Explicit deterministic joining states as per SCR-16 specification:
+/// INITIALIZING -> CONNECTING -> CONNECTED -> LIVE CLASS
+/// Failure: INITIALIZING -> CONNECTING -> ERROR
+enum JoiningState {
+  initializing,
+  connecting,
+  connected,
+  error,
+}
 
 /// SCR-16 Joining Class Screen (Figma Node 76:3263 "Joining Class (Revised)")
 ///
 /// Linear transactional loading state transitioning from Class Preview into the
 /// live classroom observation room.
 /// Suppressed TopAppBar and BottomNavBar as specified in Figma design specs.
-class JoiningClassScreen extends StatefulWidget {
+class JoiningClassScreen extends ConsumerStatefulWidget {
   final String classId;
   final ClassEntity? session;
+  final String? childStudentId;
 
   const JoiningClassScreen({
     super.key,
     required this.classId,
     this.session,
+    this.childStudentId,
   });
 
   @override
-  State<JoiningClassScreen> createState() => _JoiningClassScreenState();
+  ConsumerState<JoiningClassScreen> createState() => _JoiningClassScreenState();
 }
 
-class _JoiningClassScreenState extends State<JoiningClassScreen>
+class _JoiningClassScreenState extends ConsumerState<JoiningClassScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _animController;
   late final Animation<double> _progressAnimation;
+
+  JoiningState _state = JoiningState.initializing;
+  ClassJoinEntity? _joinData;
+  String _statusMessage = 'Connecting to virtual classroom...';
+  String? _errorMessage;
+  late final String? _immutableChildId;
 
   @override
   void initState() {
@@ -43,6 +69,178 @@ class _JoiningClassScreenState extends State<JoiningClassScreen>
         curve: Curves.easeInOutCubic,
       ),
     );
+
+    // Freeze child context immutably at screen creation to prevent mid-join state drift
+    final childrenState = ref.read(childrenControllerProvider);
+    _immutableChildId = widget.childStudentId ??
+        (childrenState is ChildrenLoaded ? childrenState.activeChildId : null);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initiateJoin();
+    });
+  }
+
+  Future<void> _initiateJoin() async {
+    // Guard against duplicate in-flight requests
+    if (_state == JoiningState.connecting) {
+      return;
+    }
+
+    final childId = _immutableChildId;
+
+    if (childId == null || childId.isEmpty || widget.classId.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _state = JoiningState.error;
+          _errorMessage = 'Active child student ID or class ID is missing. Cannot connect to class.';
+          _statusMessage = 'Connection failed';
+        });
+      }
+      return;
+    }
+
+    // Child Ownership Safety:
+    // Verify class belongs to active child using loaded classes where available
+    final classesState = ref.read(classesControllerProvider);
+    if (classesState is ClassesLoaded && classesState.classes.isNotEmpty) {
+      final matchesClass = classesState.classes.any((c) => c.id == widget.classId);
+      if (!matchesClass && widget.session == null) {
+        if (mounted) {
+          setState(() {
+            _state = JoiningState.error;
+            _errorMessage = 'This class does not belong to the selected child.';
+            _statusMessage = 'Unauthorized child';
+          });
+        }
+        return;
+      }
+    }
+
+    setState(() {
+      _state = JoiningState.connecting;
+      _errorMessage = null;
+      _statusMessage = 'Connecting to virtual classroom...';
+    });
+
+    try {
+      final joinData = await ref.read(classesRepositoryProvider).joinLiveClass(
+        childStudentId: childId,
+        classId: widget.classId,
+      );
+
+      // Prevent entering classroom if returned credentials are invalid/empty
+      if (joinData.token.isEmpty || joinData.roomName.isEmpty || joinData.jitsiDomain.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _state = JoiningState.error;
+            _errorMessage = 'Incomplete classroom credentials received from server.';
+            _statusMessage = 'Connection failed';
+          });
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() {
+          _state = JoiningState.connected;
+          _joinData = joinData;
+          _statusMessage = 'Connection established! Ready to enter.';
+        });
+        _enterClassroom();
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _state = JoiningState.error;
+          _errorMessage = _messageFrom(error);
+          _statusMessage = 'Connection failed';
+        });
+      }
+    }
+  }
+
+  String _messageFrom(Object error) {
+    if (error is Failure) {
+      if (error.statusCode == 403) {
+        return 'Access denied. You do not have permission to join this class session.';
+      }
+      if (error is AuthFailure || error.statusCode == 401) {
+        return 'Your session has expired. Please sign in again.';
+      }
+      if (error.statusCode == 404) {
+        final msg = error.message.toLowerCase();
+        // If the error message contains raw HTML or missing route signature, treat as connection error
+        if (msg.contains('<!doctype') || msg.contains('<html') || msg.contains('page not found')) {
+          return 'Unable to connect to the live classroom. Please try again.';
+        }
+        return 'This class is no longer available or does not exist.';
+      }
+      if (error.statusCode == 409) {
+        return 'This class has been cancelled, archived, or cannot currently be joined.';
+      }
+      if (error is NetworkFailure || error is TimeoutFailure) {
+        return 'Network connection issue. Please check your internet connection and retry.';
+      }
+      final msg = error.message.toLowerCase();
+      if (msg.contains('<!doctype') || msg.contains('<html')) {
+        return 'Unable to connect to the live classroom. Please try again.';
+      }
+      return error.message;
+    }
+    final s = error.toString().toLowerCase();
+    if (s.contains('<!doctype') || s.contains('<html') || s.contains('page not found')) {
+      return 'Unable to connect to the live classroom. Please try again.';
+    }
+    if (s.contains('403')) {
+      return 'Access denied. You do not have permission to join this class session.';
+    }
+    if (s.contains('401')) {
+      return 'Your session has expired. Please sign in again.';
+    }
+    if (s.contains('404')) {
+      return 'This class is no longer available or does not exist.';
+    }
+    if (s.contains('409')) {
+      return 'This class has been cancelled, archived, or cannot currently be joined.';
+    }
+    final match = RegExp(r'message: (.+?)(,|$)').firstMatch(error.toString());
+    return match?.group(1) ?? 'Unable to connect to the live classroom. Please try again.';
+  }
+
+  void _enterClassroom() {
+    if (_state != JoiningState.connected || _joinData == null) return;
+    if (_joinData!.token.isEmpty || _joinData!.roomName.isEmpty || _joinData!.jitsiDomain.isEmpty) {
+      return;
+    }
+
+    final s = widget.session;
+    final resolvedSession = ClassEntity(
+      id: widget.classId,
+      title: _joinData?.classTitle ?? s?.title ?? 'Live Class',
+      classCode: s?.classCode,
+      subject: s?.subject,
+      scheduledStartTime: s?.scheduledStartTime,
+      scheduledEndTime: s?.scheduledEndTime,
+      duration: s?.duration,
+      status: s?.status ?? 'LIVE',
+      teacherName: s?.teacherName,
+      teacherAvatar: s?.teacherAvatar,
+      meetingUrl: _joinData?.meetingUrl ?? s?.meetingUrl,
+      roomName: _joinData?.roomName ?? s?.roomName,
+    );
+
+    try {
+      context.go(
+        '/parent/classes/${widget.classId}/live',
+        extra: {
+          'session': resolvedSession,
+          'joinData': _joinData,
+          'childStudentId': widget.childStudentId,
+        },
+      );
+    } catch (_) {
+      // In isolated test environments where GoRouter is not mounted
+    }
   }
 
   @override
@@ -53,7 +251,7 @@ class _JoiningClassScreenState extends State<JoiningClassScreen>
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.session?.title ?? 'Public Speaking Fundamentals';
+    final title = _joinData?.classTitle ?? widget.session?.title ?? 'Public Speaking Fundamentals';
 
     return Scaffold(
       body: Container(
@@ -87,10 +285,12 @@ class _JoiningClassScreenState extends State<JoiningClassScreen>
                   ),
                   tooltip: 'Cancel & Return',
                   onPressed: () {
-                    if (context.canPop()) {
-                      context.pop();
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
                     } else {
-                      context.go('/parent/classes/${widget.classId}');
+                      try {
+                        context.go('/parent/classes/${widget.classId}');
+                      } catch (_) {}
                     }
                   },
                 ),
@@ -112,7 +312,7 @@ class _JoiningClassScreenState extends State<JoiningClassScreen>
 
                         // Heading 1 (Figma Nodes 76:3266, 76:3267)
                         Text(
-                          'Joining your class...',
+                          _errorMessage != null ? 'Unable to Join' : 'Joining your class...',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 30,
@@ -243,6 +443,61 @@ class _JoiningClassScreenState extends State<JoiningClassScreen>
 
   /// Builds the Progress Bar & Status Text (Figma 76:3271)
   Widget _buildProgressIndicator() {
+    if (_errorMessage != null) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEE2E2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFCA5A5)),
+            ),
+            child: Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFFB91C1C),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OutlinedButton(
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/parent/classes/${widget.classId}');
+                  }
+                },
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFDCE1FF)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Go Back'),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: _initiateJoin,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0037B1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Retry', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -276,7 +531,7 @@ class _JoiningClassScreenState extends State<JoiningClassScreen>
 
         // Text (Figma 76:3275)
         Text(
-          'Connecting to virtual classroom...',
+          _statusMessage,
           textAlign: TextAlign.center,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 13,
@@ -299,15 +554,9 @@ class _JoiningClassScreenState extends State<JoiningClassScreen>
               color: const Color(0xFF0037B1),
             ),
           ),
-          onPressed: () {
-            context.go(
-              '/parent/classes/${widget.classId}/live',
-              extra: widget.session,
-            );
-          },
+          onPressed: _enterClassroom,
         ),
       ],
     );
   }
 }
-

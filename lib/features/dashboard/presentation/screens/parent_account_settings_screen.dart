@@ -1,40 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/router/route_paths.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../auth/presentation/controllers/auth_state.dart';
+import '../controllers/parent_profile_controller.dart';
+import '../controllers/parent_profile_state.dart';
 import '../widgets/parent_hamburger_drawer.dart';
 
-/// Parent Account Settings Screen — PURE STATIC FRONTEND ONLY.
+/// Parent Account Settings Screen.
 ///
 /// Figma Source of Truth: `Parent(full app)_TreLern`
 /// Frame Name: `Account Settings` (Node `76:1485`, 390xAuto)
 ///
-/// Complete Figma Reproductions:
-/// - Exact gradient background: linear-gradient(136.5deg, #F3E8FF, #E0F2FE, #FFFFFF)
-/// - Top App Bar with back button and centered "Account Settings" (24px Bold #191C1E)
-/// - Profile Header with 96x96 circular avatar, #FAF8FF 4px border, #0037B1 edit pencil badge,
-///   "PPs" name (20px SemiBold #1A1B23) and "Student Account" (14px Regular #434655)
-/// - PERSONAL section: Name ("PPs Mercher"), Email ("alex@rivers.com"), WhatsApp ("+1 (555) 123-4567")
-/// - PREFERENCES section: Notifications (active toggle switch), Language ("English"), Timezone ("GMT-5")
-/// - SECURITY section: Login Methods ("WhatsApp, Email")
-/// - ACCOUNT section: Privacy Policy
-/// - Destructive Actions: "Sign Out" bordered white card and "Delete Account" red text button
-/// - Note from Figma: BottomNavBar is suppressed on this screen.
-///
-/// STRICT RULES:
-/// - Zero backend calls / Zero API calls / Zero network requests
-/// - Static frontend only
-class ParentAccountSettingsScreen extends StatefulWidget {
+/// Profile and identity data dynamically loaded from:
+/// `GET /api/parent/profile` via [parentProfileControllerProvider].
+class ParentAccountSettingsScreen extends ConsumerStatefulWidget {
   const ParentAccountSettingsScreen({super.key});
 
   @override
-  State<ParentAccountSettingsScreen> createState() =>
+  ConsumerState<ParentAccountSettingsScreen> createState() =>
       _ParentAccountSettingsScreenState();
 }
 
 class _ParentAccountSettingsScreenState
-    extends State<ParentAccountSettingsScreen> {
+    extends ConsumerState<ParentAccountSettingsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(parentProfileControllerProvider.notifier).loadProfile();
+    });
+  }
+
   // Local state for Notifications toggle switch (Node 76:1556)
   bool _notificationsEnabled = true;
 
@@ -56,6 +56,32 @@ class _ParentAccountSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final profileState = ref.watch(parentProfileControllerProvider);
+    final authState = ref.watch(authControllerProvider);
+
+    final String displayName;
+    final String displayEmail;
+    final String displayPhone;
+    if (profileState is ParentProfileLoaded) {
+      displayName = profileState.profile.fullName;
+      displayEmail = profileState.profile.email;
+      displayPhone = profileState.profile.phone.isNotEmpty
+          ? profileState.profile.phone
+          : (profileState.profile.alternatePhone.isNotEmpty
+              ? profileState.profile.alternatePhone
+              : '+1 (555) 123-4567');
+    } else if (authState is Authenticated && authState.user != null) {
+      displayName = (authState.user!.name != null && authState.user!.name!.isNotEmpty)
+          ? authState.user!.name!
+          : 'Parent';
+      displayEmail = authState.user!.email ?? '';
+      displayPhone = '+1 (555) 123-4567';
+    } else {
+      displayName = 'Parent';
+      displayEmail = '';
+      displayPhone = '+1 (555) 123-4567';
+    }
+
     return Scaffold(
       key: const Key('parent_account_settings_screen'),
       backgroundColor: Colors.white,
@@ -93,14 +119,19 @@ class _ParentAccountSettingsScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // ── Profile Header (Node 76:1493) ───────────────
-                          _buildProfileHeader(),
+                          _buildProfileHeader(context, name: displayName),
 
                           const SizedBox(height: 24),
 
                           // ── PERSONAL Section (Node 76:1505) ──────────────
                           _buildSectionHeader('PERSONAL'),
                           const SizedBox(height: 12),
-                          _buildPersonalCard(),
+                          _buildPersonalCard(
+                            context,
+                            name: displayName,
+                            email: displayEmail,
+                            phone: displayPhone,
+                          ),
 
                           const SizedBox(height: 24),
 
@@ -203,8 +234,8 @@ class _ParentAccountSettingsScreenState
   }
 
   /// Profile Header (Node 76:1493)
-  /// Avatar 96x96 with border and edit pencil badge, "PPs" name, "Student Account" label.
-  Widget _buildProfileHeader() {
+  /// Avatar 96x96 with border and edit pencil badge, authoritative name, "Parent Account" label.
+  Widget _buildProfileHeader(BuildContext context, {required String name}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(top: 16),
@@ -254,32 +285,36 @@ class _ParentAccountSettingsScreenState
               Positioned(
                 bottom: 0,
                 right: 0,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF0037B1), // Primary brand blue
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0x1A000000),
-                        blurRadius: 6,
-                        offset: Offset(0, 4),
-                        spreadRadius: -1,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: () => context.push(AppRoutePaths.parentPersonalInfo),
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0037B1), // Primary brand blue
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x1A000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 4),
+                          spreadRadius: -1,
+                        ),
+                        BoxShadow(
+                          color: Color(0x1A000000),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                          spreadRadius: -2,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: SvgPicture.asset(
+                        _svgEditPencil,
+                        width: 13.5,
+                        height: 13.5,
                       ),
-                      BoxShadow(
-                        color: Color(0x1A000000),
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                        spreadRadius: -2,
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: SvgPicture.asset(
-                      _svgEditPencil,
-                      width: 13.5,
-                      height: 13.5,
                     ),
                   ),
                 ),
@@ -289,9 +324,10 @@ class _ParentAccountSettingsScreenState
 
           const SizedBox(height: 12),
 
-          // Name "PPs" (Node 76:1494/76:1495)
+          // Name (Node 76:1494/76:1495)
           Text(
-            'PPs',
+            name,
+            key: const Key('account_settings_parent_name'),
             style: GoogleFonts.hankenGrotesk(
               fontSize: 21.5,
               fontWeight: FontWeight.w600,
@@ -302,9 +338,9 @@ class _ParentAccountSettingsScreenState
 
           const SizedBox(height: 4),
 
-          // Label "Student Account" (Node 76:1496/76:1497)
+          // Label "Parent Account" (Node 76:1496/76:1497)
           Text(
-            'Student Account',
+            'Parent Account',
             style: GoogleFonts.hankenGrotesk(
               fontSize: 15,
               fontWeight: FontWeight.w400,
@@ -336,7 +372,12 @@ class _ParentAccountSettingsScreenState
 
   /// PERSONAL Section Card (Node 76:1508)
   /// Name, Email, WhatsApp rows.
-  Widget _buildPersonalCard() {
+  Widget _buildPersonalCard(
+    BuildContext context, {
+    required String name,
+    required String email,
+    required String phone,
+  }) {
     return _buildCardContainer(
       children: [
         // Name Row (Node 76:1509)
@@ -346,9 +387,10 @@ class _ParentAccountSettingsScreenState
           iconWidth: 16,
           iconHeight: 16,
           label: 'Name',
-          value: 'PPs Mercher',
+          value: name,
           showChevron: true,
           showDivider: true,
+          onTap: () => context.push(AppRoutePaths.parentPersonalInfo),
         ),
 
         // Email Row (Node 76:1521)
@@ -358,9 +400,10 @@ class _ParentAccountSettingsScreenState
           iconWidth: 20,
           iconHeight: 16,
           label: 'Email',
-          value: 'alex@rivers.com',
+          value: email.isNotEmpty ? email : 'Not set',
           showChevron: true,
           showDivider: true,
+          onTap: () => context.push(AppRoutePaths.parentPersonalInfo),
         ),
 
         // WhatsApp Row (Node 76:1533)
@@ -370,9 +413,10 @@ class _ParentAccountSettingsScreenState
           iconWidth: 15,
           iconHeight: 22,
           label: 'WhatsApp',
-          value: '+1 (555) 123-4567',
+          value: phone,
           showChevron: true,
           showDivider: false,
+          onTap: () => context.push(AppRoutePaths.parentPersonalInfo),
         ),
       ],
     );

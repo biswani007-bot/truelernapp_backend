@@ -38,6 +38,13 @@ abstract final class AppRouteNames {
   static const String parentSecurityPrivacy = 'parentSecurityPrivacy';
   static const String parentLoginMethods = 'parentLoginMethods';
   static const String parentLoginDevices = 'parentLoginDevices';
+  static const String parentRecentSecurityActivity = 'parentRecentSecurityActivity';
+  static const String parentPersonalInfo = 'parentPersonalInfo';
+  static const String parentPrivacyPreferences = 'parentPrivacyPreferences';
+  static const String parentCommunicationPreferences = 'parentCommunicationPreferences';
+  static const String parentDataPrivacy = 'parentDataPrivacy';
+  static const String parentPrivacyPolicy = 'parentPrivacyPolicy';
+  static const String parentTermsConditions = 'parentTermsConditions';
   static const String paymentSuccessful = 'paymentSuccessful';
   static const String parentMessages = 'parentMessages';
   static const String achievements = 'achievements';
@@ -83,6 +90,13 @@ abstract final class AppRoutePaths {
   static const String parentSecurityPrivacy = '/parent/security-privacy';
   static const String parentLoginMethods = '/parent/security/login-methods';
   static const String parentLoginDevices = '/parent/security/login-devices';
+  static const String parentRecentSecurityActivity = '/parent/security/recent-activity';
+  static const String parentPersonalInfo = '/parent/security/personal-info';
+  static const String parentPrivacyPreferences = '/parent/security/privacy-preferences';
+  static const String parentCommunicationPreferences = '/parent/security/communication-preferences';
+  static const String parentDataPrivacy = '/parent/security/data-privacy';
+  static const String parentPrivacyPolicy = '/parent/security/privacy-policy';
+  static const String parentTermsConditions = '/parent/security/terms-conditions';
   static const String paymentSuccessful = '/parent/payment-successful';
   static const String parentMessages = '/parent/messages';
   static const String achievements = '/parent/achievements';

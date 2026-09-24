@@ -24,25 +24,11 @@ class ChildSelectorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // If no real children loaded from API, show Figma 76:3579 default children: Alex (Age 9) and Mia (Age 12)
-    final displayChildren = children.isNotEmpty
-        ? children
-        : const [
-            ChildEntity(
-              studentId: 'alex_1',
-              firstName: 'Alex',
-              lastName: '',
-              grade: 'Age 9',
-            ),
-            ChildEntity(
-              studentId: 'mia_2',
-              firstName: 'Mia',
-              lastName: '',
-              grade: 'Age 12',
-            ),
-          ];
+    if (children.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-    final effectiveActiveId = activeChildId ?? displayChildren.first.studentId;
+    final effectiveActiveId = activeChildId ?? children.first.studentId;
 
     return Container(
       height: 66,
@@ -51,10 +37,10 @@ class ChildSelectorRow extends StatelessWidget {
         key: const Key('child_selector_list_view'),
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: displayChildren.length,
+        itemCount: children.length,
         separatorBuilder: (context, index) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
-          final child = displayChildren[index];
+          final child = children[index];
           final isActive = child.studentId == effectiveActiveId;
 
           return _ChildCardItem(

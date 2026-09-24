@@ -6,28 +6,53 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../domain/entities/class_entity.dart';
+import '../../domain/entities/class_summary_entity.dart';
+import '../controllers/class_summary_controller.dart';
+import '../controllers/class_summary_state.dart';
 
 /// SCR-17 Class Summary Screen (Figma Node 76:2253 "Class Summary (Revised)")
 ///
 /// Post-class session review screen for parents displaying:
+/// - Fixed frosted glass TopAppBar with hamburger menu, TrueLern logo, notifications
 /// - 3D Rocket & Gear celebration illustration
 /// - "Class Completed" title
-/// - Status chips: Attended, duration (42 / 45 minutes), teacher info
-/// - "WHAT WE PRACTICED": Skills practiced during class (Voice, Communication, Confidence)
+/// - Status chips: Attended, duration, dynamic teacher info
+/// - "WHAT WE PRACTICED": Skills practiced during class (dynamic or neutral evaluation state)
 /// - "NEXT STEPS": Next Live Class reminder & Assignment card with due date
 /// - Primary CTA: "VIEW ASSIGNMENT →"
-class ClassSummaryScreen extends ConsumerWidget {
+class ClassSummaryScreen extends ConsumerStatefulWidget {
   final String classId;
   final ClassEntity? session;
+  final String? childStudentId;
 
   const ClassSummaryScreen({
     super.key,
     required this.classId,
     this.session,
+    this.childStudentId,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ClassSummaryScreen> createState() => _ClassSummaryScreenState();
+}
+
+class _ClassSummaryScreenState extends ConsumerState<ClassSummaryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(classSummaryControllerProvider.notifier).loadSummary(
+        classId: widget.classId,
+        childStudentId: widget.childStudentId,
+        session: widget.session,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final summaryState = ref.watch(classSummaryControllerProvider);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
@@ -51,43 +76,10 @@ class ClassSummaryScreen extends ConsumerWidget {
             ),
           ),
 
-          // Main Scrollable Canvas
+          // Main Canvas Content according to state
           SafeArea(
             bottom: false,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(
-                top: 68, // Space for fixed TopAppBar
-                bottom: 40, // Space below CTA button
-                left: 16,
-                right: 16,
-              ),
-              child: Center(
-
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 448),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 16),
-                      // Hero Section: 3D Illustration & Success Indicator
-                      _buildHeroSection(),
-                      const SizedBox(height: 32),
-
-                      // What We Practiced Section
-                      _buildWhatWePracticedSection(),
-                      const SizedBox(height: 32),
-
-                      // Next Steps Section
-                      _buildNextStepsSection(context),
-                      const SizedBox(height: 32),
-
-                      // Primary CTA Button: VIEW ASSIGNMENT
-                      _buildViewAssignmentButton(context),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            child: _buildBodyForState(summaryState),
           ),
 
           // Fixed TopAppBar (Figma Node 76:2342)
@@ -98,6 +90,182 @@ class ClassSummaryScreen extends ConsumerWidget {
             child: _buildTopAppBar(context),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBodyForState(ClassSummaryState state) {
+    if (state is ClassSummaryLoaded) {
+      return _buildLoadedState(context, state.summary);
+    } else if (state is ClassSummaryError) {
+      return _buildErrorState(context, state.message);
+    } else {
+      return _buildLoadingState();
+    }
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0D000000),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(14),
+            child: const CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0037B1)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading session summary...',
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF434655),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(BuildContext context, String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A000000),
+                blurRadius: 15,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline_rounded,
+                color: Color(0xFFEF4444),
+                size: 44,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Unable to load summary',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A1B23),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 14,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton(
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/parent/classes');
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF434655),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Back to Classes'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () {
+                      ref.read(classSummaryControllerProvider.notifier).loadSummary(
+                        classId: widget.classId,
+                        childStudentId: widget.childStudentId,
+                        session: widget.session,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0037B1),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadedState(BuildContext context, ClassSummaryEntity summary) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(
+        top: 68, // Space for fixed TopAppBar
+        bottom: 40, // Space below CTA button
+        left: 16,
+        right: 16,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 448),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 16),
+              // Hero Section: 3D Illustration & Success Indicator
+              _buildHeroSection(summary),
+              const SizedBox(height: 32),
+
+              // What We Practiced Section
+              _buildWhatWePracticedSection(summary),
+              const SizedBox(height: 32),
+
+              // Next Steps Section
+              _buildNextStepsSection(context, summary),
+              const SizedBox(height: 32),
+
+              // Primary CTA Button: VIEW ASSIGNMENT
+              _buildViewAssignmentButton(context, summary),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -124,7 +292,6 @@ class ClassSummaryScreen extends ConsumerWidget {
             ),
           ),
           child: Row(
-
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Hamburger Menu Button (Node 76:2343)
@@ -138,11 +305,11 @@ class ClassSummaryScreen extends ConsumerWidget {
                     context.go('/parent/classes');
                   }
                 },
-                child: Padding(
-                  padding: const EdgeInsets.all(6.0),
+                child: const Padding(
+                  padding: EdgeInsets.all(6.0),
                   child: Icon(
                     Icons.menu_rounded,
-                    color: const Color(0xFF1A1B23),
+                    color: Color(0xFF1A1B23),
                     size: 24,
                   ),
                 ),
@@ -170,11 +337,11 @@ class ClassSummaryScreen extends ConsumerWidget {
                 key: const Key('summary_notifications_button'),
                 borderRadius: BorderRadius.circular(9999),
                 onTap: () {},
-                child: Padding(
-                  padding: const EdgeInsets.all(6.0),
+                child: const Padding(
+                  padding: EdgeInsets.all(6.0),
                   child: Icon(
                     Icons.notifications_outlined,
-                    color: const Color(0xFF1A1B23),
+                    color: Color(0xFF1A1B23),
                     size: 24,
                   ),
                 ),
@@ -187,7 +354,40 @@ class ClassSummaryScreen extends ConsumerWidget {
   }
 
   /// Hero Section: 3D Rocket Illustration + Success Indicator + Status Chips
-  Widget _buildHeroSection() {
+  Widget _buildHeroSection(ClassSummaryEntity summary) {
+    // Format duration text dynamically from real backend values
+    final String durationStr;
+    if (summary.attendedDurationMinutes != null &&
+        summary.scheduledDurationMinutes != null &&
+        summary.attendedDurationMinutes! > 0) {
+      durationStr = '${summary.attendedDurationMinutes} / ${summary.scheduledDurationMinutes} minutes';
+    } else if (summary.scheduledDurationMinutes != null && summary.scheduledDurationMinutes! > 0) {
+      durationStr = '${summary.scheduledDurationMinutes} minutes';
+    } else if (summary.attendedDurationMinutes != null && summary.attendedDurationMinutes! > 0) {
+      durationStr = '${summary.attendedDurationMinutes} minutes';
+    } else {
+      durationStr = '45 minutes';
+    }
+
+    // Format teacher name cleanly from real backend instructor
+    final rawTeacher = summary.teacherName?.trim();
+    final teacherLabel = (rawTeacher != null && rawTeacher.isNotEmpty)
+        ? 'Teacher: $rawTeacher'
+        : 'Teacher: Assigned Instructor';
+
+    // Format attendance label cleanly
+    final attStatus = summary.attendanceStatus?.toLowerCase();
+    final String attendanceLabel;
+    if (attStatus == 'late') {
+      attendanceLabel = 'Attended (Late)';
+    } else if (attStatus == 'half-day') {
+      attendanceLabel = 'Attended (Partial)';
+    } else if (attStatus == 'absent' || attStatus == 'missed') {
+      attendanceLabel = 'Absent';
+    } else {
+      attendanceLabel = 'Attended';
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -201,7 +401,6 @@ class ClassSummaryScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
-
 
         // Heading 2: Class Completed (Node 76:2259)
         Text(
@@ -218,7 +417,7 @@ class ClassSummaryScreen extends ConsumerWidget {
         const SizedBox(height: 16),
 
         // Key Details Chips (Node 76:2261)
-        // Row 1: [Attended] [42 / 45 minutes]
+        // Row 1: [Attended] [Duration]
         Wrap(
           alignment: WrapAlignment.center,
           spacing: 10,
@@ -260,7 +459,7 @@ class ClassSummaryScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'Attended',
+                        attendanceLabel,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -275,7 +474,7 @@ class ClassSummaryScreen extends ConsumerWidget {
               ),
             ),
 
-            // Chip 2: 42 / 45 minutes (Node 76:2267)
+            // Chip 2: Duration (Node 76:2267)
             ClipRRect(
               borderRadius: BorderRadius.circular(9999),
               child: BackdropFilter(
@@ -311,7 +510,7 @@ class ClassSummaryScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '42 / 45 minutes',
+                        durationStr,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
@@ -329,7 +528,7 @@ class ClassSummaryScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
 
-        // Row 2: Teacher: Sarah (Node 76:2273)
+        // Row 2: Teacher: Name (Node 76:2273)
         SizedBox(
           width: double.infinity,
           child: ClipRRect(
@@ -367,7 +566,7 @@ class ClassSummaryScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Teacher: Sarah',
+                      teacherLabel,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
@@ -382,34 +581,12 @@ class ClassSummaryScreen extends ConsumerWidget {
             ),
           ),
         ),
-
       ],
     );
   }
 
   /// What We Practiced Section (Node 76:2280)
-  Widget _buildWhatWePracticedSection() {
-    final topics = [
-      (
-        title: 'Voice',
-        svgPath: 'assets/icons/voice_mic.svg',
-        color: const Color(0xFF22D3EE),
-        bgColor: const Color.fromRGBO(34, 211, 238, 0.1),
-      ),
-      (
-        title: 'Communication',
-        svgPath: 'assets/icons/comm_bubble.svg',
-        color: const Color(0xFF14B8A6),
-        bgColor: const Color.fromRGBO(20, 184, 166, 0.1),
-      ),
-      (
-        title: 'Confidence',
-        svgPath: 'assets/icons/confidence_trophy.svg',
-        color: const Color(0xFFA855F7),
-        bgColor: const Color.fromRGBO(168, 85, 247, 0.1),
-      ),
-    ];
-
+  Widget _buildWhatWePracticedSection(ClassSummaryEntity summary) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -428,83 +605,153 @@ class ClassSummaryScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 14),
 
-        // Horizontal Skill Cards Row (Node 76:2283)
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          clipBehavior: Clip.none,
-          child: Row(
-            children: topics.map((topic) {
-              return Container(
-                width: 124,
-                height: 118,
-                margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFAF8FF),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    width: 1,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x0A000000), // rgba(0,0,0,0.04)
-                      blurRadius: 20,
-                      offset: Offset(0, 4),
+        // If skills are available from API, show dynamic cards;
+        // if empty, display neutral curriculum evaluation card preserving layout without inventing fake data.
+        if (summary.skillsPracticed.isNotEmpty)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            child: Row(
+              children: summary.skillsPracticed.map((topic) {
+                return Container(
+                  width: 124,
+                  height: 118,
+                  margin: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFAF8FF),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      width: 1,
                     ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Icon Circle (48x48)
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: topic.bgColor,
-                        shape: BoxShape.circle,
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0A000000), // rgba(0,0,0,0.04)
+                        blurRadius: 20,
+                        offset: Offset(0, 4),
                       ),
-                      alignment: Alignment.center,
-                      child: SvgPicture.asset(
-                        topic.svgPath,
-                        width: 22,
-                        height: 22,
-                        colorFilter: ColorFilter.mode(
-                          topic.color,
-                          BlendMode.srcIn,
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Icon Circle (48x48)
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Color(topic.bgColorHex),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: SvgPicture.asset(
+                          topic.svgPath,
+                          width: 22,
+                          height: 22,
+                          colorFilter: ColorFilter.mode(
+                            Color(topic.colorHex),
+                            BlendMode.srcIn,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
+                      const SizedBox(height: 10),
 
-                    // Label (Node 76:2289)
-                    Text(
-                      topic.title,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF1A1B23),
-                        letterSpacing: 0.1,
-                        height: 18 / 14,
+                      // Label
+                      Text(
+                        topic.title,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF1A1B23),
+                          letterSpacing: 0.1,
+                          height: 18 / 14,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          )
+        else
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFAF8FF),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.5),
+                width: 1,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A000000), // rgba(0,0,0,0.04)
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
                 ),
-              );
-            }).toList(),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0x1A0037B1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.school_outlined,
+                    size: 24,
+                    color: Color(0xFF0037B1),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Curriculum Evaluation',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1A1B23),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Topic assessment & skills evaluation will appear once submitted by instructor.',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF434655),
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
 
   /// Next Steps Section (Node 76:2306)
-  Widget _buildNextStepsSection(BuildContext context) {
+  Widget _buildNextStepsSection(BuildContext context, ClassSummaryEntity summary) {
+    final nextClassTime = summary.nextClassTimeFormatted ?? 'No upcoming classes scheduled';
+    final assignmentTitle = summary.assignmentTitle ?? 'Assignments';
+    final assignmentDue = summary.assignmentDueDate ?? 'No pending assignments';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -524,203 +771,225 @@ class ClassSummaryScreen extends ConsumerWidget {
         const SizedBox(height: 14),
 
         // Card 1: Next Live Class (Node 76:2310)
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFAF8FF),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.5),
-              width: 1,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000), // rgba(0,0,0,0.04)
-                blurRadius: 10,
-                offset: Offset(0, 4),
+        InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            context.go('/parent/classes');
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFAF8FF),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.5),
+                width: 1,
               ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Calendar Icon Badge (48x48)
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E1ED),
-                  borderRadius: BorderRadius.circular(12),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A000000), // rgba(0,0,0,0.04)
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
                 ),
-                alignment: Alignment.center,
-                child: SvgPicture.asset(
-                  'assets/icons/calendar_next_class.svg',
-                  width: 20,
-                  height: 20,
+              ],
+            ),
+            child: Row(
+              children: [
+                // Calendar Icon Badge (48x48)
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E1ED),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: SvgPicture.asset(
+                    'assets/icons/calendar_next_class.svg',
+                    width: 20,
+                    height: 20,
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xFF434655),
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+
+                // Texts
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        summary.nextClassTitle ?? 'Next Live Class',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1A1B23),
+                          height: 24 / 16,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        nextClassTime,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF434655),
+                          height: 20 / 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Chevron Right (Node 76:2319)
+                SvgPicture.asset(
+                  'assets/icons/chevron_right.svg',
+                  width: 8,
+                  height: 12,
                   colorFilter: const ColorFilter.mode(
                     Color(0xFF434655),
                     BlendMode.srcIn,
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
 
-              // Texts
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        // Card 2: Assignment with Left Blue Accent Bar (Node 76:2321)
+        InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            context.go('/parent/assignments');
+          },
+          child: Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFAF8FF),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x0A000000), // rgba(0,0,0,0.04)
+                      blurRadius: 20,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
                   children: [
-                    Text(
-                      'Next Live Class',
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF1A1B23),
-                        height: 24 / 16,
+                    // Blue Accent Container with Clipboard Assignment Icon (48x48)
+                    Container(
+                      width: 48,
+                      height: 48,
+                      margin: const EdgeInsets.only(left: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0x1A0037B1), // rgba(0, 55, 177, 0.1)
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignment: Alignment.center,
+                      child: SvgPicture.asset(
+                        'assets/icons/assignment_clipboard.svg',
+                        width: 20,
+                        height: 20,
+                        colorFilter: const ColorFilter.mode(
+                          Color(0xFF0037B1),
+                          BlendMode.srcIn,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Tomorrow, 7 PM',
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFF434655),
-                        height: 20 / 14,
+                    const SizedBox(width: 16),
+
+                    // Texts
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            assignmentTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1A1B23),
+                              height: 24 / 16,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              SvgPicture.asset(
+                                'assets/icons/alert_clock.svg',
+                                width: 12,
+                                height: 12,
+                                colorFilter: const ColorFilter.mode(
+                                  Color(0xFFBA1A1A),
+                                  BlendMode.srcIn,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  assignmentDue,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.hankenGrotesk(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFFBA1A1A),
+                                    height: 20 / 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // Chevron Right (Node 76:2319)
-              SvgPicture.asset(
-                'assets/icons/chevron_right.svg',
-                width: 8,
-                height: 12,
-                colorFilter: const ColorFilter.mode(
-                  Color(0xFF434655),
-                  BlendMode.srcIn,
+              // Left Blue Accent Stripe (Node 76:2334)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: 4,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0037B1),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      bottomLeft: Radius.circular(16),
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 12),
-
-        // Card 2: Assignment with Left Blue Accent Bar (Node 76:2321)
-        Stack(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFAF8FF),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  width: 1,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x0A000000), // rgba(0,0,0,0.04)
-                    blurRadius: 20,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  // Blue Accent Container with Clipboard Assignment Icon (48x48)
-                  Container(
-                    width: 48,
-                    height: 48,
-                    margin: const EdgeInsets.only(left: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0x1A0037B1), // rgba(0, 55, 177, 0.1)
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: SvgPicture.asset(
-                      'assets/icons/assignment_clipboard.svg',
-                      width: 20,
-                      height: 20,
-                      colorFilter: const ColorFilter.mode(
-                        Color(0xFF0037B1),
-                        BlendMode.srcIn,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-
-                  // Texts
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Assignment',
-                          style: GoogleFonts.hankenGrotesk(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF1A1B23),
-                            height: 24 / 16,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            SvgPicture.asset(
-                              'assets/icons/alert_clock.svg',
-                              width: 12,
-                              height: 12,
-                              colorFilter: const ColorFilter.mode(
-                                Color(0xFFBA1A1A),
-                                BlendMode.srcIn,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Due Friday',
-                              style: GoogleFonts.hankenGrotesk(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFFBA1A1A),
-                                height: 20 / 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Left Blue Accent Stripe (Node 76:2334)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: Container(
-                width: 4,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF0037B1),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
-                  ),
-                ),
-              ),
-            ),
-          ],
         ),
       ],
     );
   }
 
   /// Primary CTA Button: VIEW ASSIGNMENT (Node 76:2337)
-  Widget _buildViewAssignmentButton(BuildContext context) {
+  Widget _buildViewAssignmentButton(BuildContext context, ClassSummaryEntity summary) {
+    final hasAssignment = summary.assignmentId != null && summary.assignmentId!.isNotEmpty;
+    final buttonText = hasAssignment ? 'VIEW ASSIGNMENT' : 'VIEW ALL ASSIGNMENTS';
+
     return Container(
       width: double.infinity,
       height: 60,
@@ -754,7 +1023,7 @@ class ClassSummaryScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'VIEW ASSIGNMENT',
+                buttonText,
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 19.5,
                   fontWeight: FontWeight.w700,

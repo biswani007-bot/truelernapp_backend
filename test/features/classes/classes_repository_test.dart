@@ -8,6 +8,7 @@ import 'package:truelearn/features/classes/data/repositories/classes_repository_
 class FakeDioAdapter implements HttpClientAdapter {
   ResponseBody? responseToReturn;
   DioException? errorToThrow;
+  RequestOptions? lastOptions;
 
   @override
   Future<ResponseBody> fetch(
@@ -15,6 +16,7 @@ class FakeDioAdapter implements HttpClientAdapter {
     Stream<List<int>>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    lastOptions = options;
     if (errorToThrow != null) {
       throw errorToThrow!;
     }
@@ -231,5 +233,72 @@ void main() {
         throwsA(isA<NetworkFailure>()),
       );
     });
+
+    test('joinLiveClass calls POST /live-classes/{classId}/token and parses verified production payload', () async {
+      adapter.responseToReturn = ResponseBody.fromString(
+        '''
+        {
+          "success": true,
+          "message": "Classroom access granted",
+          "data": {
+            "token": "test-jwt-token",
+            "roomName": "truelern-6ab0d936aabd606a21c0c72a",
+            "jitsiDomain": "livetl.visital.in",
+            "serverUrl": "https://livetl.visital.in",
+            "isModerator": false,
+            "expiresAt": 1726927200,
+            "studentId": "child-123",
+            "liveClass": {
+              "id": "class-456",
+              "title": "testing"
+            }
+          }
+        }
+        ''',
+        200,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      );
+
+      final result = await repository.joinLiveClass(
+        childStudentId: 'child-123',
+        classId: 'class-456',
+      );
+
+      // Verify exact endpoint called
+      expect(adapter.lastOptions?.method, 'POST');
+      expect(adapter.lastOptions?.path, '/live-classes/class-456/token');
+      expect(adapter.lastOptions?.path, isNot(contains('/parent/children')));
+
+      // Verify ClassJoinEntity field mapping
+      expect(result.token, 'test-jwt-token');
+      expect(result.roomName, 'truelern-6ab0d936aabd606a21c0c72a');
+      expect(result.jitsiDomain, 'livetl.visital.in');
+      expect(result.serverUrl, 'https://livetl.visital.in');
+      expect(result.isModerator, isFalse);
+      expect(result.expiresAt, 1726927200);
+      expect(result.childId, 'child-123');
+      expect(result.classId, 'class-456');
+      expect(result.classTitle, 'testing');
+    });
+
+    test('joinLiveClass throws AuthFailure on 403 Forbidden error', () async {
+      adapter.errorToThrow = DioException(
+        requestOptions: RequestOptions(path: '/live-classes/class-456/token'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/live-classes/class-456/token'),
+          statusCode: 403,
+          data: {'message': 'Access Denied'},
+        ),
+        type: DioExceptionType.badResponse,
+      );
+
+      expect(
+        () => repository.joinLiveClass(childStudentId: 'child-123', classId: 'class-456'),
+        throwsA(isA<AuthFailure>()),
+      );
+    });
   });
 }
+

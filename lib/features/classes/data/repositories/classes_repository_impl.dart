@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/class_entity.dart';
+import '../../domain/entities/class_join_entity.dart';
 import '../../domain/repositories/classes_repository.dart';
 import '../models/class_dto.dart';
 
@@ -47,9 +48,40 @@ class ClassesRepositoryImpl implements ClassesRepository {
         .map((json) => ClassDto.fromJson(json).toEntity())
         .toList();
   }
+
+  @override
+  Future<ClassJoinEntity> joinLiveClass({
+    required String childStudentId,
+    required String classId,
+  }) async {
+    final response = await apiClient.post<Map<String, dynamic>>(
+      '/live-classes/$classId/token',
+      data: <String, dynamic>{},
+    );
+
+    final body = response.data;
+    final dataField = (body?['data'] as Map<String, dynamic>?) ?? body ?? <String, dynamic>{};
+    final liveClassMap = dataField['liveClass'] as Map<String, dynamic>?;
+    final childMap = dataField['child'] as Map<String, dynamic>?;
+
+    return ClassJoinEntity(
+      token: dataField['token']?.toString() ?? '',
+      roomName: dataField['roomName']?.toString() ?? '',
+      jitsiDomain: dataField['jitsiDomain']?.toString() ?? 'livetl.visital.in',
+      serverUrl: dataField['serverUrl']?.toString() ?? 'https://livetl.visital.in',
+      meetingUrl: dataField['meetingUrl']?.toString() ?? '',
+      isModerator: dataField['isModerator'] == true,
+      expiresAt: (dataField['expiresAt'] is num) ? (dataField['expiresAt'] as num).toInt() : null,
+      childId: dataField['studentId']?.toString() ?? childMap?['id']?.toString() ?? childStudentId,
+      childName: childMap?['name']?.toString(),
+      classId: liveClassMap?['id']?.toString() ?? classId,
+      classTitle: liveClassMap?['title']?.toString() ?? liveClassMap?['classTitle']?.toString(),
+    );
+  }
 }
 
 /// Provider for [ClassesRepository].
 final classesRepositoryProvider = Provider<ClassesRepository>((ref) {
   return ClassesRepositoryImpl(apiClient: ref.watch(apiClientProvider));
 });
+

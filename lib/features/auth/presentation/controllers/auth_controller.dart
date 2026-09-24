@@ -97,6 +97,24 @@ class AuthController extends Notifier<AuthState> {
     );
   }
 
+  /// Updates the cached user profile name and email in the authenticated state.
+  void updateUserProfile({String? name, String? email}) {
+    final current = state;
+    if (current is Authenticated) {
+      final currentUser = current.user;
+      final updatedUser = UserDto(
+        id: currentUser?.id ?? '',
+        name: name ?? currentUser?.name,
+        email: email ?? currentUser?.email,
+        role: currentUser?.role,
+      );
+      state = Authenticated(
+        accessToken: current.accessToken,
+        user: updatedUser,
+      );
+    }
+  }
+
   /// Terminates session and clears persisted tokens.
   Future<void> logout() async {
     await _repository.logout();

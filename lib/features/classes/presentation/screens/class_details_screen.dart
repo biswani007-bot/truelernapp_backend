@@ -631,26 +631,12 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
               ),
             ),
             onPressed: () {
-              if (session.meetingUrl != null && session.meetingUrl!.trim().isNotEmpty) {
-                // If direct meeting URL exists, navigate to supported preview/join flow
-                try {
-                  GoRouter.of(context).push(
-                    '/parent/classes/${widget.classId}/preview',
-                    extra: session,
-                  );
-                } catch (_) {}
-              } else {
-                // Graceful, factual behavior: Parent does not participate in student live classroom
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Live classroom access is available through the student portal during scheduled class time.',
-                    ),
-                    behavior: SnackBarBehavior.floating,
-                    duration: Duration(seconds: 4),
-                  ),
+              try {
+                GoRouter.of(context).push(
+                  '/parent/classes/${widget.classId}/preview',
+                  extra: session,
                 );
-              }
+              } catch (_) {}
             },
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

@@ -4,9 +4,38 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:truelearn/features/classes/domain/entities/class_entity.dart';
 import 'package:truelearn/features/classes/presentation/screens/class_preview_screen.dart';
 
+import 'package:truelearn/features/classes/presentation/services/native_device_preview_service.dart';
+
+class _MockDevicePreviewService implements NativeDevicePreviewService {
+  @override
+  Future<DevicePreviewPermissions> checkPermissions() async {
+    return const DevicePreviewPermissions(cameraGranted: true, microphoneGranted: true);
+  }
+
+  @override
+  Future<DevicePreviewPermissions> requestPermissions() async {
+    return const DevicePreviewPermissions(cameraGranted: true, microphoneGranted: true);
+  }
+
+  @override
+  Future<void> openAppSettings() async {}
+
+  @override
+  Future<void> startCamera() async {}
+
+  @override
+  Future<void> stopCamera() async {}
+
+  @override
+  Future<bool> isFrontCameraAvailable() async => true;
+}
+
 void main() {
   Widget createSubject({ClassEntity? session}) {
     return ProviderScope(
+      overrides: [
+        devicePreviewServiceProvider.overrideWithValue(_MockDevicePreviewService()),
+      ],
       child: MaterialApp(
         home: ClassPreviewScreen(
           classId: session?.id ?? 'preview_1',
@@ -87,8 +116,15 @@ void main() {
     await tester.pump();
     expect(find.text('Camera is Turned Off'), findsNothing);
 
-    // Toggle mic
+    // Toggle mic off
     await tester.tap(find.byKey(const Key('preview_mic_toggle')));
     await tester.pump();
+    expect(find.text('Turned Off'), findsOneWidget); // Mic Device Check shows Turned Off
+
+    // Toggle mic back on
+    await tester.tap(find.byKey(const Key('preview_mic_toggle')));
+    await tester.pump();
+    expect(find.text('Turned Off'), findsNothing);
+    expect(find.text('Ready'), findsOneWidget); // Mic Device Check shows Ready again
   });
 }

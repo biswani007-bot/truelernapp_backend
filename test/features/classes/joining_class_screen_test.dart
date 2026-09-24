@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:truelearn/features/classes/domain/entities/class_entity.dart';
 import 'package:truelearn/features/classes/presentation/screens/joining_class_screen.dart';
@@ -15,10 +16,12 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: JoiningClassScreen(
-          classId: 'session-101',
-          session: mockSession,
+      ProviderScope(
+        child: MaterialApp(
+          home: JoiningClassScreen(
+            classId: 'session-101',
+            session: mockSession,
+          ),
         ),
       ),
     );

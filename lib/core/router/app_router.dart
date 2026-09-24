@@ -11,6 +11,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/onboarding_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/classes/domain/entities/class_entity.dart';
+import '../../features/classes/domain/entities/class_join_entity.dart';
 import '../../features/classes/presentation/screens/class_details_screen.dart';
 import '../../features/classes/presentation/screens/class_preview_screen.dart';
 import '../../features/classes/presentation/screens/class_summary_screen.dart';
@@ -25,6 +26,13 @@ import '../../features/dashboard/presentation/screens/parent_my_child_screen.dar
 import '../../features/dashboard/presentation/screens/parent_security_privacy_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_login_methods_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_login_devices_screen.dart';
+import '../../features/dashboard/presentation/screens/parent_recent_security_activity_screen.dart';
+import '../../features/dashboard/presentation/screens/parent_personal_info_screen.dart';
+import '../../features/dashboard/presentation/screens/parent_privacy_preferences_screen.dart';
+import '../../features/dashboard/presentation/screens/parent_communication_preferences_screen.dart';
+import '../../features/dashboard/presentation/screens/parent_data_privacy_screen.dart';
+import '../../features/dashboard/presentation/screens/parent_privacy_policy_screen.dart';
+import '../../features/dashboard/presentation/screens/parent_terms_conditions_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_invoices_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_invoice_detail_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_payment_successful_screen.dart';
@@ -277,10 +285,21 @@ final routerProvider = Provider<GoRouter>((ref) {
                         parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) {
                           final classId = state.pathParameters['classId'] ?? '';
-                          final session = state.extra is ClassEntity ? state.extra as ClassEntity : null;
+                          ClassEntity? session;
+                          String? childStudentId;
+
+                          if (state.extra is ClassEntity) {
+                            session = state.extra as ClassEntity;
+                          } else if (state.extra is Map<String, dynamic>) {
+                            final map = state.extra as Map<String, dynamic>;
+                            session = map['session'] as ClassEntity?;
+                            childStudentId = map['childStudentId'] as String?;
+                          }
+
                           return JoiningClassScreen(
                             classId: classId,
                             session: session,
+                            childStudentId: childStudentId,
                           );
                         },
                       ),
@@ -290,22 +309,48 @@ final routerProvider = Provider<GoRouter>((ref) {
                         parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) {
                           final classId = state.pathParameters['classId'] ?? '';
-                          final session = state.extra is ClassEntity ? state.extra as ClassEntity : null;
+                          ClassEntity? session;
+                          ClassJoinEntity? joinData;
+
+                          String? childStudentId;
+                          if (state.extra is ClassEntity) {
+                            session = state.extra as ClassEntity;
+                          } else if (state.extra is ClassJoinEntity) {
+                            joinData = state.extra as ClassJoinEntity;
+                          } else if (state.extra is Map<String, dynamic>) {
+                            final map = state.extra as Map<String, dynamic>;
+                            session = map['session'] as ClassEntity?;
+                            joinData = map['joinData'] as ClassJoinEntity?;
+                            childStudentId = map['childStudentId'] as String?;
+                          }
+
                           return LiveClassroomScreen(
                             classId: classId,
                             session: session,
+                            joinData: joinData,
+                            childStudentId: childStudentId,
                           );
                         },
                       ),
                       GoRoute(
                         path: 'summary',
                         name: AppRouteNames.classSummary,
+                        parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) {
                           final classId = state.pathParameters['classId'] ?? '';
-                          final session = state.extra is ClassEntity ? state.extra as ClassEntity : null;
+                          ClassEntity? session;
+                          String? childStudentId;
+                          if (state.extra is ClassEntity) {
+                            session = state.extra as ClassEntity;
+                          } else if (state.extra is Map<String, dynamic>) {
+                            final map = state.extra as Map<String, dynamic>;
+                            session = map['session'] as ClassEntity?;
+                            childStudentId = map['childStudentId'] as String?;
+                          }
                           return ClassSummaryScreen(
                             classId: classId,
                             session: session,
+                            childStudentId: childStudentId,
                           );
                         },
                       ),
@@ -408,6 +453,41 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutePaths.parentLoginDevices,
         name: AppRouteNames.parentLoginDevices,
         builder: (context, state) => const ParentLoginDevicesScreen(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.parentRecentSecurityActivity,
+        name: AppRouteNames.parentRecentSecurityActivity,
+        builder: (context, state) => const ParentRecentSecurityActivityScreen(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.parentPersonalInfo,
+        name: AppRouteNames.parentPersonalInfo,
+        builder: (context, state) => const ParentPersonalInfoScreen(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.parentPrivacyPreferences,
+        name: AppRouteNames.parentPrivacyPreferences,
+        builder: (context, state) => const ParentPrivacyPreferencesScreen(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.parentCommunicationPreferences,
+        name: AppRouteNames.parentCommunicationPreferences,
+        builder: (context, state) => const ParentCommunicationPreferencesScreen(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.parentDataPrivacy,
+        name: AppRouteNames.parentDataPrivacy,
+        builder: (context, state) => const ParentDataPrivacyScreen(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.parentPrivacyPolicy,
+        name: AppRouteNames.parentPrivacyPolicy,
+        builder: (context, state) => const ParentPrivacyPolicyScreen(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.parentTermsConditions,
+        name: AppRouteNames.parentTermsConditions,
+        builder: (context, state) => const ParentTermsConditionsScreen(),
       ),
       GoRoute(
         path: AppRoutePaths.parentMessages,

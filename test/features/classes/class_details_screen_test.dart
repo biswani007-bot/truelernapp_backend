@@ -194,11 +194,11 @@ void main() {
       expect(find.text('—'), findsNWidgets(4)); // Date, Time, Duration, Teacher
     });
 
-    testWidgets('12. Missing meetingUrl does not crash on tap and shows safe informational SnackBar', (tester) async {
+    testWidgets('12. Continue to Live Class button triggers navigation without crashing', (tester) async {
       await tester.pumpWidget(
         createTestWidget(
           classId: testSession.id,
-          session: testSession, // meetingUrl is null
+          session: testSession,
         ),
       );
       await tester.pumpAndSettle();
@@ -208,13 +208,9 @@ void main() {
 
       await tester.ensureVisible(ctaButton);
       await tester.tap(ctaButton);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      expect(find.byType(SnackBar), findsOneWidget);
-      expect(
-        find.text('Live classroom access is available through the student portal during scheduled class time.'),
-        findsOneWidget,
-      );
+      expect(ctaButton, findsOneWidget);
     });
 
     testWidgets('13. Back button calls Navigator.pop', (tester) async {

@@ -1,27 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/route_paths.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../auth/presentation/controllers/auth_state.dart';
+import '../controllers/parent_profile_controller.dart';
+import '../controllers/parent_profile_state.dart';
 
-/// Parent Profile Screen — PURE FRONTEND PRESENTATION ONLY.
+/// Parent Profile Screen.
 ///
 /// Figma Source of Truth: Parent(full app)_TreLern, Frame 76:1711.
 ///
-/// STRICT RULES:
-/// - NO backend calls. NO API fetches. NO ref.watch/listen.
-/// - ALL data is statically from Figma Node 76:1711.
-/// - Name: "PPs Mercer", Email: "alex.mercer@truelern.com"
-/// - Account Overview: My Profile · My Child · Security & Privacy · Invoices
-/// - Delete Account danger row.
-/// - The ParentShellScreen provides the bottom navigation (single navbar).
-///   This screen itself does NOT render any bottom nav.
-class ParentProfileScreen extends StatelessWidget {
+/// Authoritative Parent identity dynamically loaded from:
+/// `GET /api/parent/profile` via [parentProfileControllerProvider].
+class ParentProfileScreen extends ConsumerStatefulWidget {
   const ParentProfileScreen({super.key});
 
-  // ── Figma static data (Node 76:1726 / 76:1728) ────────────────────────────
-  static const _name = 'PPs Mercer';
-  static const _email = 'alex.mercer@truelern.com';
+  @override
+  ConsumerState<ParentProfileScreen> createState() => _ParentProfileScreenState();
+}
 
+class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
   // ── Menu items (Nodes 76:1742 → 76:1773) ────────────────────────────────
   static const _menuItems = [
     _MenuItem(label: 'My Profile', icon: Icons.person_outline_rounded),
@@ -31,7 +31,33 @@ class ParentProfileScreen extends StatelessWidget {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(parentProfileControllerProvider.notifier).loadProfile();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final profileState = ref.watch(parentProfileControllerProvider);
+    final authState = ref.watch(authControllerProvider);
+
+    final String displayName;
+    final String displayEmail;
+    if (profileState is ParentProfileLoaded) {
+      displayName = profileState.profile.fullName;
+      displayEmail = profileState.profile.email;
+    } else if (authState is Authenticated && authState.user != null) {
+      displayName = (authState.user!.name != null && authState.user!.name!.isNotEmpty)
+          ? authState.user!.name!
+          : 'Parent';
+      displayEmail = authState.user!.email ?? '';
+    } else {
+      displayName = 'Parent';
+      displayEmail = '';
+    }
+
     return Scaffold(
       key: const Key('parent_profile_screen'),
       // No AppBar here — the shell screen suppresses its AppBar for this tab
@@ -44,7 +70,7 @@ class ParentProfileScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Hero Header Area (Node 76:1712) ──────────────────────────
-            _buildHeroHeader(context),
+            _buildHeroHeader(context, name: displayName, email: displayEmail),
 
             // ── Main Content Surface (Node 76:1735/76:1736) ──────────────
             _buildContentSurface(context),
@@ -58,7 +84,7 @@ class ParentProfileScreen extends StatelessWidget {
 
   /// Hero Header — dark gradient background (#0F172A → #1E3A8A),
   /// TopAppBar, avatar circle with edit badge, name and email.
-  Widget _buildHeroHeader(BuildContext context) {
+  Widget _buildHeroHeader(BuildContext context, {required String name, required String email}) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 48, 16, 96),
       decoration: const BoxDecoration(
@@ -79,7 +105,7 @@ class ParentProfileScreen extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Avatar + name + email (Node 76:1723/1724)
-          _buildAvatarBlock(),
+          _buildAvatarBlock(name: name, email: email),
         ],
       ),
     );
@@ -116,16 +142,20 @@ class ParentProfileScreen extends StatelessWidget {
           ),
 
           // Edit button — Node 76:1720 (blue bg, pencil icon)
-          Container(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-            decoration: BoxDecoration(
-              color: const Color(0x660037B1), // rgba(0,55,177,0.4)
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.edit_rounded,
-              color: Colors.white,
-              size: 14,
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => GoRouter.of(context).push(AppRoutePaths.parentPersonalInfo),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+              decoration: BoxDecoration(
+                color: const Color(0x660037B1), // rgba(0,55,177,0.4)
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.edit_rounded,
+                color: Colors.white,
+                size: 14,
+              ),
             ),
           ),
         ],
@@ -135,7 +165,7 @@ class ParentProfileScreen extends StatelessWidget {
 
   /// Avatar block: circular photo with white border, blue edit badge,
   /// name below, email below that.
-  Widget _buildAvatarBlock() {
+  Widget _buildAvatarBlock({required String name, required String email}) {
     return Column(
       children: [
         // Avatar container (Node 76:1729/76:1730)
@@ -180,25 +210,29 @@ class ParentProfileScreen extends StatelessWidget {
             Positioned(
               bottom: 0,
               right: 0,
-              child: Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF1E4ED8),
-                  border: Border.all(color: Colors.white, width: 2),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x0D000000),
-                      blurRadius: 1,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.edit_rounded,
-                  color: Colors.white,
-                  size: 13,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: () => GoRouter.of(context).push(AppRoutePaths.parentPersonalInfo),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF1E4ED8),
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0D000000),
+                        blurRadius: 1,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.edit_rounded,
+                    color: Colors.white,
+                    size: 13,
+                  ),
                 ),
               ),
             ),
@@ -207,28 +241,36 @@ class ParentProfileScreen extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // Name — "PPs Mercer" (Node 76:1726) — 24px SemiBold white
+        // Name — Authoritative Parent Name — 24px SemiBold white
         Text(
-          _name,
+          name,
+          key: const Key('profile_parent_name'),
           style: GoogleFonts.hankenGrotesk(
             fontSize: 25.5,
             fontWeight: FontWeight.w600,
             color: Colors.white,
             height: 32 / 24,
           ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
 
         const SizedBox(height: 4),
 
-        // Email (Node 76:1728) — 14px Regular white 80% opacity
+        // Email — Authoritative Parent Email — 14px Regular white 80% opacity
         Text(
-          _email,
+          email,
+          key: const Key('profile_parent_email'),
           style: GoogleFonts.hankenGrotesk(
             fontSize: 15,
             fontWeight: FontWeight.w400,
             color: Colors.white.withValues(alpha: 0.8),
             height: 20 / 14,
           ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
@@ -348,6 +390,9 @@ class ParentProfileScreen extends StatelessWidget {
         } else if (item.label == 'Invoices') {
           // Navigate to Invoices screen
           GoRouter.of(context).push(AppRoutePaths.parentInvoices);
+        } else if (item.label == 'My Profile') {
+          // Navigate to Personal Information screen
+          GoRouter.of(context).push(AppRoutePaths.parentPersonalInfo);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

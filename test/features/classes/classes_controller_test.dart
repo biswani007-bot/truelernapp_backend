@@ -4,6 +4,7 @@ import 'package:truelearn/core/error/failures.dart';
 import 'package:truelearn/core/storage/secure_storage_service.dart';
 import 'package:truelearn/features/classes/data/repositories/classes_repository_impl.dart';
 import 'package:truelearn/features/classes/domain/entities/class_entity.dart';
+import 'package:truelearn/features/classes/domain/entities/class_join_entity.dart';
 import 'package:truelearn/features/classes/domain/repositories/classes_repository.dart';
 import 'package:truelearn/features/classes/presentation/controllers/classes_controller.dart';
 import 'package:truelearn/features/classes/presentation/controllers/classes_state.dart';
@@ -27,6 +28,21 @@ class FakeClassesRepository implements ClassesRepository {
       throw failureToThrow!;
     }
     return classesToReturn ?? [];
+  }
+
+  @override
+  Future<ClassJoinEntity> joinLiveClass({
+    required String childStudentId,
+    required String classId,
+  }) async {
+    return ClassJoinEntity(
+      token: 'fake-token',
+      roomName: 'truelern-$classId',
+      jitsiDomain: 'livetl.visital.in',
+      serverUrl: 'https://livetl.visital.in',
+      meetingUrl: 'https://livetl.visital.in/truelern-$classId?jwt=fake-token',
+      isModerator: false,
+    );
   }
 }
 

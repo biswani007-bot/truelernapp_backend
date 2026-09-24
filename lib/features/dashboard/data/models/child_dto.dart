@@ -11,6 +11,11 @@ class ChildDto {
     this.lastName,
     this.avatar,
     this.grade,
+    this.studentCode,
+    this.gender,
+    this.relationshipType,
+    this.status,
+    this.dateOfBirth,
   });
 
   final String studentId;
@@ -18,6 +23,11 @@ class ChildDto {
   final String? lastName;
   final String? avatar;
   final String? grade;
+  final String? studentCode;
+  final String? gender;
+  final String? relationshipType;
+  final String? status;
+  final String? dateOfBirth;
 
   /// Parses a single child object from the API response.
   ///
@@ -42,6 +52,11 @@ class ChildDto {
       lastName: last,
       avatar: json['avatar'] as String?,
       grade: json['grade'] as String?,
+      studentCode: (json['studentCode'] ?? json['code']) as String?,
+      gender: json['gender'] as String?,
+      relationshipType: json['relationshipType'] as String?,
+      status: json['status'] as String?,
+      dateOfBirth: json['dateOfBirth'] as String?,
     );
   }
 
@@ -52,5 +67,10 @@ class ChildDto {
         lastName: lastName,
         avatar: avatar,
         grade: grade,
+        studentCode: studentCode,
+        gender: gender,
+        relationshipType: relationshipType,
+        status: status,
+        dateOfBirth: dateOfBirth,
       );
 }

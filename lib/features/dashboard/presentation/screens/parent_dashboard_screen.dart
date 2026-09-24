@@ -10,12 +10,14 @@ import '../../domain/entities/dashboard_entity.dart';
 import '../../domain/entities/child_entity.dart';
 import '../widgets/bento_snapshot_grid.dart';
 import '../widgets/child_selector_row.dart';
+import '../widgets/dashboard_skeleton.dart';
 import '../widgets/featured_class_card.dart';
 import '../widgets/my_learning_section.dart';
 import '../controllers/children_controller.dart';
 import '../controllers/children_state.dart';
 import '../controllers/dashboard_controller.dart';
 import '../controllers/dashboard_state.dart';
+import '../controllers/parent_profile_controller.dart';
 import '../../../classes/domain/entities/class_entity.dart';
 import '../../../classes/presentation/controllers/classes_controller.dart';
 
@@ -36,23 +38,6 @@ class ParentDashboardScreen extends ConsumerStatefulWidget {
 
 class _ParentDashboardScreenState
     extends ConsumerState<ParentDashboardScreen> {
-
-  // Initial fallback children only shown during initial cold start before first network response
-  static const _figmaFallbackChildren = [
-    ChildEntity(
-      studentId: 'alex_1',
-      firstName: 'Alex',
-      lastName: '',
-      grade: 'Age 9',
-    ),
-    ChildEntity(
-      studentId: 'mia_2',
-      firstName: 'Mia',
-      lastName: '',
-      grade: 'Age 12',
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -71,6 +56,7 @@ class _ParentDashboardScreenState
         ref.read(dashboardControllerProvider.notifier).loadStudentDashboard();
       } else {
         ref.read(childrenControllerProvider.notifier).loadChildren();
+        ref.read(parentProfileControllerProvider.notifier).loadProfile();
       }
     });
   }
@@ -87,15 +73,16 @@ class _ParentDashboardScreenState
     final isStudent = (role ?? '').toLowerCase() == 'student';
 
     if (isStudent) {
-      await ref.read(dashboardControllerProvider.notifier).loadStudentDashboard(isRefresh: true);
+      await ref.read(dashboardControllerProvider.notifier).loadStudentDashboard();
     } else {
       await ref.read(childrenControllerProvider.notifier).loadChildren(isRefresh: true);
+      ref.read(parentProfileControllerProvider.notifier).loadProfile(refresh: true);
       final childrenState = ref.read(childrenControllerProvider);
       final activeId = childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
       if (activeId != null) {
         await ref.read(dashboardControllerProvider.notifier).loadDashboard(
               childStudentId: activeId,
-              isRefresh: true,
+              isRefresh: false,
             );
       }
     }
@@ -124,23 +111,44 @@ class _ParentDashboardScreenState
     final childrenState = ref.watch(childrenControllerProvider);
     final dashboardState = ref.watch(dashboardControllerProvider);
 
+    // Determine loading states cleanly without parallel state systems
+    final isChildrenLoading = !isStudent &&
+        (childrenState is ChildrenInitial || childrenState is ChildrenLoading);
+
+    final bool isDashboardLoading;
+    if (isStudent) {
+      isDashboardLoading = dashboardState is DashboardInitial || dashboardState is DashboardLoading;
+    } else {
+      if (isChildrenLoading) {
+        isDashboardLoading = true;
+      } else if (childrenState is ChildrenLoaded) {
+        if (childrenState.children.isEmpty) {
+          isDashboardLoading = false;
+        } else if (childrenState.activeChildId != null) {
+          if (dashboardState is DashboardInitial || dashboardState is DashboardLoading) {
+            isDashboardLoading = true;
+          } else if (dashboardState is DashboardLoaded) {
+            // If active child has switched and dashboard has not resolved for the new child
+            isDashboardLoading = dashboardState.childStudentId != childrenState.activeChildId;
+          } else {
+            isDashboardLoading = false;
+          }
+        } else {
+          isDashboardLoading = false;
+        }
+      } else {
+        isDashboardLoading = false;
+      }
+    }
+
     // Resolve active child and child list (only relevant in Parent mode)
     final List<ChildEntity> displayChildren;
     final ChildEntity? activeChild;
 
-    if (!isStudent) {
-      if (childrenState is ChildrenLoaded) {
-        displayChildren = childrenState.children;
-        activeChild = childrenState.activeChild ??
-            (displayChildren.isNotEmpty ? displayChildren.first : null);
-      } else if (childrenState is ChildrenLoading) {
-        // During initial cold load only, display Figma fallback children
-        displayChildren = _figmaFallbackChildren;
-        activeChild = _figmaFallbackChildren.first;
-      } else {
-        displayChildren = const [];
-        activeChild = null;
-      }
+    if (!isStudent && childrenState is ChildrenLoaded) {
+      displayChildren = childrenState.children;
+      activeChild = childrenState.activeChild ??
+          (displayChildren.isNotEmpty ? displayChildren.first : null);
     } else {
       displayChildren = const [];
       activeChild = null;
@@ -222,16 +230,16 @@ class _ParentDashboardScreenState
 
               // Child Selector — Figma Node 76:3579 (Parent only)
               if (!isStudent)
-                ChildSelectorRow(
-                  children: displayChildren,
-                  activeChildId: activeChild?.studentId,
-                  onSelectChild: (childId) {
-                    ref.read(childrenControllerProvider.notifier).setActiveChild(childId);
-                    ref.read(dashboardControllerProvider.notifier).loadDashboard(
-                          childStudentId: childId,
-                        );
-                  },
-                ),
+                if (isChildrenLoading)
+                  const ChildSelectorSkeleton()
+                else if (displayChildren.isNotEmpty)
+                  ChildSelectorRow(
+                    children: displayChildren,
+                    activeChildId: activeChild?.studentId,
+                    onSelectChild: (childId) {
+                      ref.read(childrenControllerProvider.notifier).setActiveChild(childId);
+                    },
+                  ),
 
               // Error banner if children or dashboard encountered an error
               if ((!isStudent && childrenState is ChildrenError) || dashboardState is DashboardError)
@@ -270,62 +278,64 @@ class _ParentDashboardScreenState
                 child: RefreshIndicator(
                   onRefresh: _onRefresh,
                   color: const Color(0xFF1E4ED8),
-                  child: SingleChildScrollView(
-                    key: const Key('dashboard_scroll_view'),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Greeting — Figma Node 76:3511
-                        Text(
-                          greetingText,
-                          style: AppTypography.displayLarge.copyWith(
-                            fontSize: 30,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1A1B23),
-                            letterSpacing: -0.5,
-                            height: 1.28,
+                  child: isDashboardLoading
+                      ? const ParentDashboardSkeleton()
+                      : SingleChildScrollView(
+                          key: const Key('dashboard_scroll_view'),
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Greeting — Figma Node 76:3511
+                              Text(
+                                greetingText,
+                                style: AppTypography.displayLarge.copyWith(
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF1A1B23),
+                                  letterSpacing: -0.5,
+                                  height: 1.28,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Featured Class Card — Figma Node 76:3513
+                              FeaturedClassCard(
+                                upcomingClass: upcomingClass,
+                                onViewClass: () {
+                                  if (activeChild?.studentId != null) {
+                                    ref.read(classesControllerProvider.notifier).loadClasses(
+                                          childStudentId: activeChild!.studentId,
+                                        );
+                                  }
+                                  try {
+                                    context.go('/parent/classes');
+                                  } catch (_) {
+                                    // Fallback for tests outside GoRouter
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 24),
+
+                              // My Learning Section — Figma Node 76:3530
+                              MyLearningSection(
+                                enrolledBatches: dashboard.enrolledBatches,
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Bento Snapshot Grid — Figma Node 76:3646
+                              BentoSnapshotGrid(
+                                dashboard: dashboard,
+                                activeTopic: activeTopic,
+                              ),
+                              const SizedBox(height: 32),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 24),
-
-                        // Featured Class Card — Figma Node 76:3513
-                        FeaturedClassCard(
-                          upcomingClass: upcomingClass,
-                          onViewClass: () {
-                            if (activeChild?.studentId != null) {
-                              ref.read(classesControllerProvider.notifier).loadClasses(
-                                    childStudentId: activeChild!.studentId,
-                                  );
-                            }
-                            try {
-                              context.go('/parent/classes');
-                            } catch (_) {
-                              // Fallback for tests outside GoRouter
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 24),
-
-                        // My Learning Section — Figma Node 76:3530
-                        MyLearningSection(
-                          enrolledBatches: dashboard.enrolledBatches,
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Bento Snapshot Grid — Figma Node 76:3646
-                        BentoSnapshotGrid(
-                          dashboard: dashboard,
-                          activeTopic: activeTopic,
-                        ),
-                        const SizedBox(height: 32),
-                      ],
-                    ),
-                  ),
                 ),
               ),
             ],

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../data/repositories/dashboard_repository_impl.dart';
+import '../../domain/entities/dashboard_entity.dart';
 import '../../domain/repositories/dashboard_repository.dart';
 import 'children_state.dart';
 
@@ -87,3 +88,10 @@ class ChildrenController extends Notifier<ChildrenState> {
 /// Global provider for [ChildrenController].
 final childrenControllerProvider =
     NotifierProvider<ChildrenController, ChildrenState>(ChildrenController.new);
+
+/// Provider for fetching a specific child's dashboard metrics (course, attendance rate).
+final childDashboardMetricsProvider =
+    FutureProvider.family<DashboardEntity, String>((ref, studentId) async {
+  final repo = ref.watch(dashboardRepositoryProvider);
+  return repo.getChildDashboard(childStudentId: studentId);
+});

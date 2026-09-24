@@ -117,7 +117,9 @@ class _ParentSecurityPrivacyScreenState
                           title: 'Recent Security Activity',
                           subtitle: 'View login history',
                           showDivider: false,
-                          onTap: () {},
+                          onTap: () {
+                            context.push(AppRoutePaths.parentRecentSecurityActivity);
+                          },
                         ),
                       ]),
 
@@ -132,28 +134,36 @@ class _ParentSecurityPrivacyScreenState
                           title: 'Personal Information',
                           subtitle: 'Name, Email, WhatsApp',
                           showDivider: true,
-                          onTap: () {},
+                          onTap: () {
+                            context.push(AppRoutePaths.parentPersonalInfo);
+                          },
                         ),
                         _buildSettingRow(
                           iconPath: _svgPrivacyPref,
                           title: 'Privacy Preferences',
                           subtitle: 'Data sharing & visibility',
                           showDivider: true,
-                          onTap: () {},
+                          onTap: () {
+                            context.push(AppRoutePaths.parentPrivacyPreferences);
+                          },
                         ),
                         _buildSettingRow(
                           iconPath: _svgCommPref,
                           title: 'Communication Preferences',
                           subtitle: 'Notifications & alerts',
                           showDivider: true,
-                          onTap: () {},
+                          onTap: () {
+                            context.push(AppRoutePaths.parentCommunicationPreferences);
+                          },
                         ),
                         _buildSettingRow(
                           iconPath: _svgDataPrivacy,
                           title: 'Data & Privacy',
                           subtitle: 'Download data or delete account',
                           showDivider: false,
-                          onTap: () {},
+                          onTap: () {
+                            context.push(AppRoutePaths.parentDataPrivacy);
+                          },
                         ),
                       ]),
 
@@ -166,14 +176,18 @@ class _ParentSecurityPrivacyScreenState
                           title: 'Privacy Policy',
                           subtitle: null,
                           showDivider: true,
-                          onTap: () {},
+                          onTap: () {
+                            context.push(AppRoutePaths.parentPrivacyPolicy);
+                          },
                         ),
                         _buildSettingRow(
                           iconPath: _svgTerms,
                           title: 'Terms & Conditions',
                           subtitle: null,
                           showDivider: false,
-                          onTap: () {},
+                          onTap: () {
+                            context.push(AppRoutePaths.parentTermsConditions);
+                          },
                         ),
                       ]),
 

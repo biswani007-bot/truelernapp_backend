@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,20 +17,27 @@ import 'package:truelearn/features/dashboard/domain/repositories/dashboard_repos
 import 'package:truelearn/features/dashboard/presentation/screens/parent_dashboard_screen.dart';
 import 'package:truelearn/features/dashboard/presentation/widgets/bento_snapshot_grid.dart';
 import 'package:truelearn/features/dashboard/presentation/widgets/child_selector_row.dart';
+import 'package:truelearn/features/dashboard/presentation/widgets/dashboard_skeleton.dart';
 import 'package:truelearn/features/dashboard/presentation/widgets/featured_class_card.dart';
 import 'package:truelearn/features/dashboard/presentation/widgets/my_learning_section.dart';
 
 class FakeDashboardRepository implements DashboardRepository {
   List<ChildEntity> children = [];
   DashboardEntity? dashboard;
+  Map<String, DashboardEntity>? childDashboards;
   Failure? failure;
   int childrenCallCount = 0;
   int dashboardCallCount = 0;
+  Completer<List<ChildEntity>>? childrenCompleter;
+  Completer<DashboardEntity>? dashboardCompleter;
 
   @override
   Future<List<ChildEntity>> getLinkedChildren() async {
     childrenCallCount++;
     if (failure != null) throw failure!;
+    if (childrenCompleter != null) {
+      return childrenCompleter!.future;
+    }
     return children;
   }
 
@@ -37,6 +45,12 @@ class FakeDashboardRepository implements DashboardRepository {
   Future<DashboardEntity> getChildDashboard({required String childStudentId}) async {
     dashboardCallCount++;
     if (failure != null) throw failure!;
+    if (dashboardCompleter != null) {
+      return dashboardCompleter!.future;
+    }
+    if (childDashboards != null && childDashboards!.containsKey(childStudentId)) {
+      return childDashboards![childStudentId]!;
+    }
     return dashboard ??
         const DashboardEntity(
           attendanceRate: 100.0,
@@ -378,6 +392,209 @@ void main() {
     expect(find.text('Today Foundation Session'), findsOneWidget);
     expect(find.textContaining('Elizabeth Vance'), findsOneWidget);
     expect(find.text('Join Class'), findsOneWidget);
+  });
+
+  group('Parent Dashboard Skeleton Loading State Tests (Scenarios A-G)', () {
+    testWidgets('A. Initial dashboard loading: skeleton visible, no child name, no stale dashboard data', (tester) async {
+      fakeRepo.childrenCompleter = Completer<List<ChildEntity>>();
+
+      await tester.pumpWidget(createTestWidget());
+      await tester.pump();
+
+      // Child selector skeleton must be visible
+      expect(find.byType(ChildSelectorSkeleton), findsOneWidget);
+      expect(find.byType(ChildSelectorRow), findsNothing);
+
+      // Dashboard skeleton must be visible
+      expect(find.byType(ParentDashboardSkeleton), findsOneWidget);
+
+      // No child name visible
+      expect(find.text('Sarah'), findsNothing);
+      expect(find.text('Alex'), findsNothing);
+      expect(find.text("Hi, Sarah! Let's go on today's adventure!"), findsNothing);
+      expect(find.text("Hi, Alex! Let's go on today's adventure!"), findsNothing);
+
+      // No stale dashboard cards or metrics visible
+      expect(find.text("TODAY'S CLASS"), findsNothing);
+      expect(find.text('My Learning'), findsNothing);
+      expect(find.text('Attendance'), findsNothing);
+    });
+
+    testWidgets('B. Children loading -> dashboard loading: skeleton remains until active child dashboard ready', (tester) async {
+      fakeRepo.childrenCompleter = Completer<List<ChildEntity>>();
+      fakeRepo.dashboardCompleter = Completer<DashboardEntity>();
+
+      await tester.pumpWidget(createTestWidget());
+      await tester.pump();
+
+      // Phase 1: Children loading
+      expect(find.byType(ChildSelectorSkeleton), findsOneWidget);
+      expect(find.byType(ParentDashboardSkeleton), findsOneWidget);
+
+      // Resolve children API
+      fakeRepo.childrenCompleter!.complete([
+        const ChildEntity(studentId: 'child_1', firstName: 'Sarah', lastName: 'Connor', grade: 'Grade 4'),
+        const ChildEntity(studentId: 'child_2', firstName: 'Alex', lastName: 'Mercer', grade: 'Grade 3'),
+      ]);
+      await tester.pump();
+      await tester.pump();
+
+      // Phase 2: Children resolved, active child set, but dashboard API still unresolved
+      expect(find.byType(ChildSelectorSkeleton), findsNothing);
+      expect(find.byType(ChildSelectorRow), findsOneWidget);
+      expect(find.text('Sarah'), findsOneWidget);
+
+      // Dashboard skeleton MUST still be visible because child dashboard is still loading
+      expect(find.byType(ParentDashboardSkeleton), findsOneWidget);
+      expect(find.text("TODAY'S CLASS"), findsNothing);
+      expect(find.text('Junior Foundation first class'), findsNothing);
+    });
+
+    testWidgets('C. Successful load: skeleton disappears, correct real child appears, real dashboard appears', (tester) async {
+      fakeRepo.childrenCompleter = Completer<List<ChildEntity>>();
+      fakeRepo.dashboardCompleter = Completer<DashboardEntity>();
+
+      await tester.pumpWidget(createTestWidget());
+      await tester.pump();
+
+      // Complete children
+      fakeRepo.childrenCompleter!.complete([
+        const ChildEntity(studentId: 'child_1', firstName: 'Sarah', lastName: 'Connor', grade: 'Grade 4'),
+      ]);
+      await tester.pump();
+
+      // Complete dashboard
+      fakeRepo.dashboardCompleter!.complete(fakeRepo.dashboard);
+      await tester.pumpAndSettle();
+
+      // Skeleton disappeared completely
+      expect(find.byType(ChildSelectorSkeleton), findsNothing);
+      expect(find.byType(ParentDashboardSkeleton), findsNothing);
+
+      // Real active child & greeting
+      expect(find.text('Sarah'), findsOneWidget);
+      expect(find.text("Hi, Sarah! Let's go on today's adventure!"), findsOneWidget);
+
+      // Real dashboard data
+      expect(find.text("TODAY'S CLASS"), findsOneWidget);
+      expect(find.text('Junior Foundation first class'), findsOneWidget);
+      expect(find.text('Batch 1 — Junior Foundation, Ages 6 to 10'), findsOneWidget);
+    });
+
+    testWidgets('D. Child switching: old child data does not bleed, skeleton appears immediately, new child data renders after API', (tester) async {
+      final sarahDashboard = const DashboardEntity(
+        attendanceRate: 100.0,
+        upcomingClassesCount: 1,
+        featuredClass: ClassEntity(
+          id: 'sarah_cls',
+          title: 'Sarah Class Title',
+          subject: 'Math',
+          teacherName: 'Teacher A',
+          status: 'UPCOMING',
+        ),
+      );
+
+      final alexDashboard = const DashboardEntity(
+        attendanceRate: 85.0,
+        upcomingClassesCount: 2,
+        featuredClass: ClassEntity(
+          id: 'alex_cls',
+          title: 'Alex Class Title',
+          subject: 'Science',
+          teacherName: 'Teacher B',
+          status: 'UPCOMING',
+        ),
+      );
+
+      fakeRepo.childDashboards = {
+        'child_1': sarahDashboard,
+        'child_2': alexDashboard,
+      };
+
+      await tester.pumpWidget(createTestWidget());
+      await tester.pumpAndSettle();
+
+      // Initially Sarah dashboard loaded
+      expect(find.text('Sarah Class Title'), findsOneWidget);
+      expect(find.text("Hi, Sarah! Let's go on today's adventure!"), findsOneWidget);
+
+      // Set completer for Alex switch
+      fakeRepo.dashboardCompleter = Completer<DashboardEntity>();
+
+      // Tap on Alex
+      await tester.tap(find.text('Alex'));
+      await tester.pump();
+
+      // Active child is now Alex in child selector
+      // Dashboard MUST immediately enter skeleton state — old Sarah data must NOT appear under Alex
+      expect(find.byType(ParentDashboardSkeleton), findsOneWidget);
+      expect(find.text('Sarah Class Title'), findsNothing);
+      expect(find.text('Alex Class Title'), findsNothing);
+
+      // Now complete Alex dashboard
+      fakeRepo.dashboardCompleter!.complete(alexDashboard);
+      await tester.pumpAndSettle();
+
+      // Skeleton gone, Alex real data visible
+      expect(find.byType(ParentDashboardSkeleton), findsNothing);
+      expect(find.text("Hi, Alex! Let's go on today's adventure!"), findsOneWidget);
+      expect(find.text('Alex Class Title'), findsOneWidget);
+      expect(find.text('Sarah Class Title'), findsNothing);
+    });
+
+    testWidgets('E. Pull-to-refresh: active child remains unchanged, refreshed data appears after API completion', (tester) async {
+      await tester.pumpWidget(createTestWidget());
+      await tester.pumpAndSettle();
+
+      // Switch to Alex
+      await tester.tap(find.text('Alex'));
+      await tester.pumpAndSettle();
+      expect(find.text("Hi, Alex! Let's go on today's adventure!"), findsOneWidget);
+
+      // Trigger refresh
+      await tester.fling(find.byKey(const Key('dashboard_scroll_view')), const Offset(0, 300), 1000);
+      await tester.pumpAndSettle();
+
+      // Active child MUST still be Alex
+      expect(find.text("Hi, Alex! Let's go on today's adventure!"), findsOneWidget);
+      expect(await fakeStorage.getActiveChildId(), 'child_2');
+      expect(find.byType(ParentDashboardSkeleton), findsNothing);
+    });
+
+    testWidgets('F. API error: skeleton stops, error banner and retry UI appear', (tester) async {
+      fakeRepo.failure = const ServerFailure('Connection timed out');
+
+      await tester.pumpWidget(createTestWidget());
+      await tester.pumpAndSettle();
+
+      // Skeleton must NOT remain indefinitely
+      expect(find.byType(ParentDashboardSkeleton), findsNothing);
+
+      // Error banner with message and retry button must be shown
+      expect(find.text('Connection timed out'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+    });
+
+    testWidgets('G. Empty API response: skeleton disappears, empty state shown, not skeleton', (tester) async {
+      fakeRepo.dashboard = const DashboardEntity(
+        attendanceRate: 0.0,
+        upcomingClassesCount: 0,
+        pendingAssignmentsCount: 0,
+        totalBalanceDue: 0.0,
+        featuredClass: null,
+        enrolledBatches: [],
+      );
+
+      await tester.pumpWidget(createTestWidget());
+      await tester.pumpAndSettle();
+
+      // Skeleton must NOT remain indefinitely
+      expect(find.byType(ParentDashboardSkeleton), findsNothing);
+
+      // Genuine empty state for Today's class and My Learning
+      expect(find.text('No live class today'), findsOneWidget);
+      expect(find.text('No enrolled courses'), findsOneWidget);
+    });
   });
 }
 

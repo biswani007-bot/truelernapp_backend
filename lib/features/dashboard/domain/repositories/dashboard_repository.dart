@@ -1,3 +1,4 @@
+import '../../data/models/add_child_request_dto.dart';
 import '../entities/child_entity.dart';
 import '../entities/dashboard_entity.dart';
 
@@ -20,4 +21,12 @@ abstract class DashboardRepository {
   /// Auth: Bearer token (injected by AuthInterceptor)
   /// Throws: [Failure] subtypes on network/server errors.
   Future<DashboardEntity> getChildDashboard({required String childStudentId});
+}
+
+/// Abstract contract for linking a new child to a parent account.
+///
+/// Endpoint: POST /api/parent/children
+abstract class AddChildRepository {
+  /// Adds and links a new child to the authenticated parent account.
+  Future<ChildEntity> addChild(AddChildRequestDto request);
 }
