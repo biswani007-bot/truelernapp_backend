@@ -888,10 +888,7 @@ class _ParentAccountSettingsScreenState
               backgroundColor: const Color(0xFFBA1A1A),
               foregroundColor: Colors.white,
             ),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context.go(AppRoutePaths.login);
-            },
+            onPressed: () => _performSignOut(ctx),
             child: Text(
               'Sign Out',
               style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600),
@@ -900,6 +897,37 @@ class _ParentAccountSettingsScreenState
         ],
       ),
     );
+  }
+
+  /// Executes the complete logout flow:
+  /// 1. Dismisses dialog
+  /// 2. Calls AuthController.logout() → clears tokens + sets Unauthenticated
+  /// 3. Resets parent profile + children cached state
+  /// 4. Navigates to /login (GoRouter redirect guard handles back-stack clearing)
+  ///
+  /// On failure: session is still cleared locally to prevent broken state.
+  Future<void> _performSignOut(BuildContext dialogContext) async {
+    // Dismiss confirmation dialog first
+    if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+
+    try {
+      // 1. Full session teardown: clears access/refresh tokens + activeChildId from secure storage
+      //    and transitions AuthController state → Unauthenticated.
+      await ref.read(authControllerProvider.notifier).logout();
+    } catch (_) {
+      // If logout API call fails (network error etc.), state is still set to
+      // Unauthenticated inside AuthController.logout(), so we proceed safely.
+    }
+
+    // 2. Reset cached parent/child data so next login gets a clean state.
+    ref.read(parentProfileControllerProvider.notifier).reset();
+
+    // 3. Navigate to /login and clear the entire navigation stack.
+    //    GoRouter's redirect guard (Unauthenticated → /login) also protects
+    //    against Back returning to authenticated routes.
+    if (mounted) {
+      context.go(AppRoutePaths.login);
+    }
   }
 
   void _showDeleteAccountDialog(BuildContext context) {

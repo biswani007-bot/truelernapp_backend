@@ -37,11 +37,13 @@ class _ParentMyChildScreenState extends ConsumerState<ParentMyChildScreen> {
   @override
   void initState() {
     super.initState();
+    // Always force a fresh fetch every time this screen opens.
+    // The ChildrenInitial guard was causing stale/cached data (e.g. only 2
+    // children) to persist when the provider was already ChildrenLoaded from
+    // a prior navigation. Using isRefresh: true keeps the existing list
+    // visible during the reload instead of blanking the screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final state = ref.read(childrenControllerProvider);
-      if (state is ChildrenInitial) {
-        ref.read(childrenControllerProvider.notifier).loadChildren();
-      }
+      ref.read(childrenControllerProvider.notifier).loadChildren(isRefresh: true);
     });
   }
 
@@ -337,7 +339,7 @@ class _ParentMyChildScreenState extends ConsumerState<ParentMyChildScreen> {
         children: [
           for (int i = 0; i < children.length; i++) ...[
             _ChildCardItem(
-              key: ValueKey(children[i].studentId),
+              key: Key('my_child_card_${children[i].studentId}'),
               child: children[i],
               index: i,
               isActive: children[i].studentId == state.activeChildId,
@@ -809,6 +811,7 @@ class _ChildCardItem extends ConsumerWidget {
             width: double.infinity,
             height: 44,
             child: ElevatedButton(
+              key: Key('view_child_button_${child.studentId}'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1E4ED8),
                 foregroundColor: Colors.white,

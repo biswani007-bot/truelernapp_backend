@@ -616,6 +616,7 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                           onLogout?.call();
                         } else {
                           await ref.read(authControllerProvider.notifier).logout();
+                          ref.read(parentProfileControllerProvider.notifier).reset();
                           if (context.mounted) {
                             context.go(AppRoutePaths.login);
                           }
