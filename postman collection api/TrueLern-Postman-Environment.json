@@ -1,0 +1,152 @@
+{
+  "id": "truelern-local-env",
+  "name": "TrueLern Local",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3030",
+      "enabled": true
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "parentId",
+      "value": "670100000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "studentId",
+      "value": "670200000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "studentAId",
+      "value": "670200000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "studentBId",
+      "value": "670200000000000000000002",
+      "enabled": true
+    },
+    {
+      "key": "teacherId",
+      "value": "670300000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "adminId",
+      "value": "670400000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "courseId",
+      "value": "670500000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "batchId",
+      "value": "670600000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "enrollmentId",
+      "value": "670700000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "demoAvailabilityId",
+      "value": "670800000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "demoSessionId",
+      "value": "670900000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "liveClassId",
+      "value": "670a00000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "assignmentId",
+      "value": "670b00000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "submissionId",
+      "value": "670c00000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "assessmentId",
+      "value": "670d00000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "invoiceId",
+      "value": "670e00000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "receiptId",
+      "value": "670f00000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "certificateId",
+      "value": "671000000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "messageThreadId",
+      "value": "671100000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "studentToken",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "id",
+      "value": "670100000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "slug",
+      "value": "future-ready-builders",
+      "enabled": true
+    },
+    {
+      "key": "filename",
+      "value": "test-sample.pdf",
+      "enabled": true
+    },
+    {
+      "key": "docId",
+      "value": "671200000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "topicId",
+      "value": "671300000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "messageId",
+      "value": "671400000000000000000001",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

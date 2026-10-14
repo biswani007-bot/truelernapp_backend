@@ -8,6 +8,7 @@ class EnrolledBatchEntity {
     this.batchCode,
     this.courseName,
     this.instructor,
+    this.progressPercentage,
   });
 
   final String id;
@@ -15,6 +16,25 @@ class EnrolledBatchEntity {
   final String? batchCode;
   final String? courseName;
   final String? instructor;
+  final double? progressPercentage;
+
+  EnrolledBatchEntity copyWith({
+    String? id,
+    String? batchName,
+    String? batchCode,
+    String? courseName,
+    String? instructor,
+    double? progressPercentage,
+  }) {
+    return EnrolledBatchEntity(
+      id: id ?? this.id,
+      batchName: batchName ?? this.batchName,
+      batchCode: batchCode ?? this.batchCode,
+      courseName: courseName ?? this.courseName,
+      instructor: instructor ?? this.instructor,
+      progressPercentage: progressPercentage ?? this.progressPercentage,
+    );
+  }
 }
 
 /// Domain entity for Parent Dashboard summary metrics.
@@ -31,6 +51,7 @@ class DashboardEntity {
     this.activeTopic,
     this.featuredClass,
     this.enrolledBatches = const [],
+    this.overallProgress,
   });
 
   /// Name of the student (for student-mode greeting). Null for generic parent view.
@@ -57,6 +78,9 @@ class DashboardEntity {
   /// List of batches the child is actively enrolled in.
   final List<EnrolledBatchEntity> enrolledBatches;
 
+  /// Overall completion percentage (0.0–100.0). Null if not available.
+  final double? overallProgress;
+
   /// Returns true if the entity has at least one non-null metric.
   bool get hasData =>
       attendanceRate != null ||
@@ -64,6 +88,7 @@ class DashboardEntity {
       pendingAssignmentsCount != null ||
       totalBalanceDue != null ||
       featuredClass != null ||
+      overallProgress != null ||
       enrolledBatches.isNotEmpty;
 
   DashboardEntity copyWith({
@@ -76,16 +101,21 @@ class DashboardEntity {
     ClassEntity? featuredClass,
     bool clearFeaturedClass = false,
     List<EnrolledBatchEntity>? enrolledBatches,
+    double? overallProgress,
   }) {
     return DashboardEntity(
       studentName: studentName ?? this.studentName,
       attendanceRate: attendanceRate ?? this.attendanceRate,
       upcomingClassesCount: upcomingClassesCount ?? this.upcomingClassesCount,
-      pendingAssignmentsCount: pendingAssignmentsCount ?? this.pendingAssignmentsCount,
+      pendingAssignmentsCount:
+          pendingAssignmentsCount ?? this.pendingAssignmentsCount,
       totalBalanceDue: totalBalanceDue ?? this.totalBalanceDue,
       activeTopic: activeTopic ?? this.activeTopic,
-      featuredClass: clearFeaturedClass ? null : (featuredClass ?? this.featuredClass),
+      featuredClass: clearFeaturedClass
+          ? null
+          : (featuredClass ?? this.featuredClass),
       enrolledBatches: enrolledBatches ?? this.enrolledBatches,
+      overallProgress: overallProgress ?? this.overallProgress,
     );
   }
 }

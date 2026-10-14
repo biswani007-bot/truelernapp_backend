@@ -4,12 +4,11 @@ import 'package:truelearn/features/dashboard/presentation/screens/demo_booking_d
 
 void main() {
   group('DemoBookingDashboardScreen Tests', () {
-    testWidgets('renders all Figma elements: hero, slots, benefits, footer',
-        (WidgetTester tester) async {
+    testWidgets('renders all Figma elements: hero, slots, benefits, footer', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: DemoBookingDashboardScreen(),
-        ),
+        const MaterialApp(home: DemoBookingDashboardScreen()),
       );
       await tester.pump();
 

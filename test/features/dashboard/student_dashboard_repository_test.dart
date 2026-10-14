@@ -66,16 +66,9 @@ void main() {
           'id': 'cls_1',
           'classTitle': 'Junior Foundation first class',
           'status': 'scheduled',
-          'teacher': {
-            'firstName': 'Elizabeth',
-            'lastName': 'Vance',
-          },
-          'batch': {
-            'name': 'Batch 1 — Junior Foundation, Ages 6 to 10',
-          },
-          'course': {
-            'title': 'Junior Foundation',
-          },
+          'teacher': {'firstName': 'Elizabeth', 'lastName': 'Vance'},
+          'batch': {'name': 'Batch 1 — Junior Foundation, Ages 6 to 10'},
+          'course': {'title': 'Junior Foundation'},
           'startDate': '2026-09-30T04:30:00.000Z',
           'endDate': '2026-09-30T08:30:00.000Z',
         },
@@ -88,10 +81,7 @@ void main() {
 
       fakeClient.attendanceResponse = {
         'attendancePercentage': 75.5,
-        'student': {
-          'firstName': 'Alex',
-          'lastName': 'Mercer',
-        },
+        'student': {'firstName': 'Alex', 'lastName': 'Mercer'},
       };
 
       final dashboard = await repository.getStudentDashboard();
@@ -102,7 +92,10 @@ void main() {
       expect(dashboard.featuredClass?.title, 'Junior Foundation first class');
       expect(dashboard.featuredClass?.teacherName, 'Elizabeth Vance');
       expect(dashboard.upcomingClassesCount, 1);
-      expect(dashboard.enrolledBatches.map((b) => b.batchName), contains('Batch 1 — Junior Foundation, Ages 6 to 10'));
+      expect(
+        dashboard.enrolledBatches.map((b) => b.batchName),
+        contains('Batch 1 — Junior Foundation, Ages 6 to 10'),
+      );
     });
 
     test('handles empty responses and null values without crashing', () async {
@@ -120,34 +113,44 @@ void main() {
       expect(dashboard.enrolledBatches, isEmpty);
     });
 
-    test('resilient when attendance or assignments API fails partially', () async {
-      fakeClient.liveClassesResponse = [
-        {
-          'id': 'cls_1',
-          'classTitle': 'Intro Class',
-          'teacher': 'Sarah Teacher',
-        }
-      ];
-      fakeClient.assignmentsError = const ServerFailure('Assignments timeout');
-      fakeClient.attendanceError = const ServerFailure('Attendance 500 error');
+    test(
+      'resilient when attendance or assignments API fails partially',
+      () async {
+        fakeClient.liveClassesResponse = [
+          {
+            'id': 'cls_1',
+            'classTitle': 'Intro Class',
+            'teacher': 'Sarah Teacher',
+          },
+        ];
+        fakeClient.assignmentsError = const ServerFailure(
+          'Assignments timeout',
+        );
+        fakeClient.attendanceError = const ServerFailure(
+          'Attendance 500 error',
+        );
 
-      final dashboard = await repository.getStudentDashboard();
+        final dashboard = await repository.getStudentDashboard();
 
-      expect(dashboard.featuredClass?.title, 'Intro Class');
-      expect(dashboard.featuredClass?.teacherName, 'Sarah Teacher');
-      expect(dashboard.attendanceRate, null);
-      expect(dashboard.pendingAssignmentsCount, null);
-    });
+        expect(dashboard.featuredClass?.title, 'Intro Class');
+        expect(dashboard.featuredClass?.teacherName, 'Sarah Teacher');
+        expect(dashboard.attendanceRate, null);
+        expect(dashboard.pendingAssignmentsCount, null);
+      },
+    );
 
-    test('throws ServerFailure when all requests fail with failure exception', () async {
-      fakeClient.liveClassesError = const ServerFailure('Network down');
-      fakeClient.assignmentsError = const ServerFailure('Network down');
-      fakeClient.attendanceError = const ServerFailure('Network down');
+    test(
+      'throws ServerFailure when all requests fail with failure exception',
+      () async {
+        fakeClient.liveClassesError = const ServerFailure('Network down');
+        fakeClient.assignmentsError = const ServerFailure('Network down');
+        fakeClient.attendanceError = const ServerFailure('Network down');
 
-      expect(
-        () => repository.getStudentDashboard(),
-        throwsA(isA<ServerFailure>()),
-      );
-    });
+        expect(
+          () => repository.getStudentDashboard(),
+          throwsA(isA<ServerFailure>()),
+        );
+      },
+    );
   });
 }

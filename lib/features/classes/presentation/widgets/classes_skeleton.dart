@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 
 /// Shimmer skeleton loading placeholder for the Classes schedule (SCR-13).
@@ -24,16 +25,22 @@ class _ClassesSkeletonState extends State<ClassesSkeleton>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    final isTesting = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding') ||
-        WidgetsBinding.instance.runtimeType.toString().contains('AutomatedTestWidgetsFlutterBinding');
+    final isTesting =
+        WidgetsBinding.instance.runtimeType.toString().contains(
+          'TestWidgetsFlutterBinding',
+        ) ||
+        WidgetsBinding.instance.runtimeType.toString().contains(
+          'AutomatedTestWidgetsFlutterBinding',
+        );
     if (!isTesting) {
       _controller.repeat(reverse: true);
     } else {
       _controller.value = 0.5;
     }
-    _animation = Tween<double>(begin: 0.3, end: 0.9).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0.3,
+      end: 0.9,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override

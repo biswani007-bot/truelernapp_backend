@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/error/failures.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../classes/domain/entities/class_entity.dart';
@@ -35,8 +36,14 @@ class StudentDashboardRepositoryImpl implements StudentDashboardRepository {
     if (liveClassesResult.error != null &&
         assignmentsResult.error != null &&
         attendanceResult.error != null) {
-      throw const ServerFailure('Failed to load student dashboard data from backend');
+      throw const ServerFailure(
+        'Failed to load student dashboard data from backend',
+      );
     }
+
+    final studentProgress = liveClassesResult.enrolledBatches.isNotEmpty
+        ? liveClassesResult.enrolledBatches.first.progressPercentage
+        : null;
 
     return DashboardEntity(
       studentName: attendanceResult.studentName,
@@ -44,13 +51,33 @@ class StudentDashboardRepositoryImpl implements StudentDashboardRepository {
       upcomingClassesCount: liveClassesResult.upcomingClassesCount,
       pendingAssignmentsCount: assignmentsResult.pendingCount,
       totalBalanceDue: 0.0,
-      activeTopic: liveClassesResult.featuredClass?.title ??
+      activeTopic:
+          liveClassesResult.featuredClass?.title ??
           (liveClassesResult.enrolledBatches.isNotEmpty
               ? liveClassesResult.enrolledBatches.first.batchName
               : null),
       featuredClass: liveClassesResult.featuredClass,
       enrolledBatches: liveClassesResult.enrolledBatches,
+      overallProgress: studentProgress,
     );
+  }
+
+  Future<double?> _fetchStudentCourseProgressSafe(String courseId) async {
+    try {
+      final response = await apiClient.get<Map<String, dynamic>>(
+        '/student/courses/$courseId/progress',
+      );
+      final body = response.data;
+      if (body != null && body['data'] is Map<String, dynamic>) {
+        final data = body['data'] as Map<String, dynamic>;
+        final rawVal = data['progress'];
+        if (rawVal is num) return rawVal.toDouble();
+        if (rawVal is String) return double.tryParse(rawVal);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Fetches and parses GET /api/live-classes
@@ -64,23 +91,27 @@ class StudentDashboardRepositoryImpl implements StudentDashboardRepository {
       if (dataField is! List) return const _LiveClassesResult();
 
       final classesList = dataField.whereType<Map<String, dynamic>>().toList();
-      if (classesList.isEmpty) return const _LiveClassesResult(upcomingClassesCount: 0);
+      if (classesList.isEmpty) {
+        return const _LiveClassesResult(upcomingClassesCount: 0);
+      }
 
       // Extract unique enrolled batches from live class records
       final Map<String, EnrolledBatchEntity> uniqueBatches = {};
       for (final item in classesList) {
         final batchObj = item['batch'];
         if (batchObj is Map<String, dynamic>) {
-          final batchId = (batchObj['_id'] ??
-                  batchObj['id'] ??
-                  batchObj['batchName'] ??
-                  batchObj['name'] ??
-                  '')
-              .toString();
+          final batchId =
+              (batchObj['_id'] ??
+                      batchObj['id'] ??
+                      batchObj['batchName'] ??
+                      batchObj['name'] ??
+                      '')
+                  .toString();
           if (batchId.isNotEmpty && !uniqueBatches.containsKey(batchId)) {
             final courseObj = item['course'];
             final courseName = courseObj is Map<String, dynamic>
-                ? (courseObj['courseName'] ?? courseObj['name'] ?? '').toString()
+                ? (courseObj['courseName'] ?? courseObj['name'] ?? '')
+                      .toString()
                 : null;
 
             final teacherObj = item['teacher'];
@@ -89,17 +120,29 @@ class StudentDashboardRepositoryImpl implements StudentDashboardRepository {
               final first = teacherObj['firstName'] as String? ?? '';
               final last = teacherObj['lastName'] as String? ?? '';
               final full = '$first $last'.trim();
-              instructor = full.isNotEmpty ? full : teacherObj['name'] as String?;
+              instructor = full.isNotEmpty
+                  ? full
+                  : teacherObj['name'] as String?;
             } else if (teacherObj is String) {
               instructor = teacherObj;
             }
 
+            final courseId = courseObj is Map<String, dynamic>
+                ? (courseObj['_id'] ?? courseObj['id'])?.toString()
+                : (courseObj is String ? courseObj : null);
+            double? courseProgress;
+            if (courseId != null && courseId.isNotEmpty) {
+              courseProgress = await _fetchStudentCourseProgressSafe(courseId);
+            }
+
             uniqueBatches[batchId] = EnrolledBatchEntity(
               id: batchId,
-              batchName: (batchObj['batchName'] ?? batchObj['name'] ?? 'Batch').toString(),
+              batchName: (batchObj['batchName'] ?? batchObj['name'] ?? 'Batch')
+                  .toString(),
               batchCode: batchObj['batchCode']?.toString(),
               courseName: courseName,
               instructor: instructor,
+              progressPercentage: courseProgress,
             );
           }
         }
@@ -112,11 +155,16 @@ class StudentDashboardRepositoryImpl implements StudentDashboardRepository {
 
       for (final item in classesList) {
         final classId = (item['_id'] ?? item['id'] ?? '').toString();
-        final title = (item['classTitle'] ?? item['title'] ?? 'Live Session').toString();
+        final title = (item['classTitle'] ?? item['title'] ?? 'Live Session')
+            .toString();
         final startDateStr = item['startDate'] as String?;
         final endDateStr = item['endDate'] as String?;
-        final startTime = startDateStr != null ? DateTime.tryParse(startDateStr) : null;
-        final endTime = endDateStr != null ? DateTime.tryParse(endDateStr) : null;
+        final startTime = startDateStr != null
+            ? DateTime.tryParse(startDateStr)
+            : null;
+        final endTime = endDateStr != null
+            ? DateTime.tryParse(endDateStr)
+            : null;
         final status = (item['status'] ?? 'scheduled').toString();
 
         final teacherObj = item['teacher'];
@@ -147,7 +195,9 @@ class StudentDashboardRepositoryImpl implements StudentDashboardRepository {
           roomName: item['classCode'] as String?,
         );
 
-        parsedClasses.add(_ClassCandidate(entity: candidate, startTime: startTime));
+        parsedClasses.add(
+          _ClassCandidate(entity: candidate, startTime: startTime),
+        );
       }
 
       // Sort upcoming classes by start time closest to now (or upcoming in future)
@@ -160,7 +210,8 @@ class StudentDashboardRepositoryImpl implements StudentDashboardRepository {
 
       // Find first class that is now or in the future
       for (final cand in parsedClasses) {
-        if (cand.startTime != null && cand.startTime!.isAfter(now.subtract(const Duration(hours: 2)))) {
+        if (cand.startTime != null &&
+            cand.startTime!.isAfter(now.subtract(const Duration(hours: 2)))) {
           featured = cand.entity;
           break;
         }
@@ -204,8 +255,11 @@ class StudentDashboardRepositoryImpl implements StudentDashboardRepository {
       if (body == null) return const _AttendanceResult();
 
       final dynamic dataField = (body is Map) ? (body['data'] ?? body) : body;
-      final Map<String, dynamic>? firstSummary = (dataField is List && dataField.isNotEmpty)
-          ? (dataField.first is Map<String, dynamic> ? dataField.first as Map<String, dynamic> : null)
+      final Map<String, dynamic>? firstSummary =
+          (dataField is List && dataField.isNotEmpty)
+          ? (dataField.first is Map<String, dynamic>
+                ? dataField.first as Map<String, dynamic>
+                : null)
           : (dataField is Map<String, dynamic> ? dataField : null);
 
       if (firstSummary == null) return const _AttendanceResult();
@@ -280,7 +334,9 @@ class _AttendanceResult {
 }
 
 /// Riverpod provider for [StudentDashboardRepository].
-final studentDashboardRepositoryProvider = Provider<StudentDashboardRepository>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  return StudentDashboardRepositoryImpl(apiClient: apiClient);
-});
+final studentDashboardRepositoryProvider = Provider<StudentDashboardRepository>(
+  (ref) {
+    final apiClient = ref.watch(apiClientProvider);
+    return StudentDashboardRepositoryImpl(apiClient: apiClient);
+  },
+);

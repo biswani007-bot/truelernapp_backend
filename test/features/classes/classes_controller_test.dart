@@ -51,8 +51,9 @@ class FakeDashboardRepository implements DashboardRepository {
   @override
   Future<List<ChildEntity>> getLinkedChildren() async => childrenToReturn;
   @override
-  Future<DashboardEntity> getChildDashboard({required String childStudentId}) async =>
-      const DashboardEntity();
+  Future<DashboardEntity> getChildDashboard({
+    required String childStudentId,
+  }) async => const DashboardEntity();
 }
 
 class FakeSecureStorage implements SecureStorageService {
@@ -62,7 +63,8 @@ class FakeSecureStorage implements SecureStorageService {
   Future<String?> getAccessToken() async => _data['access_token'];
 
   @override
-  Future<void> saveAccessToken(String token) async => _data['access_token'] = token;
+  Future<void> saveAccessToken(String token) async =>
+      _data['access_token'] = token;
 
   @override
   Future<void> deleteAccessToken() async => _data.remove('access_token');
@@ -71,7 +73,8 @@ class FakeSecureStorage implements SecureStorageService {
   Future<String?> getRefreshToken() async => _data['refresh_token'];
 
   @override
-  Future<void> saveRefreshToken(String token) async => _data['refresh_token'] = token;
+  Future<void> saveRefreshToken(String token) async =>
+      _data['refresh_token'] = token;
 
   @override
   Future<void> deleteRefreshToken() async => _data.remove('refresh_token');
@@ -86,7 +89,8 @@ class FakeSecureStorage implements SecureStorageService {
   Future<String?> getActiveChildId() async => _data['active_child_id'];
 
   @override
-  Future<void> saveActiveChildId(String childId) async => _data['active_child_id'] = childId;
+  Future<void> saveActiveChildId(String childId) async =>
+      _data['active_child_id'] = childId;
 
   @override
   Future<void> deleteActiveChildId() async => _data.remove('active_child_id');
@@ -161,56 +165,65 @@ void main() {
     expect(loaded.hasClasses, isFalse);
   });
 
-  test('loadClasses with populated schedule emits ClassesLoaded with sessions', () async {
-    final session = ClassEntity(
-      id: 'session_1',
-      title: 'Mathematics Algebra',
-      subject: 'Mathematics',
-      status: 'UPCOMING',
-      scheduledStartTime: DateTime(2026, 9, 10, 10, 0),
-      scheduledEndTime: DateTime(2026, 9, 10, 11, 0),
-      teacherName: 'Prof. Sharma',
-    );
-    fakeRepo.classesToReturn = [session];
+  test(
+    'loadClasses with populated schedule emits ClassesLoaded with sessions',
+    () async {
+      final session = ClassEntity(
+        id: 'session_1',
+        title: 'Mathematics Algebra',
+        subject: 'Mathematics',
+        status: 'UPCOMING',
+        scheduledStartTime: DateTime(2026, 9, 10, 10, 0),
+        scheduledEndTime: DateTime(2026, 9, 10, 11, 0),
+        teacherName: 'Prof. Sharma',
+      );
+      fakeRepo.classesToReturn = [session];
 
-    await container
-        .read(classesControllerProvider.notifier)
-        .loadClasses(childStudentId: 'child_123');
+      await container
+          .read(classesControllerProvider.notifier)
+          .loadClasses(childStudentId: 'child_123');
 
-    final state = container.read(classesControllerProvider);
-    expect(state, isA<ClassesLoaded>());
-    final loaded = state as ClassesLoaded;
-    expect(loaded.classes.length, 1);
-    expect(loaded.hasClasses, isTrue);
-    expect(loaded.classes.first.title, 'Mathematics Algebra');
-  });
+      final state = container.read(classesControllerProvider);
+      expect(state, isA<ClassesLoaded>());
+      final loaded = state as ClassesLoaded;
+      expect(loaded.classes.length, 1);
+      expect(loaded.hasClasses, isTrue);
+      expect(loaded.classes.first.title, 'Mathematics Algebra');
+    },
+  );
 
-  test('loadClasses emits ClassesError when repository throws failure', () async {
-    fakeRepo.failureToThrow = const ServerFailure('Server connection failed');
+  test(
+    'loadClasses emits ClassesError when repository throws failure',
+    () async {
+      fakeRepo.failureToThrow = const ServerFailure('Server connection failed');
 
-    await container
-        .read(classesControllerProvider.notifier)
-        .loadClasses(childStudentId: 'child_123');
+      await container
+          .read(classesControllerProvider.notifier)
+          .loadClasses(childStudentId: 'child_123');
 
-    final state = container.read(classesControllerProvider);
-    expect(state, isA<ClassesError>());
-    final error = state as ClassesError;
-    expect(error.message, contains('Server connection failed'));
-  });
+      final state = container.read(classesControllerProvider);
+      expect(state, isA<ClassesError>());
+      final error = state as ClassesError;
+      expect(error.message, contains('Server connection failed'));
+    },
+  );
 
-  test('retry invokes loadClasses using active child from ChildrenController', () async {
-    const child = ChildEntity(studentId: 'child_active', firstName: 'Alice');
-    fakeDashRepo.childrenToReturn = [child];
+  test(
+    'retry invokes loadClasses using active child from ChildrenController',
+    () async {
+      const child = ChildEntity(studentId: 'child_active', firstName: 'Alice');
+      fakeDashRepo.childrenToReturn = [child];
 
-    // Load children first so activeChildId is set
-    await container.read(childrenControllerProvider.notifier).loadChildren();
-    final childState = container.read(childrenControllerProvider);
-    expect((childState as dynamic).activeChildId, 'child_active');
+      // Load children first so activeChildId is set
+      await container.read(childrenControllerProvider.notifier).loadChildren();
+      final childState = container.read(childrenControllerProvider);
+      expect((childState as dynamic).activeChildId, 'child_active');
 
-    // Call retry
-    await container.read(classesControllerProvider.notifier).retry();
+      // Call retry
+      await container.read(classesControllerProvider.notifier).retry();
 
-    expect(fakeRepo.lastRequestedChildId, 'child_active');
-    expect(fakeRepo.callCount, 1);
-  });
+      expect(fakeRepo.lastRequestedChildId, 'child_active');
+      expect(fakeRepo.callCount, 1);
+    },
+  );
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/class_entity.dart';
 
@@ -26,7 +27,10 @@ class ClassesEventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = session.title.isNotEmpty ? session.title : 'Live Session';
-    final timing = _formatDateTime(session.scheduledStartTime, session.scheduledEndTime);
+    final timing = _formatDateTime(
+      session.scheduledStartTime,
+      session.scheduledEndTime,
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -73,7 +77,9 @@ class ClassesEventCard extends StatelessWidget {
                             : 'assets/images/figma_mic_single.png',
                         fit: BoxFit.contain,
                         errorBuilder: (context, error, stackTrace) => Icon(
-                          useThinkingIcon ? Icons.lightbulb_rounded : Icons.mic_rounded,
+                          useThinkingIcon
+                              ? Icons.lightbulb_rounded
+                              : Icons.mic_rounded,
                           color: const Color(0xFF0037B1),
                           size: 32,
                         ),
@@ -137,8 +143,18 @@ class ClassesEventCard extends StatelessWidget {
 
     const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
 
     final dayName = weekdays[localStart.weekday - 1];

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../../../core/widgets/app_refresh_indicator.dart';
 import '../../../../core/router/route_paths.dart';
 import '../widgets/parent_hamburger_drawer.dart';
 
@@ -33,7 +35,8 @@ class ParentAchievementsScreen extends StatelessWidget {
   static const _badgeSpeaker = 'assets/images/achieve_badge_speaker.png';
   static const _badgeLearner = 'assets/images/achieve_badge_learner.png';
   static const _badgeSolver = 'assets/images/achieve_badge_solver.png';
-  static const _badgeCommunicator = 'assets/images/achieve_badge_communicator.png';
+  static const _badgeCommunicator =
+      'assets/images/achieve_badge_communicator.png';
 
   static const _svgChevronDown = 'assets/icons/achieve_chevron_down.svg';
   static const _svgLock = 'assets/icons/achieve_lock.svg';
@@ -71,51 +74,60 @@ class ParentAchievementsScreen extends StatelessWidget {
 
               // ── Scrollable Body ─────────────────────────────────────
               Expanded(
-                child: SingleChildScrollView(
-                  key: const Key('achievements_scroll_view'),
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 672),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 16),
+                child: AppRefreshIndicator(
+                  onRefresh: () async {
+                    await Future<void>.delayed(
+                      const Duration(milliseconds: 600),
+                    );
+                  },
+                  child: SingleChildScrollView(
+                    key: const Key('achievements_scroll_view'),
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 672),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 16),
 
-                            // ── Child Selector Pill (Node 76:1809) ─────────
-                            _buildChildSelector(context),
+                              // ── Child Selector Pill (Node 76:1809) ─────────
+                              _buildChildSelector(context),
 
-                            const SizedBox(height: 24),
+                              const SizedBox(height: 24),
 
-                            // ── Leaderboard Rank Card (Node 76:1623) ───────
-                            _buildStandingCard(),
+                              // ── Leaderboard Rank Card (Node 76:1623) ───────
+                              _buildStandingCard(),
 
-                            const SizedBox(height: 24),
+                              const SizedBox(height: 24),
 
-                            // ── Section Title: Premium Badges (Node 76:1646) ─
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: Text(
-                                'Premium Badges',
-                                style: GoogleFonts.hankenGrotesk(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF1A1B23),
-                                  height: 24 / 16,
+                              // ── Section Title: Premium Badges (Node 76:1646) ─
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Text(
+                                  'Premium Badges',
+                                  style: GoogleFonts.hankenGrotesk(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF1A1B23),
+                                    height: 24 / 16,
+                                  ),
                                 ),
                               ),
-                            ),
 
-                            const SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
-                            // ── Badges 2x2 Grid (Node 101:3) ───────────────
-                            _buildBadgesGrid(),
+                              // ── Badges 2x2 Grid (Node 101:3) ───────────────
+                              _buildBadgesGrid(),
 
-                            const SizedBox(height: 32),
-                          ],
+                              const SizedBox(height: 32),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -182,11 +194,7 @@ class ParentAchievementsScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   alignment: Alignment.center,
-                  child: SvgPicture.asset(
-                    _svgBack,
-                    width: 16,
-                    height: 16,
-                  ),
+                  child: SvgPicture.asset(_svgBack, width: 16, height: 16),
                 ),
               ),
             ),
@@ -225,10 +233,7 @@ class ParentAchievementsScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFFF2F4F7),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFF747686),
-                width: 1,
-              ),
+              border: Border.all(color: const Color(0xFF747686), width: 1),
             ),
             child: Center(
               child: Text(
@@ -261,11 +266,7 @@ class ParentAchievementsScreen extends StatelessWidget {
           const SizedBox(width: 8),
 
           // Chevron Down (Node 76:1816/76:1817)
-          SvgPicture.asset(
-            _svgChevronDown,
-            width: 9,
-            height: 5.55,
-          ),
+          SvgPicture.asset(_svgChevronDown, width: 9, height: 5.55),
         ],
       ),
     );
@@ -551,11 +552,7 @@ class ParentAchievementsScreen extends StatelessWidget {
             Positioned(
               right: 0,
               top: 0,
-              child: SvgPicture.asset(
-                _svgLock,
-                width: 12,
-                height: 22.75,
-              ),
+              child: SvgPicture.asset(_svgLock, width: 12, height: 22.75),
             ),
 
           Column(
@@ -609,7 +606,9 @@ class ParentAchievementsScreen extends StatelessWidget {
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: isLocked ? const Color(0xFF434655) : const Color(0xFF1A1B23),
+                  color: isLocked
+                      ? const Color(0xFF434655)
+                      : const Color(0xFF1A1B23),
                   letterSpacing: 0.1,
                   height: 17.5 / 14,
                 ),

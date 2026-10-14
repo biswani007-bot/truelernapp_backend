@@ -8,7 +8,8 @@ import 'package:truelearn/features/classes/presentation/screens/class_details_sc
 import 'package:truelearn/features/dashboard/presentation/controllers/children_controller.dart';
 import 'package:truelearn/features/dashboard/presentation/controllers/children_state.dart';
 
-class _StaticClassesController extends Notifier<ClassesState> implements ClassesController {
+class _StaticClassesController extends Notifier<ClassesState>
+    implements ClassesController {
   _StaticClassesController(this._initial);
   final ClassesState _initial;
 
@@ -16,13 +17,17 @@ class _StaticClassesController extends Notifier<ClassesState> implements Classes
   ClassesState build() => _initial;
 
   @override
-  Future<void> loadClasses({required String? childStudentId}) async {}
+  Future<void> loadClasses({
+    required String? childStudentId,
+    bool isRefresh = false,
+  }) async {}
 
   @override
   Future<void> retry() async {}
 }
 
-class _StaticChildrenController extends Notifier<ChildrenState> implements ChildrenController {
+class _StaticChildrenController extends Notifier<ChildrenState>
+    implements ChildrenController {
   _StaticChildrenController(this._initial);
   final ChildrenState _initial;
 
@@ -63,92 +68,122 @@ void main() {
     return ProviderScope(
       overrides: [
         if (classesState != null)
-          classesControllerProvider.overrideWith(() => _StaticClassesController(classesState)),
+          classesControllerProvider.overrideWith(
+            () => _StaticClassesController(classesState),
+          ),
         if (childrenState != null)
-          childrenControllerProvider.overrideWith(() => _StaticChildrenController(childrenState)),
+          childrenControllerProvider.overrideWith(
+            () => _StaticChildrenController(childrenState),
+          ),
       ],
       child: MaterialApp(
         home: MediaQuery(
           data: const MediaQueryData(size: Size(390, 1416)),
-          child: ClassDetailsScreen(
-            classId: classId,
-            session: session,
-          ),
+          child: ClassDetailsScreen(classId: classId, session: session),
         ),
       ),
     );
   }
 
   group('SCR-14 ClassDetailsScreen Verification', () {
-    testWidgets('1-8. Renders dynamic fields from ClassEntity (title, category, teacher, date, time, duration, status)', (tester) async {
-      await tester.pumpWidget(
-        createTestWidget(
-          classId: testSession.id,
-          session: testSession,
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      '1-8. Renders dynamic fields from ClassEntity (title, category, teacher, date, time, duration, status)',
+      (tester) async {
+        await tester.pumpWidget(
+          createTestWidget(classId: testSession.id, session: testSession),
+        );
+        await tester.pumpAndSettle();
 
-      // Screen container exists
-      expect(find.byKey(const Key('class_details_screen')), findsOneWidget);
+        // Screen container exists
+        expect(find.byKey(const Key('class_details_screen')), findsOneWidget);
 
-      // Category / course pill is dynamic
-      expect(find.byKey(const Key('class_details_category_pill')), findsOneWidget);
-      expect(find.text('JUNIOR FOUNDATION'), findsOneWidget);
-      expect(find.text('COMMUNICATION & PUBLIC SPEAKING'), findsNothing);
+        // Category / course pill is dynamic
+        expect(
+          find.byKey(const Key('class_details_category_pill')),
+          findsOneWidget,
+        );
+        expect(find.text('JUNIOR FOUNDATION'), findsOneWidget);
+        expect(find.text('COMMUNICATION & PUBLIC SPEAKING'), findsNothing);
 
-      // Title is dynamic
-      expect(find.byKey(const Key('class_details_title')), findsOneWidget);
-      expect(find.text('Junior Foundation first class'), findsOneWidget);
-      expect(find.text('Speaking With Confidence'), findsNothing);
+        // Title is dynamic
+        expect(find.byKey(const Key('class_details_title')), findsOneWidget);
+        expect(find.text('Junior Foundation first class'), findsOneWidget);
+        expect(find.text('Speaking With Confidence'), findsNothing);
 
-      // Teacher is dynamic
-      expect(find.byKey(const Key('class_details_info_teacher')), findsOneWidget);
-      expect(find.text('Elizabeth Vance'), findsOneWidget);
-      expect(find.text('Sarah M.'), findsNothing);
+        // Teacher is dynamic
+        expect(
+          find.byKey(const Key('class_details_info_teacher')),
+          findsOneWidget,
+        );
+        expect(find.text('Elizabeth Vance'), findsOneWidget);
+        expect(find.text('Sarah M.'), findsNothing);
 
-      // Duration is dynamic (240 Minutes)
-      expect(find.byKey(const Key('class_details_info_duration')), findsOneWidget);
-      expect(find.text('240 Minutes'), findsOneWidget);
+        // Duration is dynamic (240 Minutes)
+        expect(
+          find.byKey(const Key('class_details_info_duration')),
+          findsOneWidget,
+        );
+        expect(find.text('240 Minutes'), findsOneWidget);
 
-      // Time range is dynamic
-      expect(find.byKey(const Key('class_details_info_time')), findsOneWidget);
-      expect(find.text('4:30 AM - 8:30 AM'), findsOneWidget);
-      expect(find.text('7:00 PM - 7:45 PM'), findsNothing);
+        // Time range is dynamic
+        expect(
+          find.byKey(const Key('class_details_info_time')),
+          findsOneWidget,
+        );
+        expect(find.text('4:30 AM - 8:30 AM'), findsOneWidget);
+        expect(find.text('7:00 PM - 7:45 PM'), findsNothing);
 
-      // Date is dynamic
-      expect(find.byKey(const Key('class_details_info_date')), findsOneWidget);
-      expect(find.text('Wed, 30 Sep'), findsOneWidget);
+        // Date is dynamic
+        expect(
+          find.byKey(const Key('class_details_info_date')),
+          findsOneWidget,
+        );
+        expect(find.text('Wed, 30 Sep'), findsOneWidget);
 
-      // Status badge is dynamic
-      expect(find.byKey(const Key('class_details_status_badge')), findsOneWidget);
-      expect(find.text('UPCOMING'), findsOneWidget);
-    });
+        // Status badge is dynamic
+        expect(
+          find.byKey(const Key('class_details_status_badge')),
+          findsOneWidget,
+        );
+        expect(find.text('UPCOMING'), findsOneWidget);
+      },
+    );
 
-    testWidgets('7 & 8. Today Focus and What We Will Practice display neutral messages without fake data', (tester) async {
-      await tester.pumpWidget(
-        createTestWidget(
-          classId: testSession.id,
-          session: testSession,
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      '7 & 8. Today Focus and What We Will Practice display neutral messages without fake data',
+      (tester) async {
+        await tester.pumpWidget(
+          createTestWidget(classId: testSession.id, session: testSession),
+        );
+        await tester.pumpAndSettle();
 
-      // Section headers preserved
-      expect(find.text("Today's Focus"), findsOneWidget);
-      expect(find.text("What We'll Practice"), findsOneWidget);
+        // Section headers preserved
+        expect(find.text("Today's Focus"), findsOneWidget);
+        expect(find.text("What We'll Practice"), findsOneWidget);
 
-      // Neutral content without fabricated text
-      expect(find.text('Focus details are not available for this session.'), findsOneWidget);
-      expect(find.text('Practice details are not available for this session.'), findsOneWidget);
+        // Neutral content without fabricated text
+        expect(
+          find.text('Focus details are not available for this session.'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Practice details are not available for this session.'),
+          findsOneWidget,
+        );
 
-      // Fake data from Figma mockups is NOT present
-      expect(find.textContaining('Mastering vocal delivery techniques'), findsNothing);
-      expect(find.text('Voice Control'), findsNothing);
-      expect(find.text('Clear Speech'), findsNothing);
-    });
+        // Fake data from Figma mockups is NOT present
+        expect(
+          find.textContaining('Mastering vocal delivery techniques'),
+          findsNothing,
+        );
+        expect(find.text('Voice Control'), findsNothing);
+        expect(find.text('Clear Speech'), findsNothing);
+      },
+    );
 
-    testWidgets('9. Dynamic Countdown does not use hardcoded 18 minutes', (tester) async {
+    testWidgets('9. Dynamic Countdown does not use hardcoded 18 minutes', (
+      tester,
+    ) async {
       final soonSession = ClassEntity(
         id: 'cls-soon',
         title: 'Impending Live Class',
@@ -159,15 +194,14 @@ void main() {
       );
 
       await tester.pumpWidget(
-        createTestWidget(
-          classId: soonSession.id,
-          session: soonSession,
-        ),
+        createTestWidget(classId: soonSession.id, session: soonSession),
       );
       await tester.pumpAndSettle();
 
       expect(find.text('Class is starting in 18 minutes'), findsNothing);
-      final countdownFinder = find.byKey(const Key('class_details_countdown_text'));
+      final countdownFinder = find.byKey(
+        const Key('class_details_countdown_text'),
+      );
       expect(countdownFinder, findsOneWidget);
       final text = tester.widget<Text>(countdownFinder).data;
       expect(text, contains('Class is starting in '));
@@ -175,43 +209,48 @@ void main() {
       expect(text, isNot(contains('18 minutes')));
     });
 
-    testWidgets('10 & 11. Handles missing teacher and duration gracefully with safe fallback dashes', (tester) async {
-      final minimalSession = const ClassEntity(
-        id: 'cls-minimal',
-        title: 'Minimal Class',
-      );
+    testWidgets(
+      '10 & 11. Handles missing teacher and duration gracefully with safe fallback dashes',
+      (tester) async {
+        final minimalSession = const ClassEntity(
+          id: 'cls-minimal',
+          title: 'Minimal Class',
+        );
 
-      await tester.pumpWidget(
-        createTestWidget(
-          classId: minimalSession.id,
-          session: minimalSession,
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          createTestWidget(classId: minimalSession.id, session: minimalSession),
+        );
+        await tester.pumpAndSettle();
 
-      // Missing fields show safe dashes
-      expect(find.text('Minimal Class'), findsOneWidget);
-      expect(find.text('—'), findsNWidgets(4)); // Date, Time, Duration, Teacher
-    });
+        // Missing fields show safe dashes
+        expect(find.text('Minimal Class'), findsOneWidget);
+        expect(
+          find.text('—'),
+          findsNWidgets(4),
+        ); // Date, Time, Duration, Teacher
+      },
+    );
 
-    testWidgets('12. Continue to Live Class button triggers navigation without crashing', (tester) async {
-      await tester.pumpWidget(
-        createTestWidget(
-          classId: testSession.id,
-          session: testSession,
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      '12. Continue to Live Class button triggers navigation without crashing',
+      (tester) async {
+        await tester.pumpWidget(
+          createTestWidget(classId: testSession.id, session: testSession),
+        );
+        await tester.pumpAndSettle();
 
-      final ctaButton = find.byKey(const Key('continue_to_live_class_button'));
-      expect(ctaButton, findsOneWidget);
+        final ctaButton = find.byKey(
+          const Key('continue_to_live_class_button'),
+        );
+        expect(ctaButton, findsOneWidget);
 
-      await tester.ensureVisible(ctaButton);
-      await tester.tap(ctaButton);
-      await tester.pumpAndSettle();
+        await tester.ensureVisible(ctaButton);
+        await tester.tap(ctaButton);
+        await tester.pumpAndSettle();
 
-      expect(ctaButton, findsOneWidget);
-    });
+        expect(ctaButton, findsOneWidget);
+      },
+    );
 
     testWidgets('13. Back button calls Navigator.pop', (tester) async {
       bool didPop = false;
@@ -246,33 +285,39 @@ void main() {
       expect(didPop, isTrue);
     });
 
-    testWidgets('14 & 15. Fallback resolution looks up class from ClassesController if extra is null', (tester) async {
-      await tester.pumpWidget(
-        createTestWidget(
-          classId: testSession.id,
-          session: null, // extra is null
-          classesState: ClassesLoaded(classes: [testSession]),
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      '14 & 15. Fallback resolution looks up class from ClassesController if extra is null',
+      (tester) async {
+        await tester.pumpWidget(
+          createTestWidget(
+            classId: testSession.id,
+            session: null, // extra is null
+            classesState: ClassesLoaded(classes: [testSession]),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      // Successfully resolved from controller state
-      expect(find.text('Junior Foundation first class'), findsOneWidget);
-      expect(find.text('Elizabeth Vance'), findsOneWidget);
-    });
+        // Successfully resolved from controller state
+        expect(find.text('Junior Foundation first class'), findsOneWidget);
+        expect(find.text('Elizabeth Vance'), findsOneWidget);
+      },
+    );
 
-    testWidgets('16. Unknown classId displays graceful Class Session Not Found state', (tester) async {
-      await tester.pumpWidget(
-        createTestWidget(
-          classId: 'non-existent-id',
-          session: null,
-          classesState: const ClassesLoaded(classes: []),
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      '16. Unknown classId displays graceful Class Session Not Found state',
+      (tester) async {
+        await tester.pumpWidget(
+          createTestWidget(
+            classId: 'non-existent-id',
+            session: null,
+            classesState: const ClassesLoaded(classes: []),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('Class Session Not Found'), findsOneWidget);
-      expect(find.text('Return to Schedule'), findsOneWidget);
-    });
+        expect(find.text('Class Session Not Found'), findsOneWidget);
+        expect(find.text('Return to Schedule'), findsOneWidget);
+      },
+    );
   });
 }

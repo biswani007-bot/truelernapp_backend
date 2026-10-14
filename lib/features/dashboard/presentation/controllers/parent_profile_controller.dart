@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../data/repositories/parent_profile_repository_impl.dart';
 import '../../domain/repositories/parent_profile_repository.dart';
@@ -8,7 +9,8 @@ class ParentProfileController extends Notifier<ParentProfileState> {
   @override
   ParentProfileState build() => const ParentProfileInitial();
 
-  ParentProfileRepository get _repository => ref.read(parentProfileRepositoryProvider);
+  ParentProfileRepository get _repository =>
+      ref.read(parentProfileRepositoryProvider);
 
   Future<void> loadProfile({bool refresh = false}) async {
     final current = state;
@@ -21,10 +23,9 @@ class ParentProfileController extends Notifier<ParentProfileState> {
       state = ParentProfileLoaded(profile: profile);
 
       // Synchronize authoritative Parent profile into shared Auth state
-      ref.read(authControllerProvider.notifier).updateUserProfile(
-        name: profile.fullName,
-        email: profile.email,
-      );
+      ref
+          .read(authControllerProvider.notifier)
+          .updateUserProfile(name: profile.fullName, email: profile.email);
     } catch (e) {
       state = ParentProfileError(message: e.toString());
     }
@@ -43,7 +44,11 @@ class ParentProfileController extends Notifier<ParentProfileState> {
     final currentState = state;
     if (currentState is! ParentProfileLoaded) return false;
 
-    state = currentState.copyWith(isUpdating: true, updateSuccessMessage: null, updateErrorMessage: null);
+    state = currentState.copyWith(
+      isUpdating: true,
+      updateSuccessMessage: null,
+      updateErrorMessage: null,
+    );
     try {
       final updatedProfile = await _repository.updateParentProfile(
         firstName: firstName,
@@ -62,10 +67,12 @@ class ParentProfileController extends Notifier<ParentProfileState> {
       );
 
       // Synchronize authoritative Parent profile into shared Auth state
-      ref.read(authControllerProvider.notifier).updateUserProfile(
-        name: updatedProfile.fullName,
-        email: updatedProfile.email,
-      );
+      ref
+          .read(authControllerProvider.notifier)
+          .updateUserProfile(
+            name: updatedProfile.fullName,
+            email: updatedProfile.email,
+          );
 
       return true;
     } catch (e) {
@@ -94,4 +101,6 @@ class ParentProfileController extends Notifier<ParentProfileState> {
 }
 
 final parentProfileControllerProvider =
-    NotifierProvider<ParentProfileController, ParentProfileState>(ParentProfileController.new);
+    NotifierProvider<ParentProfileController, ParentProfileState>(
+      ParentProfileController.new,
+    );

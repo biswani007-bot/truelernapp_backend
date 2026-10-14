@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_typography.dart';
 import '../../../dashboard/domain/entities/child_entity.dart';
 
@@ -74,7 +75,9 @@ class _ChildCardItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? Colors.white : const Color(0xFFF3F2FE).withValues(alpha: 0.7),
+          color: isActive
+              ? Colors.white
+              : const Color(0xFFF3F2FE).withValues(alpha: 0.7),
           borderRadius: BorderRadius.circular(9999), // pill
           border: Border.all(
             color: isActive ? const Color(0xFFDCE1FF) : Colors.transparent,
@@ -99,9 +102,13 @@ class _ChildCardItem extends StatelessWidget {
               height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isActive ? const Color(0xFF0037B1).withValues(alpha: 0.1) : const Color(0xFFC4C5D7).withValues(alpha: 0.3),
+                color: isActive
+                    ? const Color(0xFF0037B1).withValues(alpha: 0.1)
+                    : const Color(0xFFC4C5D7).withValues(alpha: 0.3),
                 border: Border.all(
-                  color: isActive ? const Color(0xFF0037B1) : const Color(0xFFC4C5D7),
+                  color: isActive
+                      ? const Color(0xFF0037B1)
+                      : const Color(0xFFC4C5D7),
                   width: isActive ? 2.0 : 1.0,
                 ),
               ),
@@ -113,7 +120,8 @@ class _ChildCardItem extends StatelessWidget {
                           width: 36,
                           height: 36,
                           fit: BoxFit.cover,
-                          errorBuilder: (ctx, err, stack) => _buildInitial(child),
+                          errorBuilder: (ctx, err, stack) =>
+                              _buildInitial(child),
                         ),
                       )
                     : _buildInitial(child),
@@ -129,16 +137,23 @@ class _ChildCardItem extends StatelessWidget {
                   child.firstName,
                   style: AppTypography.titleSmall.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: isActive ? const Color(0xFF0037B1) : const Color(0xFF434655),
+                    color: isActive
+                        ? const Color(0xFF0037B1)
+                        : const Color(0xFF434655),
                     fontSize: 17,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  child.grade != null && child.grade!.isNotEmpty
-                      ? child.grade!
-                      : 'Age 9',
+                  child.age != null
+                      ? 'Age ${child.age}'
+                      : (child.grade != null && child.grade!.isNotEmpty
+                            ? child.grade!
+                            : (child.studentCode != null &&
+                                      child.studentCode!.isNotEmpty
+                                  ? child.studentCode!
+                                  : 'Student')),
                   style: AppTypography.bodySmall.copyWith(
                     color: const Color(0xFF434655),
                     fontSize: 15,

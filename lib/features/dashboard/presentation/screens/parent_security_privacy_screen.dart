@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/router/route_paths.dart';
 import '../widgets/parent_hamburger_drawer.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
 
 /// Parent Security & Privacy Screen — PURE FRONTEND ONLY.
 ///
@@ -81,118 +83,130 @@ class _ParentSecurityPrivacyScreenState
 
               // Main Content ScrollView (Node 104:322)
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 24,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ── SECURITY SECTION (Node 104:323) ──
-                      _buildSectionTitle('SECURITY'),
-                      const SizedBox(height: 12),
-                      _buildCardGroup([
-                        _buildSettingRow(
-                          iconPath: _svgLoginMethods,
-                          title: 'Login Methods',
-                          subtitle: 'WhatsApp, Email, PIN, Biometric',
-                          showDivider: true,
-                          onTap: () {
-                            context.push(AppRoutePaths.parentLoginMethods);
-                          },
-                        ),
-                        _buildBiometricRow(),
-                        _buildSettingRow(
-                          iconPath: _svgLoginDevices,
-                          title: 'Login & Devices',
-                          subtitle: 'Manage active sessions',
-                          showDivider: true,
-                          onTap: () {
-                            context.push(AppRoutePaths.parentLoginDevices);
-                          },
-                        ),
-                        _buildSettingRow(
-                          iconPath: _svgSecurityActivity,
-                          title: 'Recent Security Activity',
-                          subtitle: 'View login history',
-                          showDivider: false,
-                          onTap: () {
-                            context.push(AppRoutePaths.parentRecentSecurityActivity);
-                          },
-                        ),
-                      ]),
+                child: AppRefreshIndicator(
+                  onRefresh: () async {
+                    await Future.delayed(const Duration(milliseconds: 300));
+                  },
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 24,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── SECURITY SECTION (Node 104:323) ──
+                        _buildSectionTitle('SECURITY'),
+                        const SizedBox(height: 12),
+                        _buildCardGroup([
+                          _buildSettingRow(
+                            iconPath: _svgLoginMethods,
+                            title: 'Login Methods',
+                            subtitle: 'WhatsApp, Email, PIN, Biometric',
+                            showDivider: true,
+                            onTap: () {
+                              context.push(AppRoutePaths.parentLoginMethods);
+                            },
+                          ),
+                          _buildBiometricRow(),
+                          _buildSettingRow(
+                            iconPath: _svgLoginDevices,
+                            title: 'Login & Devices',
+                            subtitle: 'Manage active sessions',
+                            showDivider: true,
+                            onTap: () {
+                              context.push(AppRoutePaths.parentLoginDevices);
+                            },
+                          ),
+                          _buildSettingRow(
+                            iconPath: _svgSecurityActivity,
+                            title: 'Recent Security Activity',
+                            subtitle: 'View login history',
+                            showDivider: false,
+                            onTap: () {
+                              context.push(
+                                AppRoutePaths.parentRecentSecurityActivity,
+                              );
+                            },
+                          ),
+                        ]),
 
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                      // ── PRIVACY SECTION (Node 104:388) ──
-                      _buildSectionTitle('PRIVACY'),
-                      const SizedBox(height: 12),
-                      _buildCardGroup([
-                        _buildSettingRow(
-                          iconPath: _svgPersonalInfo,
-                          title: 'Personal Information',
-                          subtitle: 'Name, Email, WhatsApp',
-                          showDivider: true,
-                          onTap: () {
-                            context.push(AppRoutePaths.parentPersonalInfo);
-                          },
-                        ),
-                        _buildSettingRow(
-                          iconPath: _svgPrivacyPref,
-                          title: 'Privacy Preferences',
-                          subtitle: 'Data sharing & visibility',
-                          showDivider: true,
-                          onTap: () {
-                            context.push(AppRoutePaths.parentPrivacyPreferences);
-                          },
-                        ),
-                        _buildSettingRow(
-                          iconPath: _svgCommPref,
-                          title: 'Communication Preferences',
-                          subtitle: 'Notifications & alerts',
-                          showDivider: true,
-                          onTap: () {
-                            context.push(AppRoutePaths.parentCommunicationPreferences);
-                          },
-                        ),
-                        _buildSettingRow(
-                          iconPath: _svgDataPrivacy,
-                          title: 'Data & Privacy',
-                          subtitle: 'Download data or delete account',
-                          showDivider: false,
-                          onTap: () {
-                            context.push(AppRoutePaths.parentDataPrivacy);
-                          },
-                        ),
-                      ]),
+                        // ── PRIVACY SECTION (Node 104:388) ──
+                        _buildSectionTitle('PRIVACY'),
+                        const SizedBox(height: 12),
+                        _buildCardGroup([
+                          _buildSettingRow(
+                            iconPath: _svgPersonalInfo,
+                            title: 'Personal Information',
+                            subtitle: 'Name, Email, WhatsApp',
+                            showDivider: true,
+                            onTap: () {
+                              context.push(AppRoutePaths.parentPersonalInfo);
+                            },
+                          ),
+                          _buildSettingRow(
+                            iconPath: _svgPrivacyPref,
+                            title: 'Privacy Preferences',
+                            subtitle: 'Data sharing & visibility',
+                            showDivider: true,
+                            onTap: () {
+                              context.push(
+                                AppRoutePaths.parentPrivacyPreferences,
+                              );
+                            },
+                          ),
+                          _buildSettingRow(
+                            iconPath: _svgCommPref,
+                            title: 'Communication Preferences',
+                            subtitle: 'Notifications & alerts',
+                            showDivider: true,
+                            onTap: () {
+                              context.push(
+                                AppRoutePaths.parentCommunicationPreferences,
+                              );
+                            },
+                          ),
+                          _buildSettingRow(
+                            iconPath: _svgDataPrivacy,
+                            title: 'Data & Privacy',
+                            subtitle: 'Download data or delete account',
+                            showDivider: false,
+                            onTap: () {
+                              context.push(AppRoutePaths.parentDataPrivacy);
+                            },
+                          ),
+                        ]),
 
-                      const SizedBox(height: 8),
+                        const SizedBox(height: 8),
 
-                      // ── Legal Documents Group (Node 104:441) ──
-                      _buildCardGroup([
-                        _buildSettingRow(
-                          iconPath: _svgPrivacyPolicy,
-                          title: 'Privacy Policy',
-                          subtitle: null,
-                          showDivider: true,
-                          onTap: () {
-                            context.push(AppRoutePaths.parentPrivacyPolicy);
-                          },
-                        ),
-                        _buildSettingRow(
-                          iconPath: _svgTerms,
-                          title: 'Terms & Conditions',
-                          subtitle: null,
-                          showDivider: false,
-                          onTap: () {
-                            context.push(AppRoutePaths.parentTermsConditions);
-                          },
-                        ),
-                      ]),
+                        // ── Legal Documents Group (Node 104:441) ──
+                        _buildCardGroup([
+                          _buildSettingRow(
+                            iconPath: _svgPrivacyPolicy,
+                            title: 'Privacy Policy',
+                            subtitle: null,
+                            showDivider: true,
+                            onTap: () {
+                              context.push(AppRoutePaths.parentPrivacyPolicy);
+                            },
+                          ),
+                          _buildSettingRow(
+                            iconPath: _svgTerms,
+                            title: 'Terms & Conditions',
+                            subtitle: null,
+                            showDivider: false,
+                            onTap: () {
+                              context.push(AppRoutePaths.parentTermsConditions);
+                            },
+                          ),
+                        ]),
 
-                      const SizedBox(height: 32),
-                    ],
+                        const SizedBox(height: 32),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -297,9 +311,7 @@ class _ParentSecurityPrivacyScreenState
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Column(
-          children: children,
-        ),
+        child: Column(children: children),
       ),
     );
   }
@@ -319,10 +331,7 @@ class _ParentSecurityPrivacyScreenState
         decoration: BoxDecoration(
           border: showDivider
               ? const Border(
-                  bottom: BorderSide(
-                    color: Color(0xFFE2E1ED),
-                    width: 1,
-                  ),
+                  bottom: BorderSide(color: Color(0xFFE2E1ED), width: 1),
                 )
               : null,
         ),
@@ -402,12 +411,7 @@ class _ParentSecurityPrivacyScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFE2E1ED),
-            width: 1,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E1ED), width: 1)),
       ),
       child: Row(
         children: [

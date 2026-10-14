@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -20,6 +21,7 @@ import '../controllers/dashboard_state.dart';
 import '../controllers/parent_profile_controller.dart';
 import '../../../classes/domain/entities/class_entity.dart';
 import '../../../classes/presentation/controllers/classes_controller.dart';
+import '../../../classes/presentation/screens/parent_classes_screen.dart';
 
 /// Student Dashboard Screen (Parent Experience).
 ///
@@ -36,8 +38,7 @@ class ParentDashboardScreen extends ConsumerStatefulWidget {
       _ParentDashboardScreenState();
 }
 
-class _ParentDashboardScreenState
-    extends ConsumerState<ParentDashboardScreen> {
+class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
   @override
   void initState() {
     super.initState();
@@ -73,17 +74,24 @@ class _ParentDashboardScreenState
     final isStudent = (role ?? '').toLowerCase() == 'student';
 
     if (isStudent) {
-      await ref.read(dashboardControllerProvider.notifier).loadStudentDashboard();
+      await ref
+          .read(dashboardControllerProvider.notifier)
+          .loadStudentDashboard(isRefresh: true);
     } else {
-      await ref.read(childrenControllerProvider.notifier).loadChildren(isRefresh: true);
-      ref.read(parentProfileControllerProvider.notifier).loadProfile(refresh: true);
+      await ref
+          .read(childrenControllerProvider.notifier)
+          .loadChildren(isRefresh: true);
+      ref
+          .read(parentProfileControllerProvider.notifier)
+          .loadProfile(refresh: true);
       final childrenState = ref.read(childrenControllerProvider);
-      final activeId = childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+      final activeId = childrenState is ChildrenLoaded
+          ? childrenState.activeChildId
+          : null;
       if (activeId != null) {
-        await ref.read(dashboardControllerProvider.notifier).loadDashboard(
-              childStudentId: activeId,
-              isRefresh: false,
-            );
+        await ref
+            .read(dashboardControllerProvider.notifier)
+            .loadDashboard(childStudentId: activeId, isRefresh: true);
       }
     }
   }
@@ -98,11 +106,13 @@ class _ParentDashboardScreenState
     if (!isStudent) {
       ref.listen<ChildrenState>(childrenControllerProvider, (prev, next) {
         if (next is ChildrenLoaded && next.activeChildId != null) {
-          final prevChildId = prev is ChildrenLoaded ? prev.activeChildId : null;
+          final prevChildId = prev is ChildrenLoaded
+              ? prev.activeChildId
+              : null;
           if (prevChildId != next.activeChildId) {
-            ref.read(dashboardControllerProvider.notifier).loadDashboard(
-                  childStudentId: next.activeChildId,
-                );
+            ref
+                .read(dashboardControllerProvider.notifier)
+                .loadDashboard(childStudentId: next.activeChildId);
           }
         }
       });
@@ -112,12 +122,15 @@ class _ParentDashboardScreenState
     final dashboardState = ref.watch(dashboardControllerProvider);
 
     // Determine loading states cleanly without parallel state systems
-    final isChildrenLoading = !isStudent &&
+    final isChildrenLoading =
+        !isStudent &&
         (childrenState is ChildrenInitial || childrenState is ChildrenLoading);
 
     final bool isDashboardLoading;
     if (isStudent) {
-      isDashboardLoading = dashboardState is DashboardInitial || dashboardState is DashboardLoading;
+      isDashboardLoading =
+          dashboardState is DashboardInitial ||
+          dashboardState is DashboardLoading;
     } else {
       if (isChildrenLoading) {
         isDashboardLoading = true;
@@ -125,11 +138,13 @@ class _ParentDashboardScreenState
         if (childrenState.children.isEmpty) {
           isDashboardLoading = false;
         } else if (childrenState.activeChildId != null) {
-          if (dashboardState is DashboardInitial || dashboardState is DashboardLoading) {
+          if (dashboardState is DashboardInitial ||
+              dashboardState is DashboardLoading) {
             isDashboardLoading = true;
           } else if (dashboardState is DashboardLoaded) {
             // If active child has switched and dashboard has not resolved for the new child
-            isDashboardLoading = dashboardState.childStudentId != childrenState.activeChildId;
+            isDashboardLoading =
+                dashboardState.childStudentId != childrenState.activeChildId;
           } else {
             isDashboardLoading = false;
           }
@@ -147,7 +162,8 @@ class _ParentDashboardScreenState
 
     if (!isStudent && childrenState is ChildrenLoaded) {
       displayChildren = childrenState.children;
-      activeChild = childrenState.activeChild ??
+      activeChild =
+          childrenState.activeChild ??
           (displayChildren.isNotEmpty ? displayChildren.first : null);
     } else {
       displayChildren = const [];
@@ -159,7 +175,8 @@ class _ParentDashboardScreenState
     if (dashboardState is DashboardLoaded) {
       if (isStudent) {
         dashboard = dashboardState.dashboard;
-      } else if (activeChild == null || dashboardState.childStudentId == activeChild.studentId) {
+      } else if (activeChild == null ||
+          dashboardState.childStudentId == activeChild.studentId) {
         dashboard = dashboardState.dashboard;
       } else {
         dashboard = const DashboardEntity();
@@ -175,11 +192,15 @@ class _ParentDashboardScreenState
       final start = featured.scheduledStartTime;
       if (start != null) {
         final localStart = start.toLocal();
-        final now = DateTime.now();
-        final isToday = localStart.year == now.year &&
+        final now = ref.watch(currentDeviceDateProvider);
+        final isToday =
+            localStart.year == now.year &&
             localStart.month == now.month &&
             localStart.day == now.day;
-        todayClass = isToday ? featured : null;
+        final isNotTerminal =
+            !featured.isCancelled &&
+            (!featured.isCompletedAt(now) || featured.isUpcomingAt(now));
+        todayClass = (isToday && isNotTerminal) ? featured : null;
       } else {
         // Fallback for test mocks without scheduledStartTime
         todayClass = featured;
@@ -189,14 +210,16 @@ class _ParentDashboardScreenState
     }
 
     final upcomingClass = todayClass;
-    final activeTopic = dashboard.activeTopic ??
+    final activeTopic =
+        dashboard.activeTopic ??
         (dashboard.enrolledBatches.isNotEmpty
             ? dashboard.enrolledBatches.first.batchName
             : 'Curriculum');
 
     final String greetingName;
     if (isStudent) {
-      greetingName = dashboard.studentName ??
+      greetingName =
+          dashboard.studentName ??
           (authState is Authenticated ? authState.user?.name : null) ??
           '';
     } else {
@@ -214,11 +237,7 @@ class _ParentDashboardScreenState
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF3E8FF),
-              Color(0xFFE0F2FE),
-              Color(0xFFFFFFFF),
-            ],
+            colors: [Color(0xFFF3E8FF), Color(0xFFE0F2FE), Color(0xFFFFFFFF)],
             stops: [0.0, 0.5, 1.0],
           ),
         ),
@@ -237,15 +256,24 @@ class _ParentDashboardScreenState
                     children: displayChildren,
                     activeChildId: activeChild?.studentId,
                     onSelectChild: (childId) {
-                      ref.read(childrenControllerProvider.notifier).setActiveChild(childId);
+                      ref
+                          .read(childrenControllerProvider.notifier)
+                          .setActiveChild(childId);
                     },
                   ),
 
               // Error banner if children or dashboard encountered an error
-              if ((!isStudent && childrenState is ChildrenError) || dashboardState is DashboardError)
+              if ((!isStudent && childrenState is ChildrenError) ||
+                  dashboardState is DashboardError)
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFEE2E2),
                     borderRadius: BorderRadius.circular(8),
@@ -253,21 +281,30 @@ class _ParentDashboardScreenState
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.info_outline, color: Color(0xFFB91C1C), size: 18),
+                      const Icon(
+                        Icons.info_outline,
+                        color: Color(0xFFB91C1C),
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           (!isStudent && childrenState is ChildrenError)
                               ? childrenState.message
                               : (dashboardState as DashboardError).message,
-                          style: AppTypography.bodySmall.copyWith(color: const Color(0xFFB91C1C)),
+                          style: AppTypography.bodySmall.copyWith(
+                            color: const Color(0xFFB91C1C),
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       TextButton(
                         onPressed: _onRefresh,
-                        child: const Text('Retry', style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          'Retry',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
@@ -308,8 +345,13 @@ class _ParentDashboardScreenState
                                 upcomingClass: upcomingClass,
                                 onViewClass: () {
                                   if (activeChild?.studentId != null) {
-                                    ref.read(classesControllerProvider.notifier).loadClasses(
-                                          childStudentId: activeChild!.studentId,
+                                    ref
+                                        .read(
+                                          classesControllerProvider.notifier,
+                                        )
+                                        .loadClasses(
+                                          childStudentId:
+                                              activeChild!.studentId,
                                         );
                                   }
                                   try {

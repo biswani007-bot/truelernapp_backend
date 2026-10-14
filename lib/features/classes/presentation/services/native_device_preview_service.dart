@@ -52,12 +52,16 @@ abstract class NativeDevicePreviewService {
 class MethodChannelDevicePreviewService implements NativeDevicePreviewService {
   const MethodChannelDevicePreviewService();
 
-  static const MethodChannel _channel = MethodChannel('com.truelern.app/camera_controls');
+  static const MethodChannel _channel = MethodChannel(
+    'com.truelern.app/camera_controls',
+  );
 
   @override
   Future<DevicePreviewPermissions> checkPermissions() async {
     try {
-      final res = await _channel.invokeMethod<Map<dynamic, dynamic>>('checkPermissions');
+      final res = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'checkPermissions',
+      );
       return DevicePreviewPermissions.fromMap(res);
     } on PlatformException {
       return const DevicePreviewPermissions(
@@ -75,7 +79,9 @@ class MethodChannelDevicePreviewService implements NativeDevicePreviewService {
   @override
   Future<DevicePreviewPermissions> requestPermissions() async {
     try {
-      final res = await _channel.invokeMethod<Map<dynamic, dynamic>>('requestPermissions');
+      final res = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'requestPermissions',
+      );
       return DevicePreviewPermissions.fromMap(res);
     } on PlatformException {
       return const DevicePreviewPermissions(
@@ -123,6 +129,8 @@ class MethodChannelDevicePreviewService implements NativeDevicePreviewService {
 }
 
 /// Global provider exposing [NativeDevicePreviewService].
-final devicePreviewServiceProvider = Provider<NativeDevicePreviewService>((ref) {
+final devicePreviewServiceProvider = Provider<NativeDevicePreviewService>((
+  ref,
+) {
   return const MethodChannelDevicePreviewService();
 });

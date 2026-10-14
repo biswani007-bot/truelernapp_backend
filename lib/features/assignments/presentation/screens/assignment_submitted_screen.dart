@@ -1,37 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../dashboard/presentation/controllers/children_controller.dart';
+import '../../../dashboard/presentation/controllers/children_state.dart';
 import '../../domain/entities/assignment_entity.dart';
+import '../../domain/entities/assignment_submission_entity.dart';
+import '../controllers/assignment_submission_controller.dart';
+import '../widgets/assignments_skeleton.dart';
+import '../../../../core/router/route_names.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
 
 /// SCR-19: Assignment Submitted Screen (Figma Node 76:2611 "Assignment Submitted (Revised)")
 ///
-/// Features matching 100% Figma specification:
-/// 1. Background gradient: LinearGradient 135.1 deg (#F3E8FF 0%, #E0F2FE 50%, #FFFFFF 100%).
-/// 2. Success Hero Section (76:2613):
-///    - Clay 3D Tile (192x192, 32px radius, rotated 3 deg, deep elevation shadow, 4px white border)
-///      with purple puzzle piece icon (76:2619, `submission_puzzle_large.svg`).
-///    - Success Badge (76:2621): 64x64 emerald circle (#10B981) with 4px solid white border,
-///      elevation shadow, and centered white checkmark (`submission_badge_check.svg`).
-///    - Title (76:2627): "Assignment Submitted" in 28px Hanken Grotesk Bold, color #0037B1.
-///    - Subtitle (76:2629): "Great job! Your Practical Thinking assignment is\nsecurely in the hands of our reviewers."
-///      in 16px Regular #434655.
-/// 3. Details & Context Grid (Bento Style) (76:2631):
-///    - Summary Card (76:2632):
-///      - 4px Purple (#A855F7) accent left bar.
-///      - Document icon (`submission_doc_icon.svg`) + "Submission Details" (16px SemiBold #1A1B23).
-///      - Row 1: "Submitted" (14px Regular #434655) vs "Today, 4:30 PM" (14px SemiBold #1A1B23), separated by #E2E1ED border.
-///      - Row 2: "Status" vs "Under Review" pill with hourglass icon (`submission_hourglass.svg`, #0037B1 text on #E8E7F3).
-///    - Related Class Context Card (76:2651):
-///      - Purple overlay box with small puzzle icon (`submission_puzzle_small.svg`).
-///      - Topic: "PRACTICAL THINKING" (12px Medium #A855F7 uppercase, 0.6px letter spacing).
-///      - Class title: "Problem Solving 101" (16px SemiBold #1A1B23).
-///      - Description: "This assignment is connected to the recent live class. Review the materials if needed."
-///      - "View Class Details ->" link button in #0037B1 with right arrow icon (`submission_arrow_right.svg`).
-/// 4. Primary CTA (76:2668):
-///    - Pill button in #0037B1 with elevation shadow: "BACK TO LEARNING" + graduation cap icon (`submission_cap.svg`).
-class AssignmentSubmittedScreen extends StatelessWidget {
+/// Fully dynamic:
+/// 1. Backed by backend assignment and submission models via [assignmentSubmissionControllerProvider].
+/// 2. If assignment details are not in state or loading, displays a shimmer skeleton matching the Figma bento geometry.
+/// 3. If API fetch fails, displays an error state with a Retry button.
+/// 4. Shows actual submission timestamp, status, assignment title, topic, description, and connected class navigation.
+class AssignmentSubmittedScreen extends ConsumerStatefulWidget {
   final String? assignmentId;
   final AssignmentEntity? assignment;
 
@@ -42,10 +31,73 @@ class AssignmentSubmittedScreen extends StatelessWidget {
   });
 
   @override
+  ConsumerState<AssignmentSubmittedScreen> createState() =>
+      _AssignmentSubmittedScreenState();
+}
+
+class _AssignmentSubmittedScreenState
+    extends ConsumerState<AssignmentSubmittedScreen> {
+  String get _effectiveAssignmentId =>
+      widget.assignmentId ?? widget.assignment?.id ?? 'default_asg';
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      if (mounted) {
+        _initController();
+      }
+    });
+  }
+
+  void _initController() {
+    final childrenState = ref.read(childrenControllerProvider);
+    String? activeChildId;
+    if (childrenState is ChildrenLoaded) {
+      activeChildId = childrenState.activeChildId;
+    }
+    activeChildId ??= widget.assignment?.childStudentId;
+
+    ref
+        .read(assignmentSubmissionControllerProvider.notifier)
+        .init(
+          assignmentId: _effectiveAssignmentId,
+          childStudentId: activeChildId,
+          initialAssignment: widget.assignment,
+        );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final topic = assignment?.topic ?? 'Practical Thinking';
-    final classTitle = 'Problem Solving 101';
-    final submittedTime = 'Today, 4:30 PM';
+    ref.listen<ChildrenState>(childrenControllerProvider, (prev, next) {
+      if (next is ChildrenLoaded) {
+        final prevChildId = prev is ChildrenLoaded ? prev.activeChildId : null;
+        if (prevChildId != next.activeChildId && next.activeChildId != null) {
+          ref
+              .read(assignmentSubmissionControllerProvider.notifier)
+              .init(
+                assignmentId: _effectiveAssignmentId,
+                childStudentId: next.activeChildId,
+                initialAssignment: null,
+              );
+        }
+      }
+    });
+
+    final subState = ref.watch(
+      singleAssignmentSubmissionProvider(_effectiveAssignmentId),
+    );
+
+    final currentAssignment = subState.assignment ?? widget.assignment;
+
+    final isLoading =
+        (subState.status == SubmissionFlowStatus.loadingDetail ||
+            subState.status == SubmissionFlowStatus.initial) &&
+        currentAssignment == null;
+
+    final isError =
+        subState.status == SubmissionFlowStatus.error &&
+        currentAssignment == null;
 
     return Scaffold(
       body: Stack(
@@ -68,28 +120,24 @@ class AssignmentSubmittedScreen extends StatelessWidget {
 
           SafeArea(
             bottom: false,
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 110),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 448),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // 1. Success Hero Section (Figma Node 76:2613)
-                      _buildHeroSection(topic),
-                      const SizedBox(height: 36),
-
-                      // 2. Details & Context Grid (Bento Style) (Figma Node 76:2631)
-                      _buildSummaryCard(submittedTime),
-                      const SizedBox(height: 16),
-                      _buildRelatedClassCard(context, topic, classTitle),
-                      const SizedBox(height: 36),
-
-                      // 3. Primary CTA: BACK TO LEARNING (Figma Node 76:2668)
-                      _buildBackToLearningButton(context),
-                    ],
+            child: AppRefreshIndicator(
+              onRefresh: () async {
+                _initController();
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 110),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 448),
+                    child: isLoading
+                        ? _buildLoadingSkeleton()
+                        : (isError
+                              ? _buildErrorState(subState.errorMessage)
+                              : _buildSubmittedContent(
+                                  currentAssignment,
+                                  subState,
+                                )),
                   ),
                 ),
               ),
@@ -97,6 +145,267 @@ class AssignmentSubmittedScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// Full loading skeleton matching the submitted screen's Bento layout
+  Widget _buildLoadingSkeleton() {
+    return Column(
+      key: const Key('submitted_loading_skeleton'),
+      children: [
+        const SizedBox(height: 16),
+        // Hero icon shimmer
+        const Center(
+          child: AssignmentShimmerBox(
+            width: 180,
+            height: 180,
+            borderRadius: 32,
+            opacity: 0.7,
+          ),
+        ),
+        const SizedBox(height: 24),
+        // Title shimmer
+        const Center(
+          child: AssignmentShimmerBox(
+            width: 260,
+            height: 32,
+            borderRadius: 8,
+            opacity: 0.7,
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Subtitle shimmer
+        const Center(
+          child: AssignmentShimmerBox(
+            width: 320,
+            height: 20,
+            borderRadius: 6,
+            opacity: 0.5,
+          ),
+        ),
+        const SizedBox(height: 36),
+
+        // Bento Card 1 Shimmer (Submission Details)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AssignmentShimmerBox(
+                width: 160,
+                height: 20,
+                borderRadius: 6,
+                opacity: 0.7,
+              ),
+              SizedBox(height: 16),
+              AssignmentShimmerBox(
+                width: double.infinity,
+                height: 16,
+                borderRadius: 4,
+                opacity: 0.5,
+              ),
+              SizedBox(height: 16),
+              AssignmentShimmerBox(
+                width: double.infinity,
+                height: 16,
+                borderRadius: 4,
+                opacity: 0.5,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Bento Card 2 Shimmer (Related Class Context)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  AssignmentShimmerBox(
+                    width: 48,
+                    height: 48,
+                    borderRadius: 12,
+                    opacity: 0.7,
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AssignmentShimmerBox(
+                          width: 100,
+                          height: 14,
+                          borderRadius: 4,
+                          opacity: 0.7,
+                        ),
+                        SizedBox(height: 6),
+                        AssignmentShimmerBox(
+                          width: 180,
+                          height: 18,
+                          borderRadius: 4,
+                          opacity: 0.7,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 14),
+              AssignmentShimmerBox(
+                width: double.infinity,
+                height: 16,
+                borderRadius: 4,
+                opacity: 0.5,
+              ),
+              SizedBox(height: 14),
+              AssignmentShimmerBox(
+                width: 130,
+                height: 16,
+                borderRadius: 4,
+                opacity: 0.7,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 36),
+
+        // CTA Shimmer
+        const Center(
+          child: AssignmentShimmerBox(
+            width: 220,
+            height: 52,
+            borderRadius: 9999,
+            opacity: 0.7,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Error state if loading assignment details failed
+  Widget _buildErrorState(String? errorMessage) {
+    return Container(
+      key: const Key('submitted_error_state'),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, 0.05),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFBA1A1A),
+            size: 48,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Failed to load submission',
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1A1B23),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            errorMessage ?? 'Please check your connection and try again.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFF434655),
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            key: const Key('submitted_retry_button'),
+            onPressed: _initController,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0037B1),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Real submission content
+  Widget _buildSubmittedContent(
+    AssignmentEntity? assignment,
+    AssignmentSubmissionState subState,
+  ) {
+    final topic = assignment?.topic ?? 'Academics';
+    final classTitle = assignment?.title ?? 'Class Assignment';
+    final description =
+        assignment?.description ??
+        assignment?.instructions ??
+        'This assignment is connected to the recent live class. Review the materials if needed.';
+
+    final submission = subState.submission ?? assignment?.submission;
+
+    final submittedTime = _formatSubmissionTimestamp(submission?.submittedAt);
+    final statusLabel = _resolveStatusLabel(submission);
+
+    final scoreVal = assignment?.score ?? submission?.marksAwarded;
+    final totalMarksVal = assignment?.totalMarks ?? 100;
+    final gradeVal = assignment?.grade ?? submission?.grade;
+    final String? gradeDisplay = scoreVal != null
+        ? '$scoreVal/$totalMarksVal${gradeVal != null && gradeVal.isNotEmpty ? ' ($gradeVal)' : ''}'
+        : (gradeVal != null && gradeVal.isNotEmpty ? gradeVal : null);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // 1. Success Hero Section (Figma Node 76:2613)
+        _buildHeroSection(topic),
+        const SizedBox(height: 36),
+
+        // 2. Details & Context Grid (Bento Style) (Figma Node 76:2631)
+        _buildSummaryCard(
+          submittedTime,
+          statusLabel,
+          gradeDisplay: gradeDisplay,
+        ),
+        const SizedBox(height: 16),
+        _buildRelatedClassCard(
+          context,
+          topic: topic,
+          classTitle: classTitle,
+          description: description,
+          classId: assignment?.classId,
+        ),
+        const SizedBox(height: 36),
+
+        // 3. Primary CTA: BACK TO LEARNING (Figma Node 76:2668)
+        _buildBackToLearningButton(context),
+      ],
     );
   }
 
@@ -185,7 +494,10 @@ class AssignmentSubmittedScreen extends StatelessWidget {
                       width: 23,
                       height: 18,
                       fit: BoxFit.contain,
-                      colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                      colorFilter: const ColorFilter.mode(
+                        Colors.white,
+                        BlendMode.srcIn,
+                      ),
                     ),
                   ),
                 ),
@@ -228,7 +540,11 @@ class AssignmentSubmittedScreen extends StatelessWidget {
   }
 
   /// 2A. Summary Card (Node 76:2632)
-  Widget _buildSummaryCard(String submittedTime) {
+  Widget _buildSummaryCard(
+    String submittedTime,
+    String statusLabel, {
+    String? gradeDisplay,
+  }) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -264,7 +580,10 @@ class AssignmentSubmittedScreen extends StatelessWidget {
                   'assets/icons/submission_doc_icon.svg',
                   width: 16,
                   height: 20,
-                  colorFilter: const ColorFilter.mode(Color(0xFF1A1B23), BlendMode.srcIn),
+                  colorFilter: const ColorFilter.mode(
+                    Color(0xFF1A1B23),
+                    BlendMode.srcIn,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Flexible(
@@ -304,15 +623,17 @@ class AssignmentSubmittedScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    submittedTime,
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1A1B23),
-                      letterSpacing: 0.1,
-                      height: 20 / 14,
+                  Flexible(
+                    child: Text(
+                      submittedTime,
+                      textAlign: TextAlign.end,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1A1B23),
+                        letterSpacing: 0.1,
+                        height: 20 / 14,
+                      ),
                     ),
                   ),
                 ],
@@ -338,7 +659,10 @@ class AssignmentSubmittedScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8E7F3),
                       borderRadius: BorderRadius.circular(9999),
@@ -350,11 +674,14 @@ class AssignmentSubmittedScreen extends StatelessWidget {
                           'assets/icons/submission_hourglass.svg',
                           width: 11,
                           height: 14,
-                          colorFilter: const ColorFilter.mode(Color(0xFF0037B1), BlendMode.srcIn),
+                          colorFilter: const ColorFilter.mode(
+                            Color(0xFF0037B1),
+                            BlendMode.srcIn,
+                          ),
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'Under Review',
+                          statusLabel,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -368,6 +695,48 @@ class AssignmentSubmittedScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+            // Row 3 (Optional): Grade vs 100/100
+            if (gradeDisplay != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.only(top: 12),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Color(0xFFE2E1ED), width: 1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'Grade',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF434655),
+                          height: 20 / 14,
+                        ),
+                      ),
+                    ),
+                    Flexible(
+                      child: Text(
+                        gradeDisplay,
+                        textAlign: TextAlign.end,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0037B1),
+                          letterSpacing: 0.1,
+                          height: 20 / 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -375,7 +744,13 @@ class AssignmentSubmittedScreen extends StatelessWidget {
   }
 
   /// 2B. Related Class Context Card (Node 76:2651)
-  Widget _buildRelatedClassCard(BuildContext context, String topic, String classTitle) {
+  Widget _buildRelatedClassCard(
+    BuildContext context, {
+    required String topic,
+    required String classTitle,
+    required String description,
+    String? classId,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -408,7 +783,10 @@ class AssignmentSubmittedScreen extends StatelessWidget {
                     'assets/icons/submission_puzzle_small.svg',
                     width: 19,
                     height: 20,
-                    colorFilter: const ColorFilter.mode(Color(0xFFA855F7), BlendMode.srcIn),
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xFFA855F7),
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ),
               ),
@@ -446,7 +824,7 @@ class AssignmentSubmittedScreen extends StatelessWidget {
 
           // Description (Node 76:2663)
           Text(
-            'This assignment is connected to the recent live class. Review the materials if needed.',
+            description,
             style: GoogleFonts.hankenGrotesk(
               fontSize: 15,
               fontWeight: FontWeight.w400,
@@ -459,13 +837,7 @@ class AssignmentSubmittedScreen extends StatelessWidget {
           // "View Class Details ->" link (Node 76:2664)
           InkWell(
             key: const Key('view_class_details_link'),
-            onTap: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go('/parent/classes');
-              }
-            },
+            onTap: () => context.pushNamed(AppRouteNames.currentProgram),
             borderRadius: BorderRadius.circular(4),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -487,7 +859,10 @@ class AssignmentSubmittedScreen extends StatelessWidget {
                     'assets/icons/submission_arrow_right.svg',
                     width: 12,
                     height: 12,
-                    colorFilter: const ColorFilter.mode(Color(0xFF0037B1), BlendMode.srcIn),
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xFF0037B1),
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ],
               ),
@@ -503,9 +878,7 @@ class AssignmentSubmittedScreen extends StatelessWidget {
     return Center(
       child: ElevatedButton(
         key: const Key('back_to_learning_button'),
-        onPressed: () {
-          context.go('/parent/classes/program');
-        },
+        onPressed: () => context.goNamed(AppRouteNames.parentDashboard),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF0037B1),
           foregroundColor: Colors.white,
@@ -534,11 +907,117 @@ class AssignmentSubmittedScreen extends StatelessWidget {
               'assets/icons/submission_cap.svg',
               width: 22,
               height: 18,
-              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+              colorFilter: const ColorFilter.mode(
+                Colors.white,
+                BlendMode.srcIn,
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// Formats submission timestamp according to requirements:
+  /// - Today → “Today, 3:29 PM”
+  /// - Yesterday → “Yesterday, 3:29 PM”
+  /// - Older → “28 Sep 2026, 3:29 PM”
+  /// Ensures local timezone conversion.
+  String _formatSubmissionTimestamp(DateTime? submittedAt) {
+    if (submittedAt == null) {
+      return 'Just now';
+    }
+
+    final localDt = submittedAt.toLocal();
+    final now = DateTime.now();
+
+    final isToday =
+        localDt.year == now.year &&
+        localDt.month == now.month &&
+        localDt.day == now.day;
+
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday =
+        localDt.year == yesterday.year &&
+        localDt.month == yesterday.month &&
+        localDt.day == yesterday.day;
+
+    final hour = localDt.hour > 12
+        ? localDt.hour - 12
+        : (localDt.hour == 0 ? 12 : localDt.hour);
+    final ampm = localDt.hour >= 12 ? 'PM' : 'AM';
+    final minute = localDt.minute.toString().padLeft(2, '0');
+    final timeStr = '$hour:$minute $ampm';
+
+    if (isToday) {
+      return 'Today, $timeStr';
+    }
+
+    if (isYesterday) {
+      return 'Yesterday, $timeStr';
+    }
+
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final monthName = months[localDt.month - 1];
+    return '${localDt.day} $monthName ${localDt.year}, $timeStr';
+  }
+
+  /// Resolves the actual dynamic status label from backend submission record.
+  String _resolveStatusLabel(AssignmentSubmissionEntity? submission) {
+    if (submission == null) {
+      return 'Submitted';
+    }
+
+    if (submission.isGraded) {
+      return 'Graded';
+    }
+
+    final raw = submission.rawStatus?.trim();
+    if (raw != null && raw.isNotEmpty) {
+      final lower = raw.toLowerCase();
+      if (lower == 'under_review' ||
+          lower == 'in_review' ||
+          lower == 'pending_review' ||
+          lower == 'submitted') {
+        return 'Under Review';
+      }
+      if (lower == 'graded' || lower == 'evaluated') {
+        return 'Graded';
+      }
+      if (lower == 'submitted_late' || lower == 'late') {
+        return 'Submitted Late';
+      }
+      if (lower == 'draft') {
+        return 'Draft';
+      }
+      // If backend returned another string (e.g., 'Approved', 'Rejected'), convert snake_case to Title Case
+      return raw
+          .split(RegExp(r'[_ -]'))
+          .map((word) {
+            if (word.isEmpty) return '';
+            return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
+          })
+          .join(' ');
+    }
+
+    return switch (submission.status) {
+      SubmissionStatus.graded => 'Graded',
+      SubmissionStatus.late => 'Submitted Late',
+      SubmissionStatus.draft => 'Draft',
+      _ => 'Under Review',
+    };
   }
 }

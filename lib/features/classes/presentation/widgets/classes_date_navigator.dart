@@ -53,7 +53,10 @@ class _ClassesDateNavigatorState extends State<ClassesDateNavigator> {
 
     // Initial scroll offset so that the anchor/selected date is visible with 1 previous day on the left
     final anchorIndex = _pastDays;
-    final initialOffset = ((anchorIndex - 1) * _itemPitch).clamp(0.0, double.infinity);
+    final initialOffset = ((anchorIndex - 1) * _itemPitch).clamp(
+      0.0,
+      double.infinity,
+    );
     _scrollController = ScrollController(initialScrollOffset: initialOffset);
   }
 
@@ -61,8 +64,12 @@ class _ClassesDateNavigatorState extends State<ClassesDateNavigator> {
   void didUpdateWidget(covariant ClassesDateNavigator oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final oldAnchor = _normalize(oldWidget.initialAnchorDate ?? oldWidget.selectedDate);
-    final newAnchor = _normalize(widget.initialAnchorDate ?? widget.selectedDate);
+    final oldAnchor = _normalize(
+      oldWidget.initialAnchorDate ?? oldWidget.selectedDate,
+    );
+    final newAnchor = _normalize(
+      widget.initialAnchorDate ?? widget.selectedDate,
+    );
     if (!_isSameDay(oldAnchor, newAnchor)) {
       setState(() {
         _dates = List.generate(
@@ -99,8 +106,10 @@ class _ClassesDateNavigatorState extends State<ClassesDateNavigator> {
 
   void _scrollLeft() {
     if (!_scrollController.hasClients) return;
-    final target = (_scrollController.offset - (_itemPitch * 3))
-        .clamp(0.0, _scrollController.position.maxScrollExtent);
+    final target = (_scrollController.offset - (_itemPitch * 3)).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
     _scrollController.animateTo(
       target,
       duration: const Duration(milliseconds: 300),
@@ -110,8 +119,10 @@ class _ClassesDateNavigatorState extends State<ClassesDateNavigator> {
 
   void _scrollRight() {
     if (!_scrollController.hasClients) return;
-    final target = (_scrollController.offset + (_itemPitch * 3))
-        .clamp(0.0, _scrollController.position.maxScrollExtent);
+    final target = (_scrollController.offset + (_itemPitch * 3)).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
     _scrollController.animateTo(
       target,
       duration: const Duration(milliseconds: 300),
@@ -129,14 +140,20 @@ class _ClassesDateNavigatorState extends State<ClassesDateNavigator> {
       final viewportWidth = _scrollController.position.viewportDimension;
       if (itemOffset < currentOffset + 16.0) {
         _scrollController.animateTo(
-          (itemOffset - 16.0).clamp(0.0, _scrollController.position.maxScrollExtent),
+          (itemOffset - 16.0).clamp(
+            0.0,
+            _scrollController.position.maxScrollExtent,
+          ),
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOut,
         );
-      } else if (itemOffset + _itemWidth > currentOffset + viewportWidth - 24.0) {
+      } else if (itemOffset + _itemWidth >
+          currentOffset + viewportWidth - 24.0) {
         _scrollController.animateTo(
-          (itemOffset + _itemWidth - viewportWidth + 32.0)
-              .clamp(0.0, _scrollController.position.maxScrollExtent),
+          (itemOffset + _itemWidth - viewportWidth + 32.0).clamp(
+            0.0,
+            _scrollController.position.maxScrollExtent,
+          ),
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOut,
         );
@@ -158,11 +175,15 @@ class _ClassesDateNavigatorState extends State<ClassesDateNavigator> {
             controller: _scrollController,
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
             itemCount: _dates.length,
             itemBuilder: (context, index) {
               final day = _dates[index];
-              final isSelected = day.year == widget.selectedDate.year &&
+              final isSelected =
+                  day.year == widget.selectedDate.year &&
                   day.month == widget.selectedDate.month &&
                   day.day == widget.selectedDate.day;
               final dayLabel = _dayLabels[day.weekday - 1];
@@ -180,12 +201,15 @@ class _ClassesDateNavigatorState extends State<ClassesDateNavigator> {
                       width: _itemWidth,
                       height: 64.0,
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF0037B1) : Colors.white,
+                        color: isSelected
+                            ? const Color(0xFF0037B1)
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(8.0),
                         border: isSelected
                             ? null
                             : Border.all(
-                                color: const Color(0xFFC4C5D7).withValues(alpha: 0.25),
+                                color: const Color(0xFFC4C5D7)
+                                    .withValues(alpha: 0.25),
                                 width: 1.0,
                               ),
                         boxShadow: const [
@@ -217,7 +241,9 @@ class _ClassesDateNavigatorState extends State<ClassesDateNavigator> {
                           Text(
                             dayNumber,
                             style: GoogleFonts.hankenGrotesk(
-                              color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                              color: isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
                               fontSize: 17.0,
                               fontWeight: FontWeight.w600,
                               height: 24.0 / 16.0,

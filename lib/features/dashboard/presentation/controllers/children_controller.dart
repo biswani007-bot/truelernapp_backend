@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../data/repositories/dashboard_repository_impl.dart';
 import '../../domain/entities/dashboard_entity.dart';
@@ -49,6 +50,8 @@ class ChildrenController extends Notifier<ChildrenState> {
 
       if (resolvedActiveId != null) {
         await _storage.saveActiveChildId(resolvedActiveId);
+      } else {
+        await _storage.deleteActiveChildId();
       }
 
       state = ChildrenLoaded(
@@ -81,7 +84,10 @@ class ChildrenController extends Notifier<ChildrenState> {
 
   String _messageFrom(Object error) {
     // Failure types are already user-friendly messages from ErrorHandler
-    return error.toString().replaceFirst(RegExp(r'^.*\(message: '), '').replaceFirst(RegExp(r',.*$'), '');
+    return error
+        .toString()
+        .replaceFirst(RegExp(r'^.*\(message: '), '')
+        .replaceFirst(RegExp(r',.*$'), '');
   }
 }
 
@@ -92,6 +98,6 @@ final childrenControllerProvider =
 /// Provider for fetching a specific child's dashboard metrics (course, attendance rate).
 final childDashboardMetricsProvider =
     FutureProvider.family<DashboardEntity, String>((ref, studentId) async {
-  final repo = ref.watch(dashboardRepositoryProvider);
-  return repo.getChildDashboard(childStudentId: studentId);
-});
+      final repo = ref.watch(dashboardRepositoryProvider);
+      return repo.getChildDashboard(childStudentId: studentId);
+    });

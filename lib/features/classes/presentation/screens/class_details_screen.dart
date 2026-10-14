@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/class_entity.dart';
 import '../controllers/classes_controller.dart';
 import '../controllers/classes_state.dart';
 import '../../../dashboard/presentation/controllers/children_controller.dart';
 import '../../../dashboard/presentation/controllers/children_state.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
 
 /// Class Details Screen (SCR-14 / Figma Frame 76:2063 titled "Class Details (Revised)").
 ///
@@ -31,19 +35,31 @@ class ClassDetailsScreen extends ConsumerStatefulWidget {
     super.key,
     required this.classId,
     this.session,
+    this.currentTime,
   });
 
   final String classId;
   final ClassEntity? session;
+  final DateTime Function()? currentTime;
 
   @override
   ConsumerState<ClassDetailsScreen> createState() => _ClassDetailsScreenState();
 }
 
-class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
+class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen>
+    with WidgetsBindingObserver {
+  Timer? _countdownTimer;
+  bool _isNavigating = false;
+
+  DateTime get _now =>
+      widget.currentTime != null ? widget.currentTime!() : DateTime.now();
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startCountdownTimer();
+
     // Fallback: If session was not passed directly via GoRouter extra,
     // ensure classes are loaded for the active child so we can resolve it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -51,27 +67,65 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
         final classesState = ref.read(classesControllerProvider);
         if (classesState is! ClassesLoaded) {
           final childrenState = ref.read(childrenControllerProvider);
-          if (childrenState is ChildrenLoaded && childrenState.activeChildId != null) {
-            ref.read(classesControllerProvider.notifier).loadClasses(
-              childStudentId: childrenState.activeChildId!,
-            );
+          if (childrenState is ChildrenLoaded &&
+              childrenState.activeChildId != null) {
+            ref
+                .read(classesControllerProvider.notifier)
+                .loadClasses(childStudentId: childrenState.activeChildId!);
           }
         }
       }
     });
   }
 
+  void _startCountdownTimer() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _onRefresh() async {
+    final childrenState = ref.read(childrenControllerProvider);
+    final childId = childrenState is ChildrenLoaded
+        ? childrenState.activeChildId
+        : null;
+    if (childId != null && childId.isNotEmpty) {
+      await ref
+          .read(classesControllerProvider.notifier)
+          .loadClasses(childStudentId: childId, isRefresh: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 1. Resolve session: Prefer directly passed entity, fallback to ClassesController lookup
-    ClassEntity? resolvedSession = widget.session;
+    // 1. Resolve session: Prefer fresh entity from controller if refreshed, fallback to widget.session
     final classesState = ref.watch(classesControllerProvider);
-
-    if (resolvedSession == null && classesState is ClassesLoaded) {
+    ClassEntity? resolvedSession;
+    if (classesState is ClassesLoaded) {
       resolvedSession = classesState.classes
           .where((c) => c.id == widget.classId)
           .firstOrNull;
     }
+    resolvedSession ??= widget.session;
 
     return Scaffold(
       key: const Key('class_details_screen'),
@@ -112,58 +166,78 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
   ) {
     // If session is resolved, render details card
     if (session != null) {
-      return SingleChildScrollView(
-        key: const Key('class_details_scroll_view'),
-        padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 24),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
+      return AppRefreshIndicator(
+        onRefresh: _onRefresh,
+        child: SingleChildScrollView(
+          key: const Key('class_details_scroll_view'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 8,
+            bottom: 24,
           ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Hero Section with Left Cyan Border Accent (Node 76:2072)
-              _buildHeroSection(session),
-
-              // Details Section (Node 76:2088)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Quick Info 2x2 Grid (Node 76:2089)
-                    _buildQuickInfoGrid(session),
-                    const SizedBox(height: 24),
-
-                    // Divider (Node 76:2118)
-                    const Divider(color: Color(0xFFE2E1ED), height: 1, thickness: 1),
-                    const SizedBox(height: 24),
-
-                    // Today's Focus (Node 76:2120)
-                    _buildTodaysFocus(),
-                    const SizedBox(height: 28),
-
-                    // What We'll Practice (Node 76:2127)
-                    _buildWhatWellPractice(),
-                    const SizedBox(height: 24),
-
-                    // Action Area (Node 76:2158)
-                    const Divider(color: Color(0xFFE2E1ED), height: 1, thickness: 1),
-                    const SizedBox(height: 20),
-                    _buildActionArea(context, session),
-                  ],
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
                 ),
-              ),
-            ],
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Hero Section with Left Cyan Border Accent (Node 76:2072)
+                _buildHeroSection(session),
+
+                // Details Section (Node 76:2088)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 24,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Quick Info 2x2 Grid (Node 76:2089)
+                      _buildQuickInfoGrid(session),
+                      const SizedBox(height: 24),
+
+                      // Divider (Node 76:2118)
+                      const Divider(
+                        color: Color(0xFFE2E1ED),
+                        height: 1,
+                        thickness: 1,
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Today's Focus (Node 76:2120)
+                      _buildTodaysFocus(),
+                      const SizedBox(height: 28),
+
+                      // What We'll Practice (Node 76:2127)
+                      _buildWhatWellPractice(),
+                      const SizedBox(height: 24),
+
+                      // Action Area (Node 76:2158)
+                      const Divider(
+                        color: Color(0xFFE2E1ED),
+                        height: 1,
+                        thickness: 1,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildActionArea(context, session),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -184,31 +258,47 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFDC2626)),
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: Color(0xFFDC2626),
+              ),
               const SizedBox(height: 16),
               Text(
                 'Unable to load session details',
-                style: AppTypography.titleMedium.copyWith(color: const Color(0xFF0F172A)),
+                style: AppTypography.titleMedium.copyWith(
+                  color: const Color(0xFF0F172A),
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
                 classesState.message,
-                style: AppTypography.bodySmall.copyWith(color: const Color(0xFF64748B)),
+                style: AppTypography.bodySmall.copyWith(
+                  color: const Color(0xFF64748B),
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
                   final childrenState = ref.read(childrenControllerProvider);
-                  if (childrenState is ChildrenLoaded && childrenState.activeChildId != null) {
-                    ref.read(classesControllerProvider.notifier).loadClasses(
-                      childStudentId: childrenState.activeChildId!,
-                    );
+                  if (childrenState is ChildrenLoaded &&
+                      childrenState.activeChildId != null) {
+                    ref
+                        .read(classesControllerProvider.notifier)
+                        .loadClasses(
+                          childStudentId: childrenState.activeChildId!,
+                        );
                   }
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0037B1)),
-                child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0037B1),
+                ),
+                child: const Text(
+                  'Retry',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
@@ -223,22 +313,32 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.event_busy_rounded, size: 48, color: Color(0xFF94A3B8)),
+            const Icon(
+              Icons.event_busy_rounded,
+              size: 48,
+              color: Color(0xFF94A3B8),
+            ),
             const SizedBox(height: 16),
             Text(
               'Class Session Not Found',
-              style: AppTypography.titleMedium.copyWith(color: const Color(0xFF0F172A)),
+              style: AppTypography.titleMedium.copyWith(
+                color: const Color(0xFF0F172A),
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'This live class session may have been removed or rescheduled.',
-              style: AppTypography.bodySmall.copyWith(color: const Color(0xFF64748B)),
+              style: AppTypography.bodySmall.copyWith(
+                color: const Color(0xFF64748B),
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
             OutlinedButton(
               onPressed: () => _handleBack(context),
-              style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF0037B1)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF0037B1),
+              ),
               child: const Text('Return to Schedule'),
             ),
           ],
@@ -254,7 +354,11 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
         children: [
           IconButton(
             key: const Key('back_to_my_classes_button'),
-            icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF191C1E), size: 24),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: Color(0xFF191C1E),
+              size: 24,
+            ),
             onPressed: () => _handleBack(context),
             tooltip: 'Back to My Classes',
           ),
@@ -288,7 +392,8 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
 
   Widget _buildHeroSection(ClassEntity session) {
     // Dynamic subject / category
-    final category = (session.subject != null && session.subject!.trim().isNotEmpty)
+    final category =
+        (session.subject != null && session.subject!.trim().isNotEmpty)
         ? session.subject!.trim().toUpperCase()
         : (session.classCode ?? 'LIVE CLASS');
 
@@ -381,7 +486,8 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
     String label;
 
     final now = DateTime.now();
-    final isStartingSoon = session.scheduledStartTime != null &&
+    final isStartingSoon =
+        session.scheduledStartTime != null &&
         session.isUpcoming &&
         session.scheduledStartTime!.isAfter(now) &&
         session.scheduledStartTime!.difference(now).inMinutes <= 60;
@@ -448,9 +554,17 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
 
   Widget _buildQuickInfoGrid(ClassEntity session) {
     final dateText = _formatDate(session.scheduledStartTime);
-    final timeText = _formatTimeRange(session.scheduledStartTime, session.scheduledEndTime);
-    final durationText = _formatDuration(session.duration, session.scheduledStartTime, session.scheduledEndTime);
-    final teacherText = (session.teacherName != null && session.teacherName!.trim().isNotEmpty)
+    final timeText = _formatTimeRange(
+      session.scheduledStartTime,
+      session.scheduledEndTime,
+    );
+    final durationText = _formatDuration(
+      session.duration,
+      session.scheduledStartTime,
+      session.scheduledEndTime,
+    );
+    final teacherText =
+        (session.teacherName != null && session.teacherName!.trim().isNotEmpty)
         ? session.teacherName!.trim()
         : '—';
 
@@ -551,7 +665,11 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
       children: [
         Row(
           children: [
-            const Icon(Icons.lightbulb_rounded, size: 20, color: Color(0xFF0037B1)),
+            const Icon(
+              Icons.lightbulb_rounded,
+              size: 20,
+              color: Color(0xFF0037B1),
+            ),
             const SizedBox(width: 8),
             Text(
               "Today's Focus",
@@ -582,7 +700,11 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
       children: [
         Row(
           children: [
-            const Icon(Icons.done_all_rounded, size: 20, color: Color(0xFF0891B2)),
+            const Icon(
+              Icons.done_all_rounded,
+              size: 20,
+              color: Color(0xFF0891B2),
+            ),
             const SizedBox(width: 8),
             Text(
               "What We'll Practice",
@@ -609,6 +731,9 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
 
   Widget _buildActionArea(BuildContext context, ClassEntity session) {
     final countdownWidget = _buildCountdownWidget(session);
+    final now = _now;
+    final canEnter = session.canEnterLiveClass(now);
+    final isWithinWindow = session.isWithinEntryWindow(now);
 
     return Column(
       children: [
@@ -624,40 +749,116 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
             key: const Key('continue_to_live_class_button'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1E4ED8),
-              elevation: 2,
-              shadowColor: Colors.black.withValues(alpha: 0.2),
+              disabledBackgroundColor: const Color(0xFFE2E8F0),
+              disabledForegroundColor: const Color(0xFF94A3B8),
+              elevation: canEnter ? 2 : 0,
+              shadowColor: canEnter
+                  ? Colors.black.withValues(alpha: 0.2)
+                  : Colors.transparent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            onPressed: () {
-              try {
-                GoRouter.of(context).push(
-                  '/parent/classes/${widget.classId}/preview',
-                  extra: session,
-                );
-              } catch (_) {}
-            },
+            onPressed: canEnter
+                ? () => _handleContinueToLiveClass(context, session)
+                : null,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   'CONTINUE TO LIVE CLASS',
                   style: AppTypography.labelMedium.copyWith(
-                    color: Colors.white,
+                    color: canEnter ? Colors.white : const Color(0xFF94A3B8),
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
                     letterSpacing: 0.5,
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  color: canEnter ? Colors.white : const Color(0xFF94A3B8),
+                  size: 18,
+                ),
               ],
             ),
           ),
         ),
+
+        // 15-Minute Entry Window Notice if not yet within entry window
+        if (!isWithinWindow &&
+            !session.isLive &&
+            !session.isCompleted &&
+            !session.isMissed &&
+            !session.isCancelled) ...[
+          const SizedBox(height: 12),
+          Container(
+            key: const Key('class_entry_restriction_container'),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.lock_clock_outlined,
+                  size: 16,
+                  color: Color(0xFF64748B),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    'You can join 15 minutes before the class starts',
+                    key: const Key('class_entry_restriction_message'),
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: const Color(0xFF64748B),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  void _handleContinueToLiveClass(BuildContext context, ClassEntity session) {
+    if (_isNavigating) return;
+
+    // Dynamic tap-time re-evaluation
+    final now = _now;
+    if (!session.canEnterLiveClass(now)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You can join 15 minutes before the class starts.'),
+          backgroundColor: Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    _isNavigating = true;
+    try {
+      GoRouter.of(context)
+          .push('/parent/classes/${widget.classId}/preview', extra: session);
+    } catch (_) {
+      // In isolated test environments where GoRouter is not mounted
+    } finally {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _isNavigating = false;
+        }
+      });
+    }
   }
 
   Widget _buildCountdownWidget(ClassEntity session) {
@@ -666,7 +867,11 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.check_circle_outline_rounded, size: 18, color: Color(0xFF166534)),
+          const Icon(
+            Icons.check_circle_outline_rounded,
+            size: 18,
+            color: Color(0xFF166534),
+          ),
           const SizedBox(width: 6),
           Text(
             'Class session completed',
@@ -685,7 +890,11 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF991B1B)),
+          const Icon(
+            Icons.info_outline_rounded,
+            size: 18,
+            color: Color(0xFF991B1B),
+          ),
           const SizedBox(width: 6),
           Text(
             'Class was missed',
@@ -722,7 +931,11 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.fiber_manual_record_rounded, size: 16, color: Color(0xFF166534)),
+          const Icon(
+            Icons.fiber_manual_record_rounded,
+            size: 16,
+            color: Color(0xFF166534),
+          ),
           const SizedBox(width: 6),
           Text(
             'Class is currently in session',
@@ -737,62 +950,36 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
     }
 
     if (session.scheduledStartTime != null) {
-      final now = DateTime.now();
-      final diff = session.scheduledStartTime!.difference(now);
+      final now = _now;
+      final countdownText = session.formatCountdown(now);
 
-      if (diff.isNegative) {
-        if (session.scheduledEndTime != null && session.scheduledEndTime!.isAfter(now)) {
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.fiber_manual_record_rounded, size: 16, color: Color(0xFF166534)),
-              const SizedBox(width: 6),
-              Text(
-                'Class is currently in session',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: const Color(0xFF166534),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          );
-        } else {
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.access_time_rounded, size: 18, color: Color(0xFF64748B)),
-              const SizedBox(width: 6),
-              Text(
-                'Scheduled session concluded',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: const Color(0xFF64748B),
-                  fontSize: 15,
-                ),
-              ),
-            ],
-          );
-        }
-      }
-
-      final minutes = diff.inMinutes;
-      if (minutes <= 60) {
+      if (countdownText != null) {
+        final isDays = countdownText.contains('day');
+        final isUnderHour = !isDays && !countdownText.contains('hour');
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.timer_outlined, size: 18, color: Color(0xFFEA580C)),
+            Icon(
+              isDays ? Icons.calendar_today_outlined : Icons.timer_outlined,
+              size: 18,
+              color: isDays
+                  ? const Color(0xFF64748B)
+                  : (isUnderHour
+                        ? const Color(0xFFEA580C)
+                        : const Color(0xFF0037B1)),
+            ),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                'Class is starting in $minutes minutes',
+                countdownText,
                 key: const Key('class_details_countdown_text'),
                 style: AppTypography.bodyMedium.copyWith(
-                  color: const Color(0xFF1A1B23),
+                  color: isDays
+                      ? const Color(0xFF475569)
+                      : const Color(0xFF1A1B23),
                   fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: isDays ? FontWeight.w500 : FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -801,50 +988,50 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
         );
       }
 
-      final hours = diff.inHours;
-      if (hours < 24) {
+      // If countdown is null, the scheduled start has arrived or passed
+      if (session.scheduledEndTime != null &&
+          session.scheduledEndTime!.isAfter(now)) {
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.timer_outlined, size: 18, color: Color(0xFF0037B1)),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                'Class is starting in $hours hours',
-                key: const Key('class_details_countdown_text'),
-                style: AppTypography.bodyMedium.copyWith(
-                  color: const Color(0xFF1A1B23),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
+            const Icon(
+              Icons.fiber_manual_record_rounded,
+              size: 16,
+              color: Color(0xFF166534),
             ),
-          ],
-        );
-      }
-
-      final days = diff.inDays == 0 ? 1 : diff.inDays;
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.calendar_today_outlined, size: 18, color: Color(0xFF64748B)),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              'Class is scheduled in $days days',
+            const SizedBox(width: 6),
+            Text(
+              'Class is currently in session',
               style: AppTypography.bodyMedium.copyWith(
-                color: const Color(0xFF475569),
+                color: const Color(0xFF166534),
                 fontSize: 15,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
               ),
-              textAlign: TextAlign.center,
             ),
-          ),
-        ],
-      );
+          ],
+        );
+      } else {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.access_time_rounded,
+              size: 18,
+              color: Color(0xFF64748B),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Scheduled session concluded',
+              style: AppTypography.bodyMedium.copyWith(
+                color: const Color(0xFF64748B),
+                fontSize: 15,
+              ),
+            ),
+          ],
+        );
+      }
     }
 
     return Row(
@@ -867,21 +1054,35 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
   String _formatDate(DateTime? start) {
     if (start == null) return '—';
     final local = start.toLocal();
-    final now = DateTime.now();
+    final now = _now;
 
-    if (local.year == now.year && local.month == now.month && local.day == now.day) {
+    if (local.year == now.year &&
+        local.month == now.month &&
+        local.day == now.day) {
       return 'Today';
     }
 
     final tomorrow = now.add(const Duration(days: 1));
-    if (local.year == tomorrow.year && local.month == tomorrow.month && local.day == tomorrow.day) {
+    if (local.year == tomorrow.year &&
+        local.month == tomorrow.month &&
+        local.day == tomorrow.day) {
       return 'Tomorrow';
     }
 
     const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
 
     final weekday = weekdays[local.weekday - 1];

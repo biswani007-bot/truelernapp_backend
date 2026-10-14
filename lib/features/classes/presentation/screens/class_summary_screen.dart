@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,6 +10,7 @@ import '../../domain/entities/class_entity.dart';
 import '../../domain/entities/class_summary_entity.dart';
 import '../controllers/class_summary_controller.dart';
 import '../controllers/class_summary_state.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
 
 /// SCR-17 Class Summary Screen (Figma Node 76:2253 "Class Summary (Revised)")
 ///
@@ -41,12 +43,24 @@ class _ClassSummaryScreenState extends ConsumerState<ClassSummaryScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(classSummaryControllerProvider.notifier).loadSummary(
-        classId: widget.classId,
-        childStudentId: widget.childStudentId,
-        session: widget.session,
-      );
+      ref
+          .read(classSummaryControllerProvider.notifier)
+          .loadSummary(
+            classId: widget.classId,
+            childStudentId: widget.childStudentId,
+            session: widget.session,
+          );
     });
+  }
+
+  Future<void> _onRefresh() async {
+    await ref
+        .read(classSummaryControllerProvider.notifier)
+        .loadSummary(
+          classId: widget.classId,
+          childStudentId: widget.childStudentId,
+          session: widget.session,
+        );
   }
 
   @override
@@ -77,10 +91,7 @@ class _ClassSummaryScreenState extends ConsumerState<ClassSummaryScreen> {
           ),
 
           // Main Canvas Content according to state
-          SafeArea(
-            bottom: false,
-            child: _buildBodyForState(summaryState),
-          ),
+          SafeArea(bottom: false, child: _buildBodyForState(summaryState)),
 
           // Fixed TopAppBar (Figma Node 76:2342)
           Positioned(
@@ -203,25 +214,37 @@ class _ClassSummaryScreenState extends ConsumerState<ClassSummaryScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF434655),
                       side: const BorderSide(color: Color(0xFFCBD5E1)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     child: const Text('Back to Classes'),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: () {
-                      ref.read(classSummaryControllerProvider.notifier).loadSummary(
-                        classId: widget.classId,
-                        childStudentId: widget.childStudentId,
-                        session: widget.session,
-                      );
+                      ref
+                          .read(classSummaryControllerProvider.notifier)
+                          .loadSummary(
+                            classId: widget.classId,
+                            childStudentId: widget.childStudentId,
+                            session: widget.session,
+                          );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0037B1),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     child: const Text('Retry'),
                   ),
@@ -235,35 +258,39 @@ class _ClassSummaryScreenState extends ConsumerState<ClassSummaryScreen> {
   }
 
   Widget _buildLoadedState(BuildContext context, ClassSummaryEntity summary) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(
-        top: 68, // Space for fixed TopAppBar
-        bottom: 40, // Space below CTA button
-        left: 16,
-        right: 16,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 448),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 16),
-              // Hero Section: 3D Illustration & Success Indicator
-              _buildHeroSection(summary),
-              const SizedBox(height: 32),
+    return AppRefreshIndicator(
+      onRefresh: _onRefresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(
+          top: 68, // Space for fixed TopAppBar
+          bottom: 40, // Space below CTA button
+          left: 16,
+          right: 16,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 448),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 16),
+                // Hero Section: 3D Illustration & Success Indicator
+                _buildHeroSection(summary),
+                const SizedBox(height: 32),
 
-              // What We Practiced Section
-              _buildWhatWePracticedSection(summary),
-              const SizedBox(height: 32),
+                // What We Practiced Section
+                _buildWhatWePracticedSection(summary),
+                const SizedBox(height: 32),
 
-              // Next Steps Section
-              _buildNextStepsSection(context, summary),
-              const SizedBox(height: 32),
+                // Next Steps Section
+                _buildNextStepsSection(context, summary),
+                const SizedBox(height: 32),
 
-              // Primary CTA Button: VIEW ASSIGNMENT
-              _buildViewAssignmentButton(context, summary),
-            ],
+                // Primary CTA Button: VIEW ASSIGNMENT
+                _buildViewAssignmentButton(context, summary),
+              ],
+            ),
           ),
         ),
       ),
@@ -360,10 +387,13 @@ class _ClassSummaryScreenState extends ConsumerState<ClassSummaryScreen> {
     if (summary.attendedDurationMinutes != null &&
         summary.scheduledDurationMinutes != null &&
         summary.attendedDurationMinutes! > 0) {
-      durationStr = '${summary.attendedDurationMinutes} / ${summary.scheduledDurationMinutes} minutes';
-    } else if (summary.scheduledDurationMinutes != null && summary.scheduledDurationMinutes! > 0) {
+      durationStr =
+          '${summary.attendedDurationMinutes} / ${summary.scheduledDurationMinutes} minutes';
+    } else if (summary.scheduledDurationMinutes != null &&
+        summary.scheduledDurationMinutes! > 0) {
       durationStr = '${summary.scheduledDurationMinutes} minutes';
-    } else if (summary.attendedDurationMinutes != null && summary.attendedDurationMinutes! > 0) {
+    } else if (summary.attendedDurationMinutes != null &&
+        summary.attendedDurationMinutes! > 0) {
       durationStr = '${summary.attendedDurationMinutes} minutes';
     } else {
       durationStr = '45 minutes';
@@ -429,7 +459,10 @@ class _ClassSummaryScreenState extends ConsumerState<ClassSummaryScreen> {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(9999),
@@ -480,7 +513,10 @@ class _ClassSummaryScreenState extends ConsumerState<ClassSummaryScreen> {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(9999),
@@ -617,7 +653,10 @@ class _ClassSummaryScreenState extends ConsumerState<ClassSummaryScreen> {
                   width: 124,
                   height: 118,
                   margin: const EdgeInsets.only(right: 12),
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFAF8FF),
                     borderRadius: BorderRadius.circular(16),
@@ -747,8 +786,12 @@ class _ClassSummaryScreenState extends ConsumerState<ClassSummaryScreen> {
   }
 
   /// Next Steps Section (Node 76:2306)
-  Widget _buildNextStepsSection(BuildContext context, ClassSummaryEntity summary) {
-    final nextClassTime = summary.nextClassTimeFormatted ?? 'No upcoming classes scheduled';
+  Widget _buildNextStepsSection(
+    BuildContext context,
+    ClassSummaryEntity summary,
+  ) {
+    final nextClassTime =
+        summary.nextClassTimeFormatted ?? 'No upcoming classes scheduled';
     final assignmentTitle = summary.assignmentTitle ?? 'Assignments';
     final assignmentDue = summary.assignmentDueDate ?? 'No pending assignments';
 
@@ -986,9 +1029,15 @@ class _ClassSummaryScreenState extends ConsumerState<ClassSummaryScreen> {
   }
 
   /// Primary CTA Button: VIEW ASSIGNMENT (Node 76:2337)
-  Widget _buildViewAssignmentButton(BuildContext context, ClassSummaryEntity summary) {
-    final hasAssignment = summary.assignmentId != null && summary.assignmentId!.isNotEmpty;
-    final buttonText = hasAssignment ? 'VIEW ASSIGNMENT' : 'VIEW ALL ASSIGNMENTS';
+  Widget _buildViewAssignmentButton(
+    BuildContext context,
+    ClassSummaryEntity summary,
+  ) {
+    final hasAssignment =
+        summary.assignmentId != null && summary.assignmentId!.isNotEmpty;
+    final buttonText = hasAssignment
+        ? 'VIEW ASSIGNMENT'
+        : 'VIEW ALL ASSIGNMENTS';
 
     return Container(
       width: double.infinity,

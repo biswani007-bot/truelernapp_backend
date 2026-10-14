@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../controllers/parent_profile_controller.dart';
 import '../controllers/parent_profile_state.dart';
 import '../widgets/security_privacy_sub_app_bar.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
 
 /// Screen 2 — Personal Information.
 ///
@@ -36,7 +38,10 @@ class _ParentPersonalInfoScreenState
   Widget build(BuildContext context) {
     final state = ref.watch(parentProfileControllerProvider);
 
-    ref.listen<ParentProfileState>(parentProfileControllerProvider, (prev, next) {
+    ref.listen<ParentProfileState>(parentProfileControllerProvider, (
+      prev,
+      next,
+    ) {
       if (next is ParentProfileLoaded) {
         if (next.updateSuccessMessage != null) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -68,11 +73,7 @@ class _ParentPersonalInfoScreenState
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF3E8FF),
-              Color(0xFFE0F2FE),
-              Color(0xFFFFFFFF),
-            ],
+            colors: [Color(0xFFF3E8FF), Color(0xFFE0F2FE), Color(0xFFFFFFFF)],
             stops: [0.0, 0.45, 1.0],
           ),
         ),
@@ -80,9 +81,7 @@ class _ParentPersonalInfoScreenState
           child: Column(
             children: [
               const SecurityPrivacySubAppBar(title: 'Personal Information'),
-              Expanded(
-                child: _buildBody(state),
-              ),
+              Expanded(child: _buildBody(state)),
             ],
           ),
         ),
@@ -104,7 +103,11 @@ class _ParentPersonalInfoScreenState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.error),
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: AppColors.error,
+              ),
               const SizedBox(height: 16),
               Text(
                 'Failed to load personal information',
@@ -126,7 +129,9 @@ class _ParentPersonalInfoScreenState
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () {
-                  ref.read(parentProfileControllerProvider.notifier).loadProfile(refresh: true);
+                  ref
+                      .read(parentProfileControllerProvider.notifier)
+                      .loadProfile(refresh: true);
                 },
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('Try Again'),
@@ -143,138 +148,181 @@ class _ParentPersonalInfoScreenState
 
     if (state is ParentProfileLoaded) {
       final profile = state.profile;
-      return SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 540),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Manage your personal information.',
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: const Color(0xFF64748B),
-                    fontSize: 14,
+      return AppRefreshIndicator(
+        onRefresh: () async {
+          await ref
+              .read(parentProfileControllerProvider.notifier)
+              .loadProfile(refresh: true);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 540),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Manage your personal information.',
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: const Color(0xFF64748B),
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                // Top Profile Header Card
-                _buildProfileCard(profile.fullName, profile.email),
-                const SizedBox(height: 24),
+                  // Top Profile Header Card
+                  _buildProfileCard(profile.fullName, profile.email),
+                  const SizedBox(height: 24),
 
-                // Information Rows Card
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x06000000),
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+                  // Information Rows Card
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x06000000),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildInfoRow(
+                          icon: Icons.person_outline_rounded,
+                          label: 'Full Name',
+                          value: profile.fullName,
+                          showDivider: true,
+                          onTap: () => _openEditModal(
+                            context,
+                            profile.firstName,
+                            profile.lastName,
+                            profile.phone,
+                            profile.address,
+                          ),
+                        ),
+                        _buildInfoRow(
+                          icon: Icons.mail_outline_rounded,
+                          label: 'Email Address',
+                          value: profile.email,
+                          showDivider: true,
+                          // Email is account identifier, not modifiable directly
+                          showChevron: false,
+                        ),
+                        _buildInfoRow(
+                          icon: Icons.phone_outlined,
+                          label: 'Phone Number',
+                          value: profile.phone.isNotEmpty
+                              ? profile.phone
+                              : 'Not provided',
+                          showDivider: true,
+                          onTap: () => _openEditModal(
+                            context,
+                            profile.firstName,
+                            profile.lastName,
+                            profile.phone,
+                            profile.address,
+                          ),
+                        ),
+                        _buildInfoRow(
+                          icon: Icons.chat_bubble_outline_rounded,
+                          label: 'WhatsApp Number',
+                          value: profile.phone.isNotEmpty
+                              ? profile.phone
+                              : 'Not provided',
+                          showDivider: true,
+                          onTap: () => _openEditModal(
+                            context,
+                            profile.firstName,
+                            profile.lastName,
+                            profile.phone,
+                            profile.address,
+                          ),
+                        ),
+                        _buildInfoRow(
+                          icon: Icons.badge_outlined,
+                          label: 'Parent ID',
+                          value: profile.parentId.isNotEmpty
+                              ? profile.parentId
+                              : profile.id,
+                          showDivider: true,
+                          showChevron: false,
+                        ),
+                        _buildInfoRow(
+                          icon: Icons.work_outline_rounded,
+                          label: 'Occupation',
+                          value: profile.occupation.isNotEmpty
+                              ? profile.occupation
+                              : 'Not specified',
+                          showDivider: true,
+                          showChevron: false,
+                        ),
+                        _buildInfoRow(
+                          icon: Icons.location_on_outlined,
+                          label: 'Address',
+                          value: profile.fullAddress,
+                          showDivider: false,
+                          onTap: () => _openEditModal(
+                            context,
+                            profile.firstName,
+                            profile.lastName,
+                            profile.phone,
+                            profile.address,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Column(
-                    children: [
-                      _buildInfoRow(
-                        icon: Icons.person_outline_rounded,
-                        label: 'Full Name',
-                        value: profile.fullName,
-                        showDivider: true,
-                        onTap: () => _openEditModal(context, profile.firstName, profile.lastName, profile.phone, profile.address),
-                      ),
-                      _buildInfoRow(
-                        icon: Icons.mail_outline_rounded,
-                        label: 'Email Address',
-                        value: profile.email,
-                        showDivider: true,
-                        // Email is account identifier, not modifiable directly
-                        showChevron: false,
-                      ),
-                      _buildInfoRow(
-                        icon: Icons.phone_outlined,
-                        label: 'Phone Number',
-                        value: profile.phone.isNotEmpty ? profile.phone : 'Not provided',
-                        showDivider: true,
-                        onTap: () => _openEditModal(context, profile.firstName, profile.lastName, profile.phone, profile.address),
-                      ),
-                      _buildInfoRow(
-                        icon: Icons.chat_bubble_outline_rounded,
-                        label: 'WhatsApp Number',
-                        value: profile.phone.isNotEmpty ? profile.phone : 'Not provided',
-                        showDivider: true,
-                        onTap: () => _openEditModal(context, profile.firstName, profile.lastName, profile.phone, profile.address),
-                      ),
-                      _buildInfoRow(
-                        icon: Icons.badge_outlined,
-                        label: 'Parent ID',
-                        value: profile.parentId.isNotEmpty ? profile.parentId : profile.id,
-                        showDivider: true,
-                        showChevron: false,
-                      ),
-                      _buildInfoRow(
-                        icon: Icons.work_outline_rounded,
-                        label: 'Occupation',
-                        value: profile.occupation.isNotEmpty ? profile.occupation : 'Not specified',
-                        showDivider: true,
-                        showChevron: false,
-                      ),
-                      _buildInfoRow(
-                        icon: Icons.location_on_outlined,
-                        label: 'Address',
-                        value: profile.fullAddress,
-                        showDivider: false,
-                        onTap: () => _openEditModal(context, profile.firstName, profile.lastName, profile.phone, profile.address),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 28),
+                  const SizedBox(height: 28),
 
-                // Update Information Action Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    onPressed: state.isUpdating
-                        ? null
-                        : () => _openEditModal(
+                  // Update Information Action Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      onPressed: state.isUpdating
+                          ? null
+                          : () => _openEditModal(
                               context,
                               profile.firstName,
                               profile.lastName,
                               profile.phone,
                               profile.address,
                             ),
-                    icon: state.isUpdating
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.edit_outlined, size: 20),
-                    label: Text(
-                      'Update Information',
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                      icon: state.isUpdating
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.edit_outlined, size: 20),
+                      label: Text(
+                        'Update Information',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 1,
                       ),
-                      elevation: 1,
                     ),
                   ),
-                ),
-                const SizedBox(height: 32),
-              ],
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
           ),
         ),
@@ -285,7 +333,13 @@ class _ParentPersonalInfoScreenState
   }
 
   Widget _buildProfileCard(String name, String email) {
-    final initials = name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
+    final initials = name
+        .trim()
+        .split(' ')
+        .map((e) => e.isNotEmpty ? e[0] : '')
+        .take(2)
+        .join()
+        .toUpperCase();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -474,7 +528,9 @@ class _ParentPersonalInfoScreenState
                 controller: firstCtrl,
                 decoration: InputDecoration(
                   labelText: 'First Name',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -482,7 +538,9 @@ class _ParentPersonalInfoScreenState
                 controller: lastCtrl,
                 decoration: InputDecoration(
                   labelText: 'Last Name',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -490,7 +548,9 @@ class _ParentPersonalInfoScreenState
                 controller: phoneCtrl,
                 decoration: InputDecoration(
                   labelText: 'Phone Number',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -498,7 +558,9 @@ class _ParentPersonalInfoScreenState
                 controller: addrCtrl,
                 decoration: InputDecoration(
                   labelText: 'Address',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -508,7 +570,9 @@ class _ParentPersonalInfoScreenState
                 child: ElevatedButton(
                   onPressed: () async {
                     Navigator.of(ctx).pop();
-                    await ref.read(parentProfileControllerProvider.notifier).updateProfile(
+                    await ref
+                        .read(parentProfileControllerProvider.notifier)
+                        .updateProfile(
                           firstName: firstCtrl.text.trim(),
                           lastName: lastCtrl.text.trim(),
                           phone: phoneCtrl.text.trim(),
@@ -518,7 +582,9 @@ class _ParentPersonalInfoScreenState
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: const Text('Save Changes'),
                 ),

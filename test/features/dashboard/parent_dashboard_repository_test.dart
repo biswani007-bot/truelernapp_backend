@@ -79,19 +79,19 @@ void main() {
             'duration': 240,
             'status': 'scheduled',
             'courseName': 'Junior Foundation',
-            'instructor': 'Elizabeth Vance'
-          }
+            'instructor': 'Elizabeth Vance',
+          },
         ],
         'enrolledBatches': [
           {
             'id': 'b1',
             'batchName': 'Batch 1 — Junior Foundation',
-            'courseName': 'Junior Foundation'
-          }
+            'courseName': 'Junior Foundation',
+          },
         ],
         'assignmentsCount': 0,
-        'feeOverview': {'totalDue': 0}
-      }
+        'feeOverview': {'totalDue': 0},
+      },
     };
 
     setUp(() {
@@ -101,6 +101,7 @@ void main() {
       repository = DashboardRepositoryImpl(
         apiClient: fakeApiClient,
         classesRepository: fakeClassesRepo,
+        nowProvider: () => DateTime(2026, 9, 21, 13, 0),
       );
     });
 
@@ -119,7 +120,9 @@ void main() {
       );
       fakeClassesRepo.classesByChild[sarahId] = [wordPuzzleClass];
 
-      final dashboard = await repository.getChildDashboard(childStudentId: sarahId);
+      final dashboard = await repository.getChildDashboard(
+        childStudentId: sarahId,
+      );
 
       expect(dashboard.featuredClass, isNotNull);
       expect(dashboard.featuredClass!.id, equals('6ab0d936aabd606a21c0c72a'));
@@ -146,7 +149,9 @@ void main() {
       );
       fakeClassesRepo.classesByChild[sarahId] = [wordPuzzleClass];
 
-      final dashboard = await repository.getChildDashboard(childStudentId: sarahId);
+      final dashboard = await repository.getChildDashboard(
+        childStudentId: sarahId,
+      );
 
       expect(dashboard.featuredClass, isNotNull);
       expect(dashboard.featuredClass!.title, equals('Word Puzzle'));
@@ -164,10 +169,15 @@ void main() {
       );
       fakeClassesRepo.classesByChild[sarahId] = [sep30Class];
 
-      final dashboard = await repository.getChildDashboard(childStudentId: sarahId);
+      final dashboard = await repository.getChildDashboard(
+        childStudentId: sarahId,
+      );
 
-      expect(dashboard.featuredClass, isNull,
-          reason: 'Future class on Sep 30 must not be displayed under "TODAY\'S CLASS"');
+      expect(
+        dashboard.featuredClass,
+        isNull,
+        reason: 'Future class on Sep 30 must not be displayed under "TODAY\'S CLASS"',
+      );
     });
 
     test('Test 4: Class is currently live -> selected as today\'s class', () {
@@ -180,7 +190,9 @@ void main() {
         status: 'live',
       );
 
-      final selected = DashboardRepositoryImpl.selectTodayClass([liveClass], nowOverride: now);
+      final selected = DashboardRepositoryImpl.selectTodayClass([
+        liveClass,
+      ], nowOverride: now);
 
       expect(selected, isNotNull);
       expect(selected!.id, equals('live-1'));
@@ -205,14 +217,17 @@ void main() {
       );
 
       // Even if upcoming is passed first in the list
-      final selected = DashboardRepositoryImpl.selectTodayClass(
-        [upcomingClass, liveClass],
-        nowOverride: now,
-      );
+      final selected = DashboardRepositoryImpl.selectTodayClass([
+        upcomingClass,
+        liveClass,
+      ], nowOverride: now);
 
       expect(selected, isNotNull);
-      expect(selected!.id, equals('live-1'),
-          reason: 'LIVE class must have priority over UPCOMING class today');
+      expect(
+        selected!.id,
+        equals('live-1'),
+        reason: 'LIVE class must have priority over UPCOMING class today',
+      );
     });
 
     test('Test 6: Child context switch -> queries that child\'s live classes, no previous child data leaked', () async {
@@ -226,15 +241,22 @@ void main() {
       fakeClassesRepo.classesByChild[ramId] = []; // Ram has no classes today
 
       // 1. Fetch Sarah
-      final sarahDashboard = await repository.getChildDashboard(childStudentId: sarahId);
+      final sarahDashboard = await repository.getChildDashboard(
+        childStudentId: sarahId,
+      );
       expect(fakeClassesRepo.lastQueriedChildId, equals(sarahId));
       expect(sarahDashboard.featuredClass?.title, equals('Word Puzzle'));
 
       // 2. Fetch Ram
-      final ramDashboard = await repository.getChildDashboard(childStudentId: ramId);
+      final ramDashboard = await repository.getChildDashboard(
+        childStudentId: ramId,
+      );
       expect(fakeClassesRepo.lastQueriedChildId, equals(ramId));
-      expect(ramDashboard.featuredClass, isNull,
-          reason: 'Ram has no classes today; must not leak Sarah\'s class');
+      expect(
+        ramDashboard.featuredClass,
+        isNull,
+        reason: 'Ram has no classes today; must not leak Sarah\'s class',
+      );
     });
 
     test('Test 7: Refresh while a class is live -> recalculates and preserves today\'s class cleanly', () async {
@@ -259,18 +281,25 @@ void main() {
     test('Test 8: No classes today -> featuredClass is null (Empty state preserved)', () async {
       fakeClassesRepo.classesByChild[sarahId] = [];
 
-      final dashboard = await repository.getChildDashboard(childStudentId: sarahId);
+      final dashboard = await repository.getChildDashboard(
+        childStudentId: sarahId,
+      );
       expect(dashboard.featuredClass, isNull);
     });
 
     test('Test 9: Live-classes API failure -> featuredClass is null, does not use dashboard upcomingLiveClasses as fallback', () async {
       fakeClassesRepo.shouldThrow = true;
 
-      final dashboard = await repository.getChildDashboard(childStudentId: sarahId);
+      final dashboard = await repository.getChildDashboard(
+        childStudentId: sarahId,
+      );
 
       expect(dashboard.attendanceRate, equals(100.0));
-      expect(dashboard.featuredClass, isNull,
-          reason: 'When live classes fails, do not treat dashboard upcomingLiveClasses as authoritative');
+      expect(
+        dashboard.featuredClass,
+        isNull,
+        reason: 'When live classes fails, do not treat dashboard upcomingLiveClasses as authoritative',
+      );
     });
   });
 }

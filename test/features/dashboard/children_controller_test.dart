@@ -24,7 +24,9 @@ class FakeDashboardRepository implements DashboardRepository {
   }
 
   @override
-  Future<DashboardEntity> getChildDashboard({required String childStudentId}) async {
+  Future<DashboardEntity> getChildDashboard({
+    required String childStudentId,
+  }) async {
     throw UnimplementedError();
   }
 }
@@ -36,7 +38,8 @@ class FakeSecureStorage implements SecureStorageService {
   Future<String?> getAccessToken() async => _data['access_token'];
 
   @override
-  Future<void> saveAccessToken(String token) async => _data['access_token'] = token;
+  Future<void> saveAccessToken(String token) async =>
+      _data['access_token'] = token;
 
   @override
   Future<void> deleteAccessToken() async => _data.remove('access_token');
@@ -45,7 +48,8 @@ class FakeSecureStorage implements SecureStorageService {
   Future<String?> getRefreshToken() async => _data['refresh_token'];
 
   @override
-  Future<void> saveRefreshToken(String token) async => _data['refresh_token'] = token;
+  Future<void> saveRefreshToken(String token) async =>
+      _data['refresh_token'] = token;
 
   @override
   Future<void> deleteRefreshToken() async => _data.remove('refresh_token');
@@ -60,7 +64,8 @@ class FakeSecureStorage implements SecureStorageService {
   Future<String?> getActiveChildId() async => _data['active_child_id'];
 
   @override
-  Future<void> saveActiveChildId(String childId) async => _data['active_child_id'] = childId;
+  Future<void> saveActiveChildId(String childId) async =>
+      _data['active_child_id'] = childId;
 
   @override
   Future<void> deleteActiveChildId() async => _data.remove('active_child_id');
@@ -130,13 +135,23 @@ void main() {
     // Initial load selects stud_1
     await container.read(childrenControllerProvider.notifier).loadChildren();
     // User selects stud_2
-    container.read(childrenControllerProvider.notifier).setActiveChild('stud_2');
-    expect((container.read(childrenControllerProvider) as ChildrenLoaded).activeChildId, 'stud_2');
+    container
+        .read(childrenControllerProvider.notifier)
+        .setActiveChild('stud_2');
+    expect(
+      (container.read(
+        childrenControllerProvider,
+      ) as ChildrenLoaded).activeChildId,
+      'stud_2',
+    );
 
     // Pull-to-refresh
-    await container.read(childrenControllerProvider.notifier).loadChildren(isRefresh: true);
+    await container
+        .read(childrenControllerProvider.notifier)
+        .loadChildren(isRefresh: true);
 
-    final refreshed = container.read(childrenControllerProvider) as ChildrenLoaded;
+    final refreshed =
+        container.read(childrenControllerProvider) as ChildrenLoaded;
     // CRITICAL BUG FIX CHECK: Must remain stud_2, not reset to stud_1
     expect(refreshed.activeChildId, 'stud_2');
     expect(refreshed.activeChild?.firstName, 'Bob');
@@ -181,26 +196,34 @@ void main() {
     expect(error.message, contains('Backend unavailable'));
   });
 
-  test('setActiveChild updates activeChildId and persists to storage', () async {
-    const child1 = ChildEntity(studentId: 'stud_1', firstName: 'Alice');
-    const child2 = ChildEntity(studentId: 'stud_2', firstName: 'Bob');
-    fakeRepo.childrenToReturn = [child1, child2];
+  test(
+    'setActiveChild updates activeChildId and persists to storage',
+    () async {
+      const child1 = ChildEntity(studentId: 'stud_1', firstName: 'Alice');
+      const child2 = ChildEntity(studentId: 'stud_2', firstName: 'Bob');
+      fakeRepo.childrenToReturn = [child1, child2];
 
-    await container.read(childrenControllerProvider.notifier).loadChildren();
-    container.read(childrenControllerProvider.notifier).setActiveChild('stud_2');
+      await container.read(childrenControllerProvider.notifier).loadChildren();
+      container
+          .read(childrenControllerProvider.notifier)
+          .setActiveChild('stud_2');
 
-    final state = container.read(childrenControllerProvider) as ChildrenLoaded;
-    expect(state.activeChildId, 'stud_2');
-    expect(state.activeChild?.firstName, 'Bob');
-    expect(await fakeStorage.getActiveChildId(), 'stud_2');
-  });
+      final state =
+          container.read(childrenControllerProvider) as ChildrenLoaded;
+      expect(state.activeChildId, 'stud_2');
+      expect(state.activeChild?.firstName, 'Bob');
+      expect(await fakeStorage.getActiveChildId(), 'stud_2');
+    },
+  );
 
   test('setActiveChild ignores non-existent child ID', () async {
     const child1 = ChildEntity(studentId: 'stud_1', firstName: 'Alice');
     fakeRepo.childrenToReturn = [child1];
 
     await container.read(childrenControllerProvider.notifier).loadChildren();
-    container.read(childrenControllerProvider.notifier).setActiveChild('non_existent');
+    container
+        .read(childrenControllerProvider.notifier)
+        .setActiveChild('non_existent');
 
     final state = container.read(childrenControllerProvider) as ChildrenLoaded;
     expect(state.activeChildId, 'stud_1');

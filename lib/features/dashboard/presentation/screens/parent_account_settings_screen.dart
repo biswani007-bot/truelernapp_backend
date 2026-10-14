@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/router/route_paths.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../auth/presentation/controllers/auth_state.dart';
 import '../controllers/parent_profile_controller.dart';
 import '../controllers/parent_profile_state.dart';
 import '../widgets/parent_hamburger_drawer.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
 
 /// Parent Account Settings Screen.
 ///
@@ -68,10 +70,11 @@ class _ParentAccountSettingsScreenState
       displayPhone = profileState.profile.phone.isNotEmpty
           ? profileState.profile.phone
           : (profileState.profile.alternatePhone.isNotEmpty
-              ? profileState.profile.alternatePhone
-              : '+1 (555) 123-4567');
+                ? profileState.profile.alternatePhone
+                : '+1 (555) 123-4567');
     } else if (authState is Authenticated && authState.user != null) {
-      displayName = (authState.user!.name != null && authState.user!.name!.isNotEmpty)
+      displayName =
+          (authState.user!.name != null && authState.user!.name!.isNotEmpty)
           ? authState.user!.name!
           : 'Parent';
       displayEmail = authState.user!.email ?? '';
@@ -108,57 +111,64 @@ class _ParentAccountSettingsScreenState
 
               // ── Scrollable Body ─────────────────────────────────────
               Expanded(
-                child: SingleChildScrollView(
-                  key: const Key('account_settings_scroll_view'),
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.only(bottom: 48),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 896),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // ── Profile Header (Node 76:1493) ───────────────
-                          _buildProfileHeader(context, name: displayName),
+                child: AppRefreshIndicator(
+                  onRefresh: () async {
+                    await ref
+                        .read(parentProfileControllerProvider.notifier)
+                        .loadProfile(refresh: true);
+                  },
+                  child: SingleChildScrollView(
+                    key: const Key('account_settings_scroll_view'),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.only(bottom: 48),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 896),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // ── Profile Header (Node 76:1493) ───────────────
+                            _buildProfileHeader(context, name: displayName),
 
-                          const SizedBox(height: 24),
+                            const SizedBox(height: 24),
 
-                          // ── PERSONAL Section (Node 76:1505) ──────────────
-                          _buildSectionHeader('PERSONAL'),
-                          const SizedBox(height: 12),
-                          _buildPersonalCard(
-                            context,
-                            name: displayName,
-                            email: displayEmail,
-                            phone: displayPhone,
-                          ),
+                            // ── PERSONAL Section (Node 76:1505) ──────────────
+                            _buildSectionHeader('PERSONAL'),
+                            const SizedBox(height: 12),
+                            _buildPersonalCard(
+                              context,
+                              name: displayName,
+                              email: displayEmail,
+                              phone: displayPhone,
+                            ),
 
-                          const SizedBox(height: 24),
+                            const SizedBox(height: 24),
 
-                          // ── PREFERENCES Section (Node 76:1545) ───────────
-                          _buildSectionHeader('PREFERENCES'),
-                          const SizedBox(height: 12),
-                          _buildPreferencesCard(),
+                            // ── PREFERENCES Section (Node 76:1545) ───────────
+                            _buildSectionHeader('PREFERENCES'),
+                            const SizedBox(height: 12),
+                            _buildPreferencesCard(),
 
-                          const SizedBox(height: 24),
+                            const SizedBox(height: 24),
 
-                          // ── SECURITY Section (Node 76:1583) ──────────────
-                          _buildSectionHeader('SECURITY'),
-                          const SizedBox(height: 12),
-                          _buildSecurityCard(context),
+                            // ── SECURITY Section (Node 76:1583) ──────────────
+                            _buildSectionHeader('SECURITY'),
+                            const SizedBox(height: 12),
+                            _buildSecurityCard(context),
 
-                          const SizedBox(height: 24),
+                            const SizedBox(height: 24),
 
-                          // ── ACCOUNT Section (Node 76:1599) ───────────────
-                          _buildSectionHeader('ACCOUNT'),
-                          const SizedBox(height: 12),
-                          _buildAccountCard(context),
+                            // ── ACCOUNT Section (Node 76:1599) ───────────────
+                            _buildSectionHeader('ACCOUNT'),
+                            const SizedBox(height: 12),
+                            _buildAccountCard(context),
 
-                          const SizedBox(height: 12),
+                            const SizedBox(height: 12),
 
-                          // ── Destructive Actions (Node 76:1612) ───────────
-                          _buildDestructiveActions(context),
-                        ],
+                            // ── Destructive Actions (Node 76:1612) ───────────
+                            _buildDestructiveActions(context),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -219,11 +229,7 @@ class _ParentAccountSettingsScreenState
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(8),
-                  child: SvgPicture.asset(
-                    _svgBack,
-                    width: 16,
-                    height: 16,
-                  ),
+                  child: SvgPicture.asset(_svgBack, width: 16, height: 16),
                 ),
               ),
             ),
@@ -252,10 +258,7 @@ class _ParentAccountSettingsScreenState
                 height: 96,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFFFAF8FF),
-                    width: 4,
-                  ),
+                  border: Border.all(color: const Color(0xFFFAF8FF), width: 4),
                   boxShadow: const [
                     BoxShadow(
                       color: Color(0x1A000000), // rgba(0,0,0,0.1)
@@ -587,10 +590,7 @@ class _ParentAccountSettingsScreenState
                 height: 56,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFFFFDAD6),
-                    width: 1,
-                  ),
+                  border: Border.all(color: const Color(0xFFFFDAD6), width: 1),
                   boxShadow: const [
                     BoxShadow(
                       color: Color(0x0D000000), // 0px 1px 1px rgba(0,0,0,0.05)
@@ -602,11 +602,7 @@ class _ParentAccountSettingsScreenState
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SvgPicture.asset(
-                      _svgSignOut,
-                      width: 18,
-                      height: 18,
-                    ),
+                    SvgPicture.asset(_svgSignOut, width: 18, height: 18),
                     const SizedBox(width: 8),
                     Text(
                       'Sign Out',
@@ -639,18 +635,16 @@ class _ParentAccountSettingsScreenState
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SvgPicture.asset(
-                      _svgDelete,
-                      width: 16,
-                      height: 18,
-                    ),
+                    SvgPicture.asset(_svgDelete, width: 16, height: 18),
                     const SizedBox(width: 8),
                     Text(
                       'Delete Account',
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xB3BA1A1A), // rgba(186, 26, 26, 0.7)
+                        color: const Color(
+                          0xB3BA1A1A,
+                        ), // rgba(186, 26, 26, 0.7)
                         height: 24 / 16,
                       ),
                     ),
@@ -686,9 +680,7 @@ class _ParentAccountSettingsScreenState
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Column(
-          children: children,
-        ),
+        child: Column(children: children),
       ),
     );
   }
@@ -763,11 +755,7 @@ class _ParentAccountSettingsScreenState
 
                   // Chevron Right (Node 76:1519)
                   if (showChevron)
-                    SvgPicture.asset(
-                      _svgChevronRight,
-                      width: 7.4,
-                      height: 12,
-                    ),
+                    SvgPicture.asset(_svgChevronRight, width: 7.4, height: 12),
                 ],
               ),
             ),
@@ -847,11 +835,7 @@ class _ParentAccountSettingsScreenState
                   ],
 
                   // Chevron Right
-                  SvgPicture.asset(
-                    _svgChevronRight,
-                    width: 7.4,
-                    height: 12,
-                  ),
+                  SvgPicture.asset(_svgChevronRight, width: 7.4, height: 12),
                 ],
               ),
             ),
@@ -876,25 +860,39 @@ class _ParentAccountSettingsScreenState
           style: GoogleFonts.hankenGrotesk(),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.hankenGrotesk(color: const Color(0xFF747686)),
-            ),
-          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFBA1A1A),
               foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () => _performSignOut(ctx),
             child: Text(
               'Sign Out',
-              style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600),
+              style: GoogleFonts.hankenGrotesk(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            style: TextButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.hankenGrotesk(
+                color: const Color(0xFF747686),
+                fontWeight: FontWeight.w500,
+                fontSize: 15,
+              ),
             ),
           ),
         ],
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       ),
     );
   }

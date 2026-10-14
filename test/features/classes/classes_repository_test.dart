@@ -58,8 +58,14 @@ void main() {
       expect(entity.id, 'class_123');
       expect(entity.title, 'Mathematics - Algebra Basics');
       expect(entity.subject, 'Mathematics');
-      expect(entity.scheduledStartTime, DateTime.parse('2026-09-10T10:00:00.000Z'));
-      expect(entity.scheduledEndTime, DateTime.parse('2026-09-10T11:00:00.000Z'));
+      expect(
+        entity.scheduledStartTime,
+        DateTime.parse('2026-09-10T10:00:00.000Z'),
+      );
+      expect(
+        entity.scheduledEndTime,
+        DateTime.parse('2026-09-10T11:00:00.000Z'),
+      );
       expect(entity.status, 'UPCOMING');
       expect(entity.isUpcoming, isTrue);
       expect(entity.isLive, isFalse);
@@ -74,10 +80,7 @@ void main() {
       final json = {
         '_id': 'class_456',
         'title': 'Science Experiment',
-        'teacher': {
-          'firstName': 'Anita',
-          'lastName': 'Deshmukh',
-        },
+        'teacher': {'firstName': 'Anita', 'lastName': 'Deshmukh'},
       };
 
       final entity = ClassDto.fromJson(json).toEntity();
@@ -88,9 +91,7 @@ void main() {
       final json = {
         'id': 'class_789',
         'title': 'English Grammar',
-        'subject': {
-          'name': 'English Literature',
-        },
+        'subject': {'name': 'English Literature'},
       };
 
       final entity = ClassDto.fromJson(json).toEntity();
@@ -154,14 +155,18 @@ void main() {
         },
       );
 
-      final result = await repository.getLiveClasses('6a87e05e9b5f64a15873f66c');
+      final result = await repository.getLiveClasses(
+        '6a87e05e9b5f64a15873f66c',
+      );
       expect(result, isEmpty);
       expect(result, isA<List>());
     });
 
-    test('returns parsed List<ClassEntity> when data array contains items', () async {
-      adapter.responseToReturn = ResponseBody.fromString(
-        '''
+    test(
+      'returns parsed List<ClassEntity> when data array contains items',
+      () async {
+        adapter.responseToReturn = ResponseBody.fromString(
+          '''
         {
           "success": true,
           "data": [
@@ -177,19 +182,22 @@ void main() {
           ]
         }
         ''',
-        200,
-        headers: {
-          Headers.contentTypeHeader: [Headers.jsonContentType],
-        },
-      );
+          200,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
 
-      final result = await repository.getLiveClasses('6a87e05e9b5f64a15873f66c');
-      expect(result.length, 1);
-      expect(result.first.id, '6a991100aa');
-      expect(result.first.title, 'Physics - Optics');
-      expect(result.first.teacherName, 'Dr. Bose');
-      expect(result.first.isUpcoming, isTrue);
-    });
+        final result = await repository.getLiveClasses(
+          '6a87e05e9b5f64a15873f66c',
+        );
+        expect(result.length, 1);
+        expect(result.first.id, '6a991100aa');
+        expect(result.first.title, 'Physics - Optics');
+        expect(result.first.teacherName, 'Dr. Bose');
+        expect(result.first.isUpcoming, isTrue);
+      },
+    );
 
     test('returns empty list if data is null or unexpected shape', () async {
       adapter.responseToReturn = ResponseBody.fromString(
@@ -206,9 +214,13 @@ void main() {
 
     test('throws ServerFailure on HTTP 500 error', () async {
       adapter.errorToThrow = DioException(
-        requestOptions: RequestOptions(path: '/parent/children/123/live-classes'),
+        requestOptions: RequestOptions(
+          path: '/parent/children/123/live-classes',
+        ),
         response: Response(
-          requestOptions: RequestOptions(path: '/parent/children/123/live-classes'),
+          requestOptions: RequestOptions(
+            path: '/parent/children/123/live-classes',
+          ),
           statusCode: 500,
           data: {'message': 'Internal Server Error'},
         ),
@@ -223,7 +235,9 @@ void main() {
 
     test('throws NetworkFailure when connection fails', () async {
       adapter.errorToThrow = DioException(
-        requestOptions: RequestOptions(path: '/parent/children/123/live-classes'),
+        requestOptions: RequestOptions(
+          path: '/parent/children/123/live-classes',
+        ),
         type: DioExceptionType.connectionError,
         message: 'No internet connection',
       );
@@ -295,10 +309,12 @@ void main() {
       );
 
       expect(
-        () => repository.joinLiveClass(childStudentId: 'child-123', classId: 'class-456'),
+        () => repository.joinLiveClass(
+          childStudentId: 'child-123',
+          classId: 'class-456',
+        ),
         throwsA(isA<AuthFailure>()),
       );
     });
   });
 }
-

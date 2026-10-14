@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/parent_preferences_entity.dart';
 import '../../domain/repositories/parent_preferences_repository.dart';
@@ -11,7 +12,9 @@ class ParentPreferencesRepositoryImpl implements ParentPreferencesRepository {
 
   @override
   Future<ParentPreferencesEntity> getPreferences() async {
-    final response = await apiClient.get<Map<String, dynamic>>('/parent/preferences');
+    final response = await apiClient.get<Map<String, dynamic>>(
+      '/parent/preferences',
+    );
     final data = response.data;
     if (data == null) {
       throw Exception('Empty response from /parent/preferences');
@@ -26,7 +29,9 @@ class ParentPreferencesRepositoryImpl implements ParentPreferencesRepository {
   }
 
   @override
-  Future<ParentPreferencesEntity> updatePreferences(ParentPreferencesEntity preferences) async {
+  Future<ParentPreferencesEntity> updatePreferences(
+    ParentPreferencesEntity preferences,
+  ) async {
     final dto = ParentPreferencesDto.fromEntity(preferences);
     final response = await apiClient.patch<Map<String, dynamic>>(
       '/parent/preferences',
@@ -47,7 +52,8 @@ class ParentPreferencesRepositoryImpl implements ParentPreferencesRepository {
   }
 }
 
-final parentPreferencesRepositoryProvider = Provider<ParentPreferencesRepository>((ref) {
-  final client = ref.watch(apiClientProvider);
-  return ParentPreferencesRepositoryImpl(apiClient: client);
-});
+final parentPreferencesRepositoryProvider =
+    Provider<ParentPreferencesRepository>((ref) {
+      final client = ref.watch(apiClientProvider);
+      return ParentPreferencesRepositoryImpl(apiClient: client);
+    });

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../controllers/parent_preferences_controller.dart';
 import '../controllers/parent_preferences_state.dart';
 import '../widgets/security_privacy_sub_app_bar.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
 
 /// Screen 2 — Privacy Preferences.
 ///
@@ -57,7 +59,10 @@ class _ParentPrivacyPreferencesScreenState
   Widget build(BuildContext context) {
     final state = ref.watch(parentPreferencesControllerProvider);
 
-    ref.listen<ParentPreferencesState>(parentPreferencesControllerProvider, (prev, next) {
+    ref.listen<ParentPreferencesState>(parentPreferencesControllerProvider, (
+      prev,
+      next,
+    ) {
       if (next is ParentPreferencesLoaded && next.feedbackMessage != null) {
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -66,7 +71,9 @@ class _ParentPrivacyPreferencesScreenState
               next.feedbackMessage!,
               style: GoogleFonts.hankenGrotesk(fontSize: 13),
             ),
-            backgroundColor: next.isError ? AppColors.error : const Color(0xFF10B981),
+            backgroundColor: next.isError
+                ? AppColors.error
+                : const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
           ),
@@ -83,11 +90,7 @@ class _ParentPrivacyPreferencesScreenState
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF3E8FF),
-              Color(0xFFE0F2FE),
-              Color(0xFFFFFFFF),
-            ],
+            colors: [Color(0xFFF3E8FF), Color(0xFFE0F2FE), Color(0xFFFFFFFF)],
             stops: [0.0, 0.45, 1.0],
           ),
         ),
@@ -95,9 +98,7 @@ class _ParentPrivacyPreferencesScreenState
           child: Column(
             children: [
               const SecurityPrivacySubAppBar(title: 'Privacy Preferences'),
-              Expanded(
-                child: _buildBody(state),
-              ),
+              Expanded(child: _buildBody(state)),
             ],
           ),
         ),
@@ -106,7 +107,8 @@ class _ParentPrivacyPreferencesScreenState
   }
 
   Widget _buildBody(ParentPreferencesState state) {
-    if (state is ParentPreferencesLoading || state is ParentPreferencesInitial) {
+    if (state is ParentPreferencesLoading ||
+        state is ParentPreferencesInitial) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
       );
@@ -119,7 +121,11 @@ class _ParentPrivacyPreferencesScreenState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.error),
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: AppColors.error,
+              ),
               const SizedBox(height: 16),
               Text(
                 'Failed to load privacy preferences',
@@ -141,7 +147,9 @@ class _ParentPrivacyPreferencesScreenState
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () {
-                  ref.read(parentPreferencesControllerProvider.notifier).loadPreferences(refresh: true);
+                  ref
+                      .read(parentPreferencesControllerProvider.notifier)
+                      .loadPreferences(refresh: true);
                 },
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('Try Again'),
@@ -160,111 +168,122 @@ class _ParentPrivacyPreferencesScreenState
       final prefs = state.preferences;
       final notifier = ref.read(parentPreferencesControllerProvider.notifier);
 
-      return SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 540),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Manage how your data is used and who can see your information.',
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: const Color(0xFF64748B),
-                    fontSize: 14,
+      return AppRefreshIndicator(
+        onRefresh: () async {
+          await ref
+              .read(parentPreferencesControllerProvider.notifier)
+              .loadPreferences(refresh: true);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 540),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Manage how your data is used and who can see your information.',
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: const Color(0xFF64748B),
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                // Policy Info Banner
-                _buildInfoBanner(),
-                const SizedBox(height: 20),
+                  // Policy Info Banner
+                  _buildInfoBanner(),
+                  const SizedBox(height: 20),
 
-                // Section 1: Profile Visibility
-                _buildSectionHeader(
-                  icon: Icons.lock_outline_rounded,
-                  title: 'Profile Visibility',
-                ),
-                const SizedBox(height: 10),
-                _buildGroupCard([
-                  _buildSwitchRow(
-                    title: 'Show my profile to teachers',
-                    subtitle: 'Allows teachers to see your basic profile information',
-                    value: _showProfileToTeachers,
-                    showDivider: true,
-                    onChanged: (val) {
-                      setState(() => _showProfileToTeachers = val);
-                      _showPolicyNotice('Teacher profile visibility');
-                    },
+                  // Section 1: Profile Visibility
+                  _buildSectionHeader(
+                    icon: Icons.lock_outline_rounded,
+                    title: 'Profile Visibility',
                   ),
-                  _buildSwitchRow(
-                    title: 'Show my phone number',
-                    subtitle: 'Visible to staff for urgent academic updates',
-                    value: _showPhoneNumber,
-                    showDivider: false,
-                    onChanged: (val) {
-                      setState(() => _showPhoneNumber = val);
-                      _showPolicyNotice('Phone number visibility');
-                    },
-                  ),
-                ]),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 10),
+                  _buildGroupCard([
+                    _buildSwitchRow(
+                      title: 'Show my profile to teachers',
+                      subtitle: 'Allows teachers to see your basic profile information',
+                      value: _showProfileToTeachers,
+                      showDivider: true,
+                      onChanged: (val) {
+                        setState(() => _showProfileToTeachers = val);
+                        _showPolicyNotice('Teacher profile visibility');
+                      },
+                    ),
+                    _buildSwitchRow(
+                      title: 'Show my phone number',
+                      subtitle: 'Visible to staff for urgent academic updates',
+                      value: _showPhoneNumber,
+                      showDivider: false,
+                      onChanged: (val) {
+                        setState(() => _showPhoneNumber = val);
+                        _showPolicyNotice('Phone number visibility');
+                      },
+                    ),
+                  ]),
+                  const SizedBox(height: 24),
 
-                // Section 2: Data Sharing (Real Backend Connected)
-                _buildSectionHeader(
-                  icon: Icons.share_outlined,
-                  title: 'Data Sharing',
-                ),
-                const SizedBox(height: 10),
-                _buildGroupCard([
-                  _buildSwitchRow(
-                    title: 'Share learning progress',
-                    subtitle: 'Allow sharing with teachers and academic mentors',
-                    value: prefs.shareLearningProgress,
-                    showDivider: true,
-                    onChanged: (val) => notifier.updateLearningProgressSharing(val),
+                  // Section 2: Data Sharing (Real Backend Connected)
+                  _buildSectionHeader(
+                    icon: Icons.share_outlined,
+                    title: 'Data Sharing',
                   ),
-                  _buildSwitchRow(
-                    title: 'Share attendance data',
-                    subtitle: 'Include student attendance in batch reports',
-                    value: prefs.shareAttendanceData,
-                    showDivider: true,
-                    onChanged: (val) => notifier.updateAttendanceSharing(val),
-                  ),
-                  _buildSwitchRow(
-                    title: 'Share with third-party tools',
-                    subtitle: 'Only for essential learning & live classroom features',
-                    value: _shareWithThirdParty,
-                    showDivider: false,
-                    onChanged: (val) {
-                      setState(() => _shareWithThirdParty = val);
-                      _showPolicyNotice('Third-party data sharing');
-                    },
-                  ),
-                ]),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 10),
+                  _buildGroupCard([
+                    _buildSwitchRow(
+                      title: 'Share learning progress',
+                      subtitle:
+                          'Allow sharing with teachers and academic mentors',
+                      value: prefs.shareLearningProgress,
+                      showDivider: true,
+                      onChanged: (val) =>
+                          notifier.updateLearningProgressSharing(val),
+                    ),
+                    _buildSwitchRow(
+                      title: 'Share attendance data',
+                      subtitle: 'Include student attendance in batch reports',
+                      value: prefs.shareAttendanceData,
+                      showDivider: true,
+                      onChanged: (val) => notifier.updateAttendanceSharing(val),
+                    ),
+                    _buildSwitchRow(
+                      title: 'Share with third-party tools',
+                      subtitle: 'Only for essential learning & live classroom features',
+                      value: _shareWithThirdParty,
+                      showDivider: false,
+                      onChanged: (val) {
+                        setState(() => _shareWithThirdParty = val);
+                        _showPolicyNotice('Third-party data sharing');
+                      },
+                    ),
+                  ]),
+                  const SizedBox(height: 24),
 
-                // Section 3: Analytics & Improvement
-                _buildSectionHeader(
-                  icon: Icons.insights_rounded,
-                  title: 'Analytics & Improvement',
-                ),
-                const SizedBox(height: 10),
-                _buildGroupCard([
-                  _buildSwitchRow(
-                    title: 'Help improve TrueLern',
-                    subtitle: 'Allow anonymous usage telemetry for bug reporting',
-                    value: _helpImproveTrueLern,
-                    showDivider: false,
-                    onChanged: (val) {
-                      setState(() => _helpImproveTrueLern = val);
-                      _showPolicyNotice('Usage telemetry');
-                    },
+                  // Section 3: Analytics & Improvement
+                  _buildSectionHeader(
+                    icon: Icons.insights_rounded,
+                    title: 'Analytics & Improvement',
                   ),
-                ]),
-                const SizedBox(height: 32),
-              ],
+                  const SizedBox(height: 10),
+                  _buildGroupCard([
+                    _buildSwitchRow(
+                      title: 'Help improve TrueLern',
+                      subtitle:
+                          'Allow anonymous usage telemetry for bug reporting',
+                      value: _helpImproveTrueLern,
+                      showDivider: false,
+                      onChanged: (val) {
+                        setState(() => _helpImproveTrueLern = val);
+                        _showPolicyNotice('Usage telemetry');
+                      },
+                    ),
+                  ]),
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
           ),
         ),

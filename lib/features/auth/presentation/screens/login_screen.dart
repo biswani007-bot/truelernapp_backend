@@ -29,13 +29,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
 
   bool _isPasswordVisible = false;
-  Timer? _demoTimer;
   String? _identifierError;
   String? _passwordError;
 
   @override
   void dispose() {
-    _demoTimer?.cancel();
     _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -97,47 +95,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  void _onDemoSocialLogin() {
+  void _onGoogleLoginTapped() {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.white, size: 20),
+            Icon(Icons.info_outline, color: Colors.white, size: 20),
             SizedBox(width: 8),
-            Text(
-              'Sign in successful',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
+            Expanded(
+              child: Text(
+                'Google Sign-In is currently unavailable. Please sign in with your email and password.',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
             ),
           ],
         ),
-        backgroundColor: const Color(0xFF10B981),
+        backgroundColor: const Color(0xFF475569),
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 3),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
       ),
     );
-
-    _demoTimer?.cancel();
-    _demoTimer = Timer(const Duration(milliseconds: 600), () {
-      if (mounted) {
-        try {
-          context.go(AppRoutePaths.demoBookingDashboard);
-        } catch (_) {}
-      }
-    });
-  }
-
-  void _onGoogleLoginTapped() {
-    _onDemoSocialLogin();
-  }
-
-  void _onMicrosoftLoginTapped() {
-    _onDemoSocialLogin();
   }
 
   @override
@@ -568,50 +551,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       const SizedBox(width: 12.0),
                                       Text(
                                         'Sign in with Google',
-                                        style: AppTypography.titleSmall.copyWith(
-                                          color: const Color(0xFF191C1E),
-                                          fontSize: 15.0,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.28,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-
-                              const SizedBox(height: 12.0),
-
-                              // Microsoft Auth Button
-                              InkWell(
-                                onTap: _onMicrosoftLoginTapped,
-                                borderRadius: BorderRadius.circular(12.0),
-                                child: Container(
-                                  width: double.infinity,
-                                  height: 56.0,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12.0),
-                                    border: Border.all(color: const Color(0xFFC4C5D7)),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Color.fromRGBO(0, 0, 0, 0.05),
-                                        blurRadius: 2.0,
-                                        offset: Offset(0, 1),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      SvgPicture.asset(
-                                        'assets/icons/microsoft_icon.svg',
-                                        width: 20.0,
-                                        height: 20.0,
-                                      ),
-                                      const SizedBox(width: 12.0),
-                                      Text(
-                                        'Sign in with Microsoft',
                                         style: AppTypography.titleSmall.copyWith(
                                           color: const Color(0xFF191C1E),
                                           fontSize: 15.0,

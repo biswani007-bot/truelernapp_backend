@@ -1,7 +1,9 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/router/route_paths.dart';
 
 /// Parent Payment Successful Screen — PURE FRONTEND ONLY.
@@ -88,7 +90,10 @@ class ParentPaymentSuccessfulScreen extends StatelessWidget {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 21, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 21,
+                  vertical: 24,
+                ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 448),
                   child: _buildSuccessCard(context),

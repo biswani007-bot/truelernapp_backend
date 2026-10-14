@@ -4,11 +4,13 @@ sealed class NotificationPreferencesState {
   const NotificationPreferencesState();
 }
 
-final class NotificationPreferencesInitial extends NotificationPreferencesState {
+final class NotificationPreferencesInitial
+    extends NotificationPreferencesState {
   const NotificationPreferencesInitial();
 }
 
-final class NotificationPreferencesLoading extends NotificationPreferencesState {
+final class NotificationPreferencesLoading
+    extends NotificationPreferencesState {
   const NotificationPreferencesLoading();
 }
 

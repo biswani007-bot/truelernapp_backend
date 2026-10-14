@@ -17,10 +17,7 @@ final class ChildrenLoading extends ChildrenState {
 
 /// Successfully loaded. May contain an empty list (zero linked children).
 final class ChildrenLoaded extends ChildrenState {
-  const ChildrenLoaded({
-    required this.children,
-    required this.activeChildId,
-  });
+  const ChildrenLoaded({required this.children, required this.activeChildId});
 
   final List<ChildEntity> children;
 

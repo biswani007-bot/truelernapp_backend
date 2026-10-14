@@ -28,24 +28,34 @@ abstract final class AppRoutePaths {
   static const String currentProgram = '/parent/classes/program';
   static const String topicDetail = '/parent/classes/program/topic';
   static const String assignmentDetails = '/parent/assignments/:assignmentId';
-  static const String assignmentSubmission = '/parent/assignments/:assignmentId/submission';
-  static const String assignmentSubmitted = '/parent/assignments/:assignmentId/submitted';
+  static const String assignmentSubmission =
+      '/parent/assignments/:assignmentId/submission';
+  static const String assignmentSubmitted =
+      '/parent/assignments/:assignmentId/submitted';
   static const String invoiceDetails = '/parent/invoices/:invoiceId';
   static const String notifications = '/parent/notifications';
   static const String accountSettings = '/parent/settings';
   static const String parentSecurityPrivacy = '/parent/security-privacy';
   static const String parentLoginMethods = '/parent/security/login-methods';
   static const String parentLoginDevices = '/parent/security/login-devices';
-  static const String parentRecentSecurityActivity = '/parent/security/recent-activity';
+  static const String parentRecentSecurityActivity =
+      '/parent/security/recent-activity';
   static const String parentPersonalInfo = '/parent/security/personal-info';
-  static const String parentPrivacyPreferences = '/parent/security/privacy-preferences';
-  static const String parentCommunicationPreferences = '/parent/security/communication-preferences';
+  static const String parentPrivacyPreferences =
+      '/parent/security/privacy-preferences';
+  static const String parentCommunicationPreferences =
+      '/parent/security/communication-preferences';
   static const String parentDataPrivacy = '/parent/security/data-privacy';
   static const String parentPrivacyPolicy = '/parent/security/privacy-policy';
-  static const String parentTermsConditions = '/parent/security/terms-conditions';
+  static const String parentTermsConditions =
+      '/parent/security/terms-conditions';
   static const String paymentSuccessful = '/parent/payment-successful';
   static const String parentMessages = '/parent/messages';
   static const String achievements = '/parent/achievements';
+  static const String assessments = '/parent/assessments';
+  static const String assessmentRunner = '/parent/assessments/runner';
   static const String learningProgress = '/parent/progress';
-  static const String teacherFeedback = '/parent/teacher-feedback';
+  static const String parentCertificates = '/parent/certificates';
+  static const String parentCounselor = '/parent/counselor';
+  static const String progressClasses = '/parent/progress/classes';
 }

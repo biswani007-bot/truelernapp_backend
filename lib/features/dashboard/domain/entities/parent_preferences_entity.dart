@@ -21,11 +21,23 @@ class ParentPreferencesEntity {
     required this.timezone,
   });
 
-  /// Convenience getter for attendance data sharing
-  bool get shareAttendanceData => eventPreferences['attendance'] ?? true;
+  /// Delivery channel convenience getters
+  bool get pushEnabled => channelPreferences['push'] ?? true;
+  bool get emailEnabled => channelPreferences['email'] ?? true;
+  bool get whatsappEnabled => channelPreferences['whatsapp'] ?? true;
+  bool get smsEnabled => channelPreferences['sms'] ?? false;
+  bool get inAppEnabled => channelPreferences['in-app'] ?? true;
 
-  /// Convenience getter for learning progress reports sharing
+  /// Event category convenience getters
+  bool get shareAttendanceData => eventPreferences['attendance'] ?? true;
   bool get shareLearningProgress => eventPreferences['reports'] ?? true;
+  bool get attendanceAlerts => eventPreferences['attendance'] ?? true;
+  bool get assignmentAlerts => eventPreferences['assignment'] ?? true;
+  bool get reportsAlerts => eventPreferences['reports'] ?? true;
+  bool get admissionsAlerts => eventPreferences['admissions'] ?? true;
+  bool get assessmentAlerts => eventPreferences['assessment'] ?? true;
+  bool get certificateAlerts => eventPreferences['certificate'] ?? true;
+  bool get financeAlerts => eventPreferences['finance'] ?? true;
 
   ParentPreferencesEntity copyWith({
     String? id,

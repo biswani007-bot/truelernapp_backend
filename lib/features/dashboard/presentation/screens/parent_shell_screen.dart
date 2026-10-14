@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../widgets/parent_hamburger_drawer.dart';
@@ -18,10 +19,7 @@ import '../widgets/parent_hamburger_drawer.dart';
 /// The Drawer opens but non-dashboard items are non-functional placeholders.
 /// Drawer logout IS wired to AuthController.logout().
 class ParentShellScreen extends ConsumerStatefulWidget {
-  const ParentShellScreen({
-    super.key,
-    required this.navigationShell,
-  });
+  const ParentShellScreen({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
@@ -86,7 +84,9 @@ class _ParentShellScreenState extends ConsumerState<ParentShellScreen> {
   Widget _buildBottomNav(int currentIndex) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xCCFAF8FF), // rgba(250, 248, 255, 0.8) Figma Node 190:2 & 76:3054
+        color: Color(
+          0xCCFAF8FF,
+        ), // rgba(250, 248, 255, 0.8) Figma Node 190:2 & 76:3054
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),
@@ -107,7 +107,9 @@ class _ParentShellScreenState extends ConsumerState<ParentShellScreen> {
             children: List.generate(_tabs.length, (index) {
               final tab = _tabs[index];
               final isActive = currentIndex == index;
-              final color = isActive ? const Color(0xFF0037B1) : const Color(0xFF747686);
+              final color = isActive
+                  ? const Color(0xFF0037B1)
+                  : const Color(0xFF747686);
 
               return Expanded(
                 child: InkWell(
@@ -129,7 +131,9 @@ class _ParentShellScreenState extends ConsumerState<ParentShellScreen> {
                         style: GoogleFonts.hankenGrotesk(
                           color: color,
                           fontSize: 14,
-                          fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight: isActive
+                              ? FontWeight.w600
+                              : FontWeight.w500,
                           height: 16 / 13,
                         ),
                       ),

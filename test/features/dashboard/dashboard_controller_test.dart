@@ -18,7 +18,9 @@ class FakeDashboardRepository implements DashboardRepository {
   Future<List<ChildEntity>> getLinkedChildren() async => [];
 
   @override
-  Future<DashboardEntity> getChildDashboard({required String childStudentId}) async {
+  Future<DashboardEntity> getChildDashboard({
+    required String childStudentId,
+  }) async {
     callCount++;
     lastRequestedChildId = childStudentId;
     if (failureToThrow != null) {
@@ -43,9 +45,7 @@ void main() {
   setUp(() {
     fakeRepo = FakeDashboardRepository();
     container = ProviderContainer(
-      overrides: [
-        dashboardRepositoryProvider.overrideWithValue(fakeRepo),
-      ],
+      overrides: [dashboardRepositoryProvider.overrideWithValue(fakeRepo)],
     );
   });
 
@@ -101,18 +101,21 @@ void main() {
     expect(loaded.dashboard.totalBalanceDue, 450.0);
   });
 
-  test('loadDashboard emits DashboardError when repository throws failure', () async {
-    fakeRepo.failureToThrow = const ServerFailure('Internal server error');
+  test(
+    'loadDashboard emits DashboardError when repository throws failure',
+    () async {
+      fakeRepo.failureToThrow = const ServerFailure('Internal server error');
 
-    await container
-        .read(dashboardControllerProvider.notifier)
-        .loadDashboard(childStudentId: 'stud_999');
+      await container
+          .read(dashboardControllerProvider.notifier)
+          .loadDashboard(childStudentId: 'stud_999');
 
-    final state = container.read(dashboardControllerProvider);
-    expect(state, isA<DashboardError>());
-    final error = state as DashboardError;
-    expect(error.message, isNotEmpty);
-  });
+      final state = container.read(dashboardControllerProvider);
+      expect(state, isA<DashboardError>());
+      final error = state as DashboardError;
+      expect(error.message, isNotEmpty);
+    },
+  );
 
   test('retry uses activeChildId from childrenControllerProvider', () async {
     fakeRepo.dashboardToReturn = const DashboardEntity(

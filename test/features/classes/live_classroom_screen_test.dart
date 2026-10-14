@@ -45,50 +45,57 @@ class MockTestSecureStorage implements SecureStorageService {
 }
 
 void main() {
-  testWidgets('LiveClassroomScreen removes upper header and starts directly from classroom', (WidgetTester tester) async {
-    final mockStorage = MockTestSecureStorage();
+  testWidgets(
+    'LiveClassroomScreen removes upper header and starts directly from classroom',
+    (WidgetTester tester) async {
+      final mockStorage = MockTestSecureStorage();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          secureStorageProvider.overrideWithValue(mockStorage),
-        ],
-        child: const MaterialApp(
-          home: LiveClassroomScreen(
-            classId: '6ab24641aabd606a21c0dbdf',
-            session: ClassEntity(
-              id: '6ab24641aabd606a21c0dbdf',
-              title: 'testing',
-            ),
-            joinData: ClassJoinEntity(
-              token: 'test_token',
-              roomName: 'truelern-6ab24641aabd606a21c0dbdf',
-              jitsiDomain: 'livetl.visital.in',
-              serverUrl: 'https://livetl.visital.in',
-              isModerator: false,
-              classTitle: 'testing',
-              childName: 'Alex Mercer',
-              meetingUrl: 'https://livetl.visital.in/truelern-6ab24641aabd606a21c0dbdf',
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [secureStorageProvider.overrideWithValue(mockStorage)],
+          child: const MaterialApp(
+            home: LiveClassroomScreen(
+              classId: '6ab24641aabd606a21c0dbdf',
+              session: ClassEntity(
+                id: '6ab24641aabd606a21c0dbdf',
+                title: 'testing',
+              ),
+              joinData: ClassJoinEntity(
+                token: 'test_token',
+                roomName: 'truelern-6ab24641aabd606a21c0dbdf',
+                jitsiDomain: 'livetl.visital.in',
+                serverUrl: 'https://livetl.visital.in',
+                isModerator: false,
+                classTitle: 'testing',
+                childName: 'Alex Mercer',
+                meetingUrl: 'https://livetl.visital.in/truelern-6ab24641aabd606a21c0dbdf',
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
 
-    // Initial pump shows live classroom connecting directly without wrapper header
-    expect(find.text('Connecting to TrueLern Live Classroom...'), findsOneWidget);
+      // Initial pump shows live classroom connecting directly without wrapper header
+      expect(
+        find.text('Connecting to TrueLern Live Classroom...'),
+        findsOneWidget,
+      );
 
-    // Verify upper classroom header area has been COMPLETELY removed (Requirement 1)
-    expect(find.byKey(const Key('live_classroom_back_button')), findsNothing);
-    expect(find.byKey(const Key('live_classroom_leave_button')), findsNothing);
-    expect(find.text('LIVE'), findsNothing);
-    expect(find.text("Viewing as Guardian for Alex Mercer"), findsNothing);
+      // Verify upper classroom header area has been COMPLETELY removed (Requirement 1)
+      expect(find.byKey(const Key('live_classroom_back_button')), findsNothing);
+      expect(
+        find.byKey(const Key('live_classroom_leave_button')),
+        findsNothing,
+      );
+      expect(find.text('LIVE'), findsNothing);
+      expect(find.text("Viewing as Guardian for Alex Mercer"), findsNothing);
 
-    // Verify absolutely ZERO fake/static participants remain
-    expect(find.text('Sarah Jenkins'), findsNothing);
-    expect(find.text('Instructor'), findsNothing);
-    expect(find.text('Alex R.'), findsNothing);
-    expect(find.text('Mia S.'), findsNothing);
-    expect(find.text('+9 Others'), findsNothing);
-  });
+      // Verify absolutely ZERO fake/static participants remain
+      expect(find.text('Sarah Jenkins'), findsNothing);
+      expect(find.text('Instructor'), findsNothing);
+      expect(find.text('Alex R.'), findsNothing);
+      expect(find.text('Mia S.'), findsNothing);
+      expect(find.text('+9 Others'), findsNothing);
+    },
+  );
 }

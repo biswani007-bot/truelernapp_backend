@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/theme/app_typography.dart';
 import '../../../dashboard/domain/entities/child_entity.dart';
 import '../../../dashboard/presentation/controllers/children_controller.dart';
@@ -30,7 +31,8 @@ class ParentClassesScreen extends ConsumerStatefulWidget {
   const ParentClassesScreen({super.key});
 
   @override
-  ConsumerState<ParentClassesScreen> createState() => _ParentClassesScreenState();
+  ConsumerState<ParentClassesScreen> createState() =>
+      _ParentClassesScreenState();
 }
 
 class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
@@ -54,10 +56,13 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
         ref.read(childrenControllerProvider.notifier).loadChildren();
       } else if (childrenState.activeChildId != null) {
         final classesState = ref.read(classesControllerProvider);
-        if (classesState is! ClassesLoaded && classesState is! ClassesLoading) {
-          ref.read(classesControllerProvider.notifier).loadClasses(
-            childStudentId: childrenState.activeChildId,
-          );
+        final shouldLoad =
+            classesState is! ClassesLoaded ||
+            classesState.childStudentId != childrenState.activeChildId;
+        if (shouldLoad && classesState is! ClassesLoading) {
+          ref
+              .read(classesControllerProvider.notifier)
+              .loadClasses(childStudentId: childrenState.activeChildId);
         }
       }
     });
@@ -76,7 +81,8 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
         _routerDelegate?.removeListener(_onRouteChanged);
         _routerDelegate = router.routerDelegate;
         _routerDelegate?.addListener(_onRouteChanged);
-        _lastObservedGlobalPath = _routerDelegate?.currentConfiguration.uri.path;
+        _lastObservedGlobalPath =
+            _routerDelegate?.currentConfiguration.uri.path;
       }
     } catch (_) {}
   }
@@ -84,7 +90,8 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
   void _onRouteChanged() {
     try {
       final currentPath = _routerDelegate?.currentConfiguration.uri.path ?? '';
-      if (_lastObservedGlobalPath != null && _lastObservedGlobalPath != currentPath) {
+      if (_lastObservedGlobalPath != null &&
+          _lastObservedGlobalPath != currentPath) {
         if (!_lastObservedGlobalPath!.startsWith('/parent/classes') &&
             currentPath.startsWith('/parent/classes')) {
           final today = _getToday();
@@ -117,10 +124,16 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
       });
     }
     final childrenState = ref.read(childrenControllerProvider);
-    final childId = childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+    final childId = childrenState is ChildrenLoaded
+        ? childrenState.activeChildId
+        : null;
     await Future.wait([
-      ref.read(classesControllerProvider.notifier).loadClasses(childStudentId: childId),
-      ref.read(childrenControllerProvider.notifier).loadChildren(isRefresh: true),
+      ref
+          .read(classesControllerProvider.notifier)
+          .loadClasses(childStudentId: childId, isRefresh: true),
+      ref
+          .read(childrenControllerProvider.notifier)
+          .loadChildren(isRefresh: true),
     ]);
   }
 
@@ -133,8 +146,13 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
     // (e.g. from Dashboard, Profile, or Assignment tabs), reset selected viewing date
     // to current device date.
     try {
-      final currentGlobalPath = GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
-      if (_lastObservedGlobalPath != null && _lastObservedGlobalPath != currentGlobalPath) {
+      final currentGlobalPath = GoRouter.of(context)
+          .routerDelegate
+          .currentConfiguration
+          .uri
+          .path;
+      if (_lastObservedGlobalPath != null &&
+          _lastObservedGlobalPath != currentGlobalPath) {
         if (!_lastObservedGlobalPath!.startsWith('/parent/classes') &&
             currentGlobalPath.startsWith('/parent/classes')) {
           _selectedDate = _getToday();
@@ -145,34 +163,70 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
       // Safe fallback when rendered without GoRouter in isolated widget tests
     }
 
-    // Synchronize active child changes with ClassesController
+    final List<ChildEntity> children = childrenState is ChildrenLoaded
+        ? childrenState.children
+        : [];
+    final ChildEntity? activeChild = childrenState is ChildrenLoaded
+        ? childrenState.activeChild
+        : null;
+
+    // Check if classes need to be loaded for the active child context
+    if (activeChild != null && activeChild.studentId.isNotEmpty) {
+      final needsLoad =
+          classesState is ClassesInitial ||
+          (classesState is ClassesLoaded &&
+              classesState.childStudentId != activeChild.studentId) ||
+          (classesState is ClassesError &&
+              classesState.childStudentId != activeChild.studentId);
+      if (needsLoad && classesState is! ClassesLoading) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ref
+                .read(classesControllerProvider.notifier)
+                .loadClasses(childStudentId: activeChild.studentId);
+          }
+        });
+      }
+    }
+
+    // Synchronize active child changes with ClassesController and DashboardController
     ref.listen<ChildrenState>(childrenControllerProvider, (previous, next) {
       if (next is ChildrenLoaded) {
-        final prevId = previous is ChildrenLoaded ? previous.activeChildId : null;
+        final prevId = previous is ChildrenLoaded
+            ? previous.activeChildId
+            : null;
         if (prevId != next.activeChildId && next.activeChildId != null) {
-          ref.read(classesControllerProvider.notifier).loadClasses(
-            childStudentId: next.activeChildId,
-          );
+          ref
+              .read(classesControllerProvider.notifier)
+              .loadClasses(childStudentId: next.activeChildId);
         }
       }
     });
 
-    final List<ChildEntity> children = childrenState is ChildrenLoaded ? childrenState.children : [];
-    final ChildEntity? activeChild = childrenState is ChildrenLoaded ? childrenState.activeChild : null;
-
     // Filter classes based on selected filter tab and selected calendar date
+    // strictly ensuring classes belong to the currently active child.
     List<ClassEntity> filteredClasses = [];
-    if (classesState is ClassesLoaded) {
+    final bool isChildMatch =
+        activeChild == null ||
+        classesState is! ClassesLoaded ||
+        classesState.childStudentId == null ||
+        classesState.childStudentId == activeChild.studentId;
+
+    if (classesState is ClassesLoaded && isChildMatch) {
       final allClasses = classesState.classes;
+
+      final now = ref.watch(currentDeviceDateProvider);
 
       // 1. Filter by status tab
       List<ClassEntity> statusFiltered;
       switch (_selectedFilter.toLowerCase()) {
         case 'completed':
-          statusFiltered = allClasses.where((c) => c.isCompleted).toList();
+          statusFiltered = allClasses
+              .where((c) => c.isCompletedAt(now))
+              .toList();
           break;
         case 'missed':
-          statusFiltered = allClasses.where((c) => c.isMissed).toList();
+          statusFiltered = allClasses.where((c) => c.isMissedAt(now)).toList();
           break;
         case 'cancelled':
           statusFiltered = allClasses.where((c) => c.isCancelled).toList();
@@ -180,11 +234,13 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
         case 'upcoming':
         default:
           statusFiltered = allClasses
-              .where((c) =>
-                  (c.isUpcoming || c.isLive) &&
-                  !c.isCompleted &&
-                  !c.isMissed &&
-                  !c.isCancelled)
+              .where(
+                (c) =>
+                    (c.isUpcomingAt(now) || c.isLive) &&
+                    !c.isCompletedAt(now) &&
+                    !c.isMissedAt(now) &&
+                    !c.isCancelled,
+              )
               .toList();
           break;
       }
@@ -195,6 +251,13 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
         if (start == null) return false;
         return _isSameDay(start.toLocal(), _selectedDate);
       }).toList();
+
+      // 3. Sort chronologically by start time
+      filteredClasses.sort((a, b) {
+        final aTime = a.scheduledStartTime?.toLocal() ?? DateTime(0);
+        final bTime = b.scheduledStartTime?.toLocal() ?? DateTime(0);
+        return aTime.compareTo(bTime);
+      });
     }
 
     return Scaffold(
@@ -204,11 +267,7 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF3E8FF),
-              Color(0xFFE0F2FE),
-              Color(0xFFFFFFFF),
-            ],
+            colors: [Color(0xFFF3E8FF), Color(0xFFE0F2FE), Color(0xFFFFFFFF)],
             stops: [0.0, 0.5, 1.0],
           ),
         ),
@@ -239,14 +298,24 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Left: Hamburger Menu Button (Node 76:1822)
+          // Left: Hamburger Menu or Back Button
           IconButton(
             key: const Key('classes_menu_button'),
-            icon: const Icon(Icons.menu_rounded, color: Color(0xFF191C1E), size: 24),
+            icon: Icon(
+              Navigator.of(context).canPop()
+                  ? Icons.arrow_back_rounded
+                  : Icons.menu_rounded,
+              color: const Color(0xFF191C1E),
+              size: 24,
+            ),
             onPressed: () {
-              Scaffold.maybeOf(context)?.openDrawer();
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                Scaffold.maybeOf(context)?.openDrawer();
+              }
             },
-            tooltip: 'Menu',
+            tooltip: Navigator.of(context).canPop() ? 'Back' : 'Menu',
           ),
 
           // Center: My Classes Title (Node 76:1825 / 76:1826)
@@ -263,7 +332,11 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
           // Right: Filter / Preferences Icon Button (Node 76:1827)
           IconButton(
             key: const Key('classes_filter_icon_button'),
-            icon: const Icon(Icons.tune_rounded, color: Color(0xFF191C1E), size: 22),
+            icon: const Icon(
+              Icons.tune_rounded,
+              color: Color(0xFF191C1E),
+              size: 22,
+            ),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -306,7 +379,9 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
                       activeChild: activeChild,
                       children: children,
                       onChildSelected: (newStudentId) {
-                        ref.read(childrenControllerProvider.notifier).setActiveChild(newStudentId);
+                        ref
+                            .read(childrenControllerProvider.notifier)
+                            .setActiveChild(newStudentId);
                       },
                     ),
                   const SizedBox(height: 16),
@@ -369,7 +444,12 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
           ),
 
           // 5. Events List / Loading / Error / Empty (Node 76:1896)
-          if (classesState is ClassesLoading)
+          if (classesState is ClassesLoading ||
+              classesState is ClassesInitial ||
+              (classesState is ClassesLoaded &&
+                  activeChild != null &&
+                  classesState.childStudentId != null &&
+                  classesState.childStudentId != activeChild.studentId))
             const SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -379,17 +459,24 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
           else if (classesState is ClassesError)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 24,
+                ),
                 child: ErrorClassesWidget(
                   message: classesState.message,
-                  onRetry: () => ref.read(classesControllerProvider.notifier).retry(),
+                  onRetry: () =>
+                      ref.read(classesControllerProvider.notifier).retry(),
                 ),
               ),
             )
           else if (classes.isEmpty)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: EmptyClassesWidget(
                   childName: activeChild?.firstName,
                   onRefresh: _onRefresh,
@@ -400,29 +487,26 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final session = classes[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: ClassesEventCard(
-                        session: session,
-                        useThinkingIcon: index.isOdd,
-                        onTap: () {
-                          try {
-                            GoRouter.of(context).push(
-                              '/parent/classes/${session.id}',
-                              extra: session,
-                            );
-                          } catch (_) {
-                            // Fallback if rendered outside GoRouter in isolated tests
-                          }
-                        },
-                      ),
-                    );
-                  },
-                  childCount: classes.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final session = classes[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: ClassesEventCard(
+                      session: session,
+                      useThinkingIcon: index.isOdd,
+                      onTap: () {
+                        try {
+                          GoRouter.of(context).push(
+                            '/parent/classes/${session.id}',
+                            extra: session,
+                          );
+                        } catch (_) {
+                          // Fallback if rendered outside GoRouter in isolated tests
+                        }
+                      },
+                    ),
+                  );
+                }, childCount: classes.length),
               ),
             ),
 
@@ -434,18 +518,16 @@ class _ParentClassesScreenState extends ConsumerState<ParentClassesScreen> {
                 child: OutlinedButton(
                   key: const Key('explore_programs_button'),
                   onPressed: () {
-                    try {
-                      context.push('/parent/classes/program');
-                    } catch (_) {}
+                    context.go('/parent/classes/program');
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF0037B1),
                     backgroundColor: Colors.white,
-                    side: const BorderSide(
-                      color: Color(0xFF0037B1),
-                      width: 1,
+                    side: const BorderSide(color: Color(0xFF0037B1), width: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),

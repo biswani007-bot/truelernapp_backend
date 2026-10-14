@@ -19,6 +19,10 @@ import 'package:truelearn/features/dashboard/presentation/screens/parent_privacy
 import 'package:truelearn/features/dashboard/presentation/screens/parent_recent_security_activity_screen.dart';
 import 'package:truelearn/features/dashboard/presentation/screens/parent_terms_conditions_screen.dart';
 
+import 'package:truelearn/features/dashboard/data/repositories/security_activity_repository_impl.dart';
+import 'package:truelearn/features/dashboard/domain/entities/security_activity_entity.dart';
+import 'package:truelearn/features/dashboard/domain/repositories/security_activity_repository.dart';
+
 class MockParentProfileRepository implements ParentProfileRepository {
   ParentProfileEntity profile = const ParentProfileEntity(
     id: 'test-parent-id',
@@ -75,11 +79,40 @@ class MockParentProfileRepository implements ParentProfileRepository {
   }
 }
 
+class MockSecurityActivityRepository implements SecurityActivityRepository {
+  List<SecurityActivityEntity> activities = [
+    SecurityActivityEntity(
+      id: 'act-1',
+      action: 'LOGIN',
+      entity: 'auth',
+      ip: '192.168.1.1',
+      userAgent: 'Android Device',
+      timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
+    ),
+    SecurityActivityEntity(
+      id: 'act-2',
+      action: 'SESSION_REVOKED',
+      entity: 'session',
+      ip: '192.168.1.2',
+      userAgent: 'Chrome on macOS',
+      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
+    ),
+  ];
+
+  bool getActivityLogsCalled = false;
+
+  @override
+  Future<List<SecurityActivityEntity>> getActivityLogs() async {
+    getActivityLogsCalled = true;
+    return activities;
+  }
+}
+
 class MockParentPreferencesRepository implements ParentPreferencesRepository {
   ParentPreferencesEntity preferences = const ParentPreferencesEntity(
     id: 'pref-67890',
-    channelPreferences: {'email': true, 'push': true},
-    eventPreferences: {'attendance': true, 'reports': true},
+    channelPreferences: {'email': true, 'push': true, 'whatsapp': true, 'sms': false},
+    eventPreferences: {'attendance': true, 'reports': true, 'assignment': true, 'admissions': true},
     muteAll: false,
     digestEnabled: false,
     language: 'en',
@@ -96,7 +129,9 @@ class MockParentPreferencesRepository implements ParentPreferencesRepository {
   }
 
   @override
-  Future<ParentPreferencesEntity> updatePreferences(ParentPreferencesEntity prefs) async {
+  Future<ParentPreferencesEntity> updatePreferences(
+    ParentPreferencesEntity prefs,
+  ) async {
     updatePreferencesCalled = true;
     preferences = prefs;
     return preferences;
@@ -107,24 +142,24 @@ class MockNotificationPreferencesRepository
     implements NotificationPreferencesRepository {
   NotificationPreferencesEntity preferences =
       const NotificationPreferencesEntity(
-    id: 'pref-123',
-    userId: 'user-123',
-    emailEnabled: true,
-    smsEnabled: true,
-    whatsappEnabled: true,
-    pushEnabled: true,
-    inAppEnabled: true,
-    admissionsAlerts: true,
-    enrollmentAlerts: true,
-    attendanceAlerts: true,
-    assignmentAlerts: true,
-    assessmentAlerts: true,
-    certificateAlerts: true,
-    financeAlerts: true,
-    reportsAlerts: true,
-    muteAll: false,
-    digestEnabled: false,
-  );
+        id: 'pref-123',
+        userId: 'user-123',
+        emailEnabled: true,
+        smsEnabled: true,
+        whatsappEnabled: true,
+        pushEnabled: true,
+        inAppEnabled: true,
+        admissionsAlerts: true,
+        enrollmentAlerts: true,
+        attendanceAlerts: true,
+        assignmentAlerts: true,
+        assessmentAlerts: true,
+        certificateAlerts: true,
+        financeAlerts: true,
+        reportsAlerts: true,
+        muteAll: false,
+        digestEnabled: false,
+      );
 
   bool getPreferencesCalled = false;
   bool updatePreferencesCalled = false;
@@ -137,7 +172,8 @@ class MockNotificationPreferencesRepository
 
   @override
   Future<NotificationPreferencesEntity> updatePreferences(
-      NotificationPreferencesEntity prefs) async {
+    NotificationPreferencesEntity prefs,
+  ) async {
     updatePreferencesCalled = true;
     preferences = prefs;
     return preferences;
@@ -152,171 +188,190 @@ void main() {
     late MockParentProfileRepository mockProfileRepo;
     late MockParentPreferencesRepository mockPrivacyRepo;
     late MockNotificationPreferencesRepository mockPrefRepo;
+    late MockSecurityActivityRepository mockSecurityRepo;
 
     setUp(() {
       mockProfileRepo = MockParentProfileRepository();
       mockPrivacyRepo = MockParentPreferencesRepository();
       mockPrefRepo = MockNotificationPreferencesRepository();
+      mockSecurityRepo = MockSecurityActivityRepository();
     });
 
     Widget wrap(Widget screen) {
       return ProviderScope(
         overrides: [
           parentProfileRepositoryProvider.overrideWithValue(mockProfileRepo),
-          parentPreferencesRepositoryProvider.overrideWithValue(mockPrivacyRepo),
-          notificationPreferencesRepositoryProvider
-              .overrideWithValue(mockPrefRepo),
+          parentPreferencesRepositoryProvider.overrideWithValue(
+            mockPrivacyRepo,
+          ),
+          notificationPreferencesRepositoryProvider.overrideWithValue(
+            mockPrefRepo,
+          ),
+          securityActivityRepositoryProvider.overrideWithValue(
+            mockSecurityRepo,
+          ),
         ],
-        child: MaterialApp(
-          home: screen,
-        ),
+        child: MaterialApp(home: screen),
       );
     }
 
-    testWidgets('1. ParentRecentSecurityActivityScreen renders and filters work',
-        (tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
+    testWidgets(
+      '1. ParentRecentSecurityActivityScreen renders and filters work',
+      (tester) async {
+        tester.view.physicalSize = const Size(1080, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(wrap(const ParentRecentSecurityActivityScreen()));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          wrap(const ParentRecentSecurityActivityScreen()),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('Recent Security Activity'), findsOneWidget);
-      expect(
-          find.text('View your login history and account activity.'), findsOneWidget);
-      expect(find.text('Account Protected'), findsOneWidget);
-      expect(find.text('No Recent Security Alerts'), findsOneWidget);
+        expect(mockSecurityRepo.getActivityLogsCalled, isTrue);
+        expect(find.text('Recent Security Activity'), findsOneWidget);
+        expect(find.text('Account Login'), findsOneWidget);
 
-      // Verify filter chips
-      expect(find.text('All'), findsOneWidget);
-      expect(find.text('Logins'), findsOneWidget);
-      expect(find.text('Devices'), findsOneWidget);
-      expect(find.text('Security'), findsOneWidget);
+        // Verify filter chips
+        expect(find.text('All'), findsOneWidget);
+        expect(find.text('Logins'), findsOneWidget);
+        expect(find.text('Devices'), findsOneWidget);
+        expect(find.text('Security'), findsOneWidget);
 
-      // Tap on Devices filter chip
-      await tester.tap(find.text('Devices'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('selected filter (Devices)'), findsOneWidget);
-    });
-
-    testWidgets('2. ParentPersonalInfoScreen loads real profile and supports edit',
-        (tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-
-      await tester.pumpWidget(wrap(const ParentPersonalInfoScreen()));
-      await tester.pumpAndSettle();
-
-      expect(mockProfileRepo.getProfileCalled, isTrue);
-      expect(find.text('Personal Information'), findsOneWidget);
-      expect(find.text('Marcus Mercer'), findsWidgets);
-      expect(find.text('parent@truelern.com'), findsWidgets);
-      expect(find.text('+1-555-0199'), findsWidgets);
-      expect(find.text('Update Information'), findsOneWidget);
-
-      // Tap Update Information to trigger bottom sheet
-      await tester.tap(find.text('Update Information'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Edit Personal Information'), findsOneWidget);
-      expect(find.text('Save Changes'), findsOneWidget);
-
-      // Tap Save Changes
-      await tester.tap(find.text('Save Changes'));
-      await tester.pumpAndSettle();
-
-      expect(mockProfileRepo.updateProfileCalled, isTrue);
-    });
-
-    testWidgets('3. ParentPrivacyPreferencesScreen loads backend prefs and updates',
-        (tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-
-      await tester.pumpWidget(wrap(const ParentPrivacyPreferencesScreen()));
-      await tester.pumpAndSettle();
-
-      expect(mockPrivacyRepo.getPreferencesCalled, isTrue);
-      expect(find.text('Privacy Preferences'), findsOneWidget);
-      expect(find.text('Profile Visibility'), findsOneWidget);
-      expect(find.text('Data Sharing'), findsOneWidget);
-      expect(find.text('Analytics & Improvement'), findsOneWidget);
-
-      // Tap "Share learning progress" switch (index 2)
-      final switches = find.byType(Switch);
-      expect(switches, findsWidgets);
-
-      // Tap the third switch (Share learning progress)
-      await tester.tap(switches.at(2));
-      await tester.pumpAndSettle();
-
-      expect(mockPrivacyRepo.updatePreferencesCalled, isTrue);
-    });
+        // Tap on Devices filter chip
+        await tester.tap(find.text('Devices'));
+        await tester.pumpAndSettle();
+        expect(find.text('Session Revocation'), findsOneWidget);
+        expect(find.text('Account Login'), findsNothing);
+      },
+    );
 
     testWidgets(
-        '4. ParentCommunicationPreferencesScreen loads backend prefs and updates',
-        (tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
+      '2. ParentPersonalInfoScreen loads real profile and supports edit',
+      (tester) async {
+        tester.view.physicalSize = const Size(1080, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(wrap(const ParentCommunicationPreferencesScreen()));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(wrap(const ParentPersonalInfoScreen()));
+        await tester.pumpAndSettle();
 
-      expect(mockPrefRepo.getPreferencesCalled, isTrue);
-      expect(find.text('Communication Preferences'), findsOneWidget);
-      expect(find.text('Push Notifications'), findsOneWidget);
-      expect(find.text('Email Notifications'), findsOneWidget);
-      expect(find.text('WhatsApp Notifications'), findsOneWidget);
+        expect(mockProfileRepo.getProfileCalled, isTrue);
+        expect(find.text('Personal Information'), findsOneWidget);
+        expect(find.text('Marcus Mercer'), findsWidgets);
+        expect(find.text('parent@truelern.com'), findsWidgets);
+        expect(find.text('+1-555-0199'), findsWidgets);
+        expect(find.text('Update Information'), findsOneWidget);
 
-      final switches = find.byType(Switch);
-      expect(switches, findsWidgets);
+        // Tap Update Information to trigger bottom sheet
+        await tester.tap(find.text('Update Information'));
+        await tester.pumpAndSettle();
 
-      // Toggle first switch (Push Master)
-      await tester.tap(switches.first);
-      await tester.pumpAndSettle();
+        expect(find.text('Edit Personal Information'), findsOneWidget);
+        expect(find.text('Save Changes'), findsOneWidget);
 
-      expect(mockPrefRepo.updatePreferencesCalled, isTrue);
-    });
+        // Tap Save Changes
+        await tester.tap(find.text('Save Changes'));
+        await tester.pumpAndSettle();
 
-    testWidgets('5. ParentDataPrivacyScreen renders download and delete actions',
-        (tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
+        expect(mockProfileRepo.updateProfileCalled, isTrue);
+      },
+    );
 
-      await tester.pumpWidget(wrap(const ParentDataPrivacyScreen()));
-      await tester.pumpAndSettle();
+    testWidgets(
+      '3. ParentPrivacyPreferencesScreen loads backend prefs and updates',
+      (tester) async {
+        tester.view.physicalSize = const Size(1080, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
 
-      expect(find.text('Data & Privacy'), findsOneWidget);
-      expect(find.text('Download Your Data'), findsOneWidget);
-      expect(find.text('Delete Account'), findsOneWidget);
-      expect(find.text('What data is included?'), findsOneWidget);
+        await tester.pumpWidget(wrap(const ParentPrivacyPreferencesScreen()));
+        await tester.pumpAndSettle();
 
-      // Tap Download Data
-      await tester.tap(find.text('Request Data Download'));
-      await tester.pumpAndSettle();
+        expect(mockPrivacyRepo.getPreferencesCalled, isTrue);
+        expect(find.text('Privacy Preferences'), findsOneWidget);
+        expect(find.text('Profile Visibility'), findsOneWidget);
+        expect(find.text('Data Sharing'), findsOneWidget);
+        expect(find.text('Analytics & Improvement'), findsOneWidget);
 
-      expect(find.text('Request Account Data'), findsOneWidget);
-      expect(find.text('Understood'), findsOneWidget);
-      await tester.tap(find.text('Understood'));
-      await tester.pumpAndSettle();
+        // Tap "Share learning progress" switch (index 2)
+        final switches = find.byType(Switch);
+        expect(switches, findsWidgets);
 
-      // Tap Delete Account
-      await tester.tap(find.text('Delete My Account'));
-      await tester.pumpAndSettle();
+        // Tap the third switch (Share learning progress)
+        await tester.tap(switches.at(2));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Delete TrueLern Account?'), findsOneWidget);
-      expect(find.text('Cancel'), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-    });
+        expect(mockPrivacyRepo.updatePreferencesCalled, isTrue);
+      },
+    );
 
-    testWidgets('6. ParentPrivacyPolicyScreen renders document structure',
-        (tester) async {
+    testWidgets(
+      '4. ParentCommunicationPreferencesScreen loads backend prefs and updates',
+      (tester) async {
+        tester.view.physicalSize = const Size(1080, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        await tester.pumpWidget(
+          wrap(const ParentCommunicationPreferencesScreen()),
+        );
+        await tester.pumpAndSettle();
+
+        expect(mockPrivacyRepo.getPreferencesCalled, isTrue);
+        expect(find.text('Communication Preferences'), findsOneWidget);
+        expect(find.text('Push Notifications'), findsOneWidget);
+        expect(find.text('Email Notifications'), findsOneWidget);
+        expect(find.text('WhatsApp Notifications'), findsOneWidget);
+
+        final switches = find.byType(Switch);
+        expect(switches, findsWidgets);
+
+        // Toggle first switch (Mute All)
+        await tester.tap(switches.first);
+        await tester.pumpAndSettle();
+
+        expect(mockPrivacyRepo.updatePreferencesCalled, isTrue);
+      },
+    );
+
+    testWidgets(
+      '5. ParentDataPrivacyScreen renders download and delete actions',
+      (tester) async {
+        tester.view.physicalSize = const Size(1080, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        await tester.pumpWidget(wrap(const ParentDataPrivacyScreen()));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Data & Privacy'), findsOneWidget);
+        expect(find.text('Download Your Data'), findsOneWidget);
+        expect(find.text('Delete Account'), findsOneWidget);
+        expect(find.text('What data is included?'), findsOneWidget);
+
+        // Tap Download Data
+        await tester.tap(find.text('Request Data Download'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Request Account Data'), findsOneWidget);
+        expect(find.text('Understood'), findsOneWidget);
+        await tester.tap(find.text('Understood'));
+        await tester.pumpAndSettle();
+
+        // Tap Delete Account
+        await tester.tap(find.text('Delete My Account'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Delete TrueLern Account?'), findsOneWidget);
+        expect(find.text('Cancel'), findsOneWidget);
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets('6. ParentPrivacyPolicyScreen renders document structure', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -331,8 +386,9 @@ void main() {
       expect(find.text('3. How We Use Your Information'), findsOneWidget);
     });
 
-    testWidgets('7. ParentTermsConditionsScreen renders document structure',
-        (tester) async {
+    testWidgets('7. ParentTermsConditionsScreen renders document structure', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);

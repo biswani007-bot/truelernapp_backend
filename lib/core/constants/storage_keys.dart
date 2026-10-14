@@ -14,4 +14,7 @@ abstract final class StorageKeys {
 
   /// Key for active child/ward ID in parent context.
   static const String activeChildId = 'truelern_active_child_id';
+
+  /// Key for the assessment proxy token returned by parent launch endpoint.
+  static const String assessmentProxyToken = 'truelern_assessment_proxy_token';
 }

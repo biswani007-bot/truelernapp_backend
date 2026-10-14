@@ -64,24 +64,42 @@ class DashboardDto {
 
       for (final item in list) {
         if (item is! Map<String, dynamic>) continue;
-        final startStr = item['startDate'] as String?;
-        final startDt = startStr != null ? DateTime.tryParse(startStr) : null;
+        final startRaw =
+            item['startDate'] ??
+            item['startAt'] ??
+            item['startTime'] ??
+            item['scheduledStartTime'];
+        final startDt = startRaw is DateTime
+            ? startRaw
+            : (startRaw is String ? DateTime.tryParse(startRaw) : null);
         if (startDt == null) continue;
 
         final localStart = startDt.toLocal();
-        final isToday = localStart.year == now.year &&
+        final isToday =
+            localStart.year == now.year &&
             localStart.month == now.month &&
             localStart.day == now.day;
 
         if (!isToday) continue;
 
         final duration = parseInt(item['duration']) ?? 60;
-        final endDt = startDt.add(Duration(minutes: duration));
+        final endRaw =
+            item['endDate'] ??
+            item['endAt'] ??
+            item['endTime'] ??
+            item['scheduledEndTime'];
+        final endDt = endRaw is DateTime
+            ? endRaw
+            : (endRaw is String
+                  ? (DateTime.tryParse(endRaw) ??
+                        startDt.add(Duration(minutes: duration)))
+                  : startDt.add(Duration(minutes: duration)));
 
         String? teacherName;
         final rawTeacher = item['instructor'] ?? item['teacher'];
         if (rawTeacher is Map) {
-          final resolvedName = rawTeacher['name']?.toString() ??
+          final resolvedName =
+              rawTeacher['name']?.toString() ??
               ([rawTeacher['firstName'], rawTeacher['lastName']]
                   .where((s) => s != null && s.toString().trim().isNotEmpty)
                   .join(' '));
@@ -90,41 +108,64 @@ class DashboardDto {
           teacherName = rawTeacher.toString();
         }
 
+        final rawStatus = item['status']?.toString();
+        final rawEffectiveStatus = item['effectiveStatus']?.toString();
+        final status = rawStatus ?? rawEffectiveStatus ?? 'SCHEDULED';
+        final effectiveStatus = rawEffectiveStatus;
+
         final entity = ClassEntity(
-          id: (item['id'] ?? item['_id'] ?? '').toString(),
-          title: (item['classTitle'] ?? item['title'] ?? 'Live Class').toString(),
-          subject: item['courseName']?.toString() ?? item['subject']?.toString(),
+          id: (item['id'] ?? item['_id'] ?? item['classId'] ?? '').toString(),
+          classCode: item['classCode']?.toString(),
+          title: (item['classTitle'] ?? item['title'] ?? 'Live Class')
+              .toString(),
+          subject:
+              item['courseName']?.toString() ??
+              item['course']?.toString() ??
+              item['subject']?.toString(),
           teacherName: teacherName,
           scheduledStartTime: startDt,
           scheduledEndTime: endDt,
-          status: item['effectiveStatus']?.toString() ?? item['status']?.toString() ?? 'UPCOMING',
+          duration: duration,
+          status: status,
+          effectiveStatus: effectiveStatus,
         );
 
-        todayCandidates.add(_DashboardClassCandidate(
-          entity: entity,
-          startLocal: localStart,
-          endLocal: endDt.toLocal(),
-        ));
+        todayCandidates.add(
+          _DashboardClassCandidate(
+            entity: entity,
+            startLocal: localStart,
+            endLocal: endDt.toLocal(),
+          ),
+        );
       }
 
       if (todayCandidates.isNotEmpty) {
         // Sort today's classes chronologically by start time
         todayCandidates.sort((a, b) => a.startLocal.compareTo(b.startLocal));
 
-        // Prefer the current ongoing or next upcoming class today
+        // Prefer active upcoming or ongoing class today
         for (final cand in todayCandidates) {
-          if (cand.endLocal.isAfter(now)) {
-            featured = cand.entity;
-            break;
+          if (!cand.entity.isCancelled &&
+              (!cand.entity.isCompletedAt(now) ||
+                  cand.entity.isUpcomingAt(now))) {
+            if (cand.endLocal.isAfter(now)) {
+              featured = cand.entity;
+              break;
+            }
           }
         }
-        // If all classes today have ended, show the latest completed session today
-        featured ??= todayCandidates.last.entity;
+        featured ??= todayCandidates
+            .firstWhere(
+              (c) => !c.entity.isCancelled,
+              orElse: () => todayCandidates.last,
+            )
+            .entity;
       }
     }
 
     // 3. Pending assignments count
-    final pendingCount = parseInt(json['pendingAssignmentsCount']) ??
+    final pendingCount =
+        parseInt(json['pendingAssignmentsCount']) ??
         parseInt(json['assignmentsCount']);
 
     // 4. Total balance due
@@ -143,14 +184,18 @@ class DashboardDto {
         if (item is Map<String, dynamic>) {
           final bName = (item['batchName'] ?? '').toString();
           final cName = (item['courseName'] ?? '').toString();
-          batches.add(EnrolledBatchEntity(
-            id: (item['id'] ?? item['_id'] ?? '').toString(),
-            batchName: bName,
-            batchCode: item['batchCode'] as String?,
-            courseName: cName.isNotEmpty ? cName : null,
-            instructor: item['instructor'] as String?,
-          ));
-          topic ??= cName.isNotEmpty ? cName : (bName.isNotEmpty ? bName : null);
+          batches.add(
+            EnrolledBatchEntity(
+              id: (item['id'] ?? item['_id'] ?? '').toString(),
+              batchName: bName,
+              batchCode: item['batchCode'] as String?,
+              courseName: cName.isNotEmpty ? cName : null,
+              instructor: item['instructor'] as String?,
+            ),
+          );
+          topic ??= cName.isNotEmpty
+              ? cName
+              : (bName.isNotEmpty ? bName : null);
         }
       }
     }
@@ -170,16 +215,29 @@ class DashboardDto {
   DashboardEntity toEntity({
     ClassEntity? overrideFeaturedClass,
     bool useOverride = false,
-  }) =>
-      DashboardEntity(
-        attendanceRate: attendanceRate,
-        upcomingClassesCount: upcomingClassesCount,
-        pendingAssignmentsCount: pendingAssignmentsCount,
-        totalBalanceDue: totalBalanceDue,
-        activeTopic: activeTopic,
-        featuredClass: useOverride ? overrideFeaturedClass : featuredClass,
-        enrolledBatches: enrolledBatches,
-      );
+    double? progressPercentage,
+    Map<String, double>? batchProgressMap,
+  }) {
+    final batchesWithProgress = enrolledBatches.map((b) {
+      final prog =
+          batchProgressMap?[b.id] ??
+          batchProgressMap?[b.batchName] ??
+          progressPercentage ??
+          b.progressPercentage;
+      return b.copyWith(progressPercentage: prog);
+    }).toList();
+
+    return DashboardEntity(
+      attendanceRate: attendanceRate,
+      upcomingClassesCount: upcomingClassesCount,
+      pendingAssignmentsCount: pendingAssignmentsCount,
+      totalBalanceDue: totalBalanceDue,
+      activeTopic: activeTopic,
+      featuredClass: useOverride ? overrideFeaturedClass : featuredClass,
+      enrolledBatches: batchesWithProgress,
+      overallProgress: progressPercentage,
+    );
+  }
 }
 
 class _DashboardClassCandidate {
@@ -193,4 +251,3 @@ class _DashboardClassCandidate {
   final DateTime startLocal;
   final DateTime endLocal;
 }
-

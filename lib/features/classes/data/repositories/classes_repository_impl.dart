@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/class_entity.dart';
 import '../../domain/entities/class_join_entity.dart';
@@ -21,9 +22,78 @@ class ClassesRepositoryImpl implements ClassesRepository {
 
   @override
   Future<List<ClassEntity>> getLiveClasses(String childStudentId) async {
-    final response = await apiClient.get<Map<String, dynamic>>(
-      '/parent/children/$childStudentId/live-classes',
-    );
+    Object? liveError;
+    Object? scheduleError;
+    List<ClassEntity>? liveList;
+    List<ClassEntity>? scheduleList;
+
+    await Future.wait([
+      (() async {
+        try {
+          liveList = await _fetchEndpoint(
+            '/parent/children/$childStudentId/live-classes',
+          );
+        } catch (e) {
+          liveError = e;
+        }
+      })(),
+      (() async {
+        try {
+          scheduleList = await _fetchEndpoint(
+            '/parent/children/$childStudentId/schedule',
+          );
+        } catch (e) {
+          scheduleError = e;
+        }
+      })(),
+    ]);
+
+    // If both failed, rethrow so API errors are not converted into false empty schedules
+    if (liveList == null && scheduleList == null) {
+      throw liveError ?? scheduleError ?? Exception('Failed to load classes');
+    }
+
+    final safeLive = liveList ?? [];
+    final safeSchedule = scheduleList ?? [];
+
+    if (safeLive.isEmpty && safeSchedule.isEmpty) return [];
+
+    final Map<String, ClassEntity> merged = {};
+    for (final c in safeLive) {
+      merged[c.id] = c;
+    }
+    for (final s in safeSchedule) {
+      if (merged.containsKey(s.id)) {
+        final existing = merged[s.id]!;
+        final isUpcomingActive = s.isUpcomingAt();
+        merged[s.id] = ClassEntity(
+          id: existing.id,
+          classCode: existing.classCode ?? s.classCode,
+          title: existing.title.isNotEmpty ? existing.title : s.title,
+          subject: existing.subject ?? s.subject,
+          scheduledStartTime:
+              s.scheduledStartTime ?? existing.scheduledStartTime,
+          scheduledEndTime: s.scheduledEndTime ?? existing.scheduledEndTime,
+          duration: s.duration ?? existing.duration,
+          status: s.status ?? existing.status ?? 'SCHEDULED',
+          effectiveStatus: isUpcomingActive
+              ? 'upcoming'
+              : existing.effectiveStatus,
+          teacherName: existing.teacherName ?? s.teacherName,
+          teacherAvatar: existing.teacherAvatar ?? s.teacherAvatar,
+          meetingUrl: s.meetingUrl ?? existing.meetingUrl,
+          roomName: s.roomName ?? existing.roomName,
+        );
+      } else {
+        merged[s.id] = s;
+      }
+    }
+
+    return merged.values.toList();
+  }
+
+  Future<List<ClassEntity>> _fetchEndpoint(String endpoint) async {
+    final response = await apiClient.get<Map<String, dynamic>>(endpoint);
 
     final body = response.data;
     if (body == null) return [];
@@ -35,9 +105,11 @@ class ClassesRepositoryImpl implements ClassesRepository {
     final List<dynamic> rawList;
     if (dataField is List) {
       rawList = dataField;
-    } else if (dataField is Map<String, dynamic> && dataField['classes'] is List) {
+    } else if (dataField is Map<String, dynamic> &&
+        dataField['classes'] is List) {
       rawList = dataField['classes'] as List<dynamic>;
-    } else if (dataField is Map<String, dynamic> && dataField['items'] is List) {
+    } else if (dataField is Map<String, dynamic> &&
+        dataField['items'] is List) {
       rawList = dataField['items'] as List<dynamic>;
     } else {
       return [];
@@ -60,7 +132,8 @@ class ClassesRepositoryImpl implements ClassesRepository {
     );
 
     final body = response.data;
-    final dataField = (body?['data'] as Map<String, dynamic>?) ?? body ?? <String, dynamic>{};
+    final dataField =
+        (body?['data'] as Map<String, dynamic>?) ?? body ?? <String, dynamic>{};
     final liveClassMap = dataField['liveClass'] as Map<String, dynamic>?;
     final childMap = dataField['child'] as Map<String, dynamic>?;
 
@@ -68,14 +141,22 @@ class ClassesRepositoryImpl implements ClassesRepository {
       token: dataField['token']?.toString() ?? '',
       roomName: dataField['roomName']?.toString() ?? '',
       jitsiDomain: dataField['jitsiDomain']?.toString() ?? 'livetl.visital.in',
-      serverUrl: dataField['serverUrl']?.toString() ?? 'https://livetl.visital.in',
+      serverUrl:
+          dataField['serverUrl']?.toString() ?? 'https://livetl.visital.in',
       meetingUrl: dataField['meetingUrl']?.toString() ?? '',
       isModerator: dataField['isModerator'] == true,
-      expiresAt: (dataField['expiresAt'] is num) ? (dataField['expiresAt'] as num).toInt() : null,
-      childId: dataField['studentId']?.toString() ?? childMap?['id']?.toString() ?? childStudentId,
+      expiresAt: (dataField['expiresAt'] is num)
+          ? (dataField['expiresAt'] as num).toInt()
+          : null,
+      childId:
+          dataField['studentId']?.toString() ??
+          childMap?['id']?.toString() ??
+          childStudentId,
       childName: childMap?['name']?.toString(),
       classId: liveClassMap?['id']?.toString() ?? classId,
-      classTitle: liveClassMap?['title']?.toString() ?? liveClassMap?['classTitle']?.toString(),
+      classTitle:
+          liveClassMap?['title']?.toString() ??
+          liveClassMap?['classTitle']?.toString(),
     );
   }
 }
@@ -84,4 +165,3 @@ class ClassesRepositoryImpl implements ClassesRepository {
 final classesRepositoryProvider = Provider<ClassesRepository>((ref) {
   return ClassesRepositoryImpl(apiClient: ref.watch(apiClientProvider));
 });
-

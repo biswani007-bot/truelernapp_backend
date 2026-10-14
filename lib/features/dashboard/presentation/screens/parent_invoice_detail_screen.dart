@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../../../core/widgets/app_refresh_indicator.dart';
 import '../../../../core/router/route_paths.dart';
 import 'parent_payment_successful_screen.dart';
 
@@ -65,12 +67,20 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
 
                   // Main Content ScrollView
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 160),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 448),
-                          child: _buildInvoiceCard(),
+                    child: AppRefreshIndicator(
+                      onRefresh: () async {
+                        await Future<void>.delayed(
+                          const Duration(milliseconds: 600),
+                        );
+                      },
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 160),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 448),
+                            child: _buildInvoiceCard(),
+                          ),
                         ),
                       ),
                     ),
@@ -121,11 +131,7 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
             },
             child: Container(
               padding: const EdgeInsets.all(8),
-              child: SvgPicture.asset(
-                _svgBackArrow,
-                width: 16,
-                height: 16,
-              ),
+              child: SvgPicture.asset(_svgBackArrow, width: 16, height: 16),
             ),
           ),
 
@@ -177,10 +183,7 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
               width: double.infinity,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF0037B1),
-                    Color(0xFFFB7185),
-                  ],
+                  colors: [Color(0xFF0037B1), Color(0xFFFB7185)],
                 ),
               ),
             ),
@@ -227,12 +230,7 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.only(bottom: 25),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFE2E1ED),
-            width: 1,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E1ED), width: 1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -459,9 +457,14 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
 
                   // Tag: Emotional Intelligence (Node 104:253)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: const Color(0x1AFB7185), // rgba(251, 113, 133, 0.1)
+                      color: const Color(
+                        0x1AFB7185,
+                      ), // rgba(251, 113, 133, 0.1)
                       borderRadius: BorderRadius.circular(9999),
                     ),
                     child: Row(
@@ -694,7 +697,9 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
                     context.push(AppRoutePaths.paymentSuccessful);
                   } catch (_) {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ParentPaymentSuccessfulScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const ParentPaymentSuccessfulScreen(),
+                      ),
                     );
                   }
                 },

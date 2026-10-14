@@ -1,33 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
+import '../../domain/entities/security_activity_entity.dart';
+import '../controllers/security_activity_controller.dart';
+import '../controllers/security_activity_state.dart';
 import '../widgets/security_privacy_sub_app_bar.dart';
 
-/// Screen 1 — Recent Security Activity.
+/// Screen — Recent Security Activity.
 ///
-/// Design Language:
-/// - TrueLern canvas gradient background
-/// - Top header with Back button & title
-/// - Filter chips: All, Logins, Devices, Security
-/// - Honest state handling: Backend audit confirmed no parent security event API exists.
-///   Displays an explicit, clear security status banner and empty state,
-///   with categorized security capabilities.
-class ParentRecentSecurityActivityScreen extends StatefulWidget {
+/// Backed by real API: `GET /api/auth/activity` (returns authentication and security audit logs).
+class ParentRecentSecurityActivityScreen extends ConsumerStatefulWidget {
   const ParentRecentSecurityActivityScreen({super.key});
 
   @override
-  State<ParentRecentSecurityActivityScreen> createState() =>
+  ConsumerState<ParentRecentSecurityActivityScreen> createState() =>
       _ParentRecentSecurityActivityScreenState();
 }
 
 class _ParentRecentSecurityActivityScreenState
-    extends State<ParentRecentSecurityActivityScreen> {
-  int _selectedFilterIndex = 0;
+    extends ConsumerState<ParentRecentSecurityActivityScreen> {
   final List<String> _filters = const ['All', 'Logins', 'Devices', 'Security'];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(securityActivityControllerProvider.notifier)
+          .loadActivityLogs();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = ref.watch(securityActivityControllerProvider);
+
     return Scaffold(
       key: const Key('parent_recent_security_activity_screen'),
       backgroundColor: const Color(0xFFFAF8FF),
@@ -37,9 +48,9 @@ class _ParentRecentSecurityActivityScreenState
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFFF3E8FF), // Lavender
-              Color(0xFFE0F2FE), // Sky blue
-              Color(0xFFFFFFFF), // White
+              Color(0xFFF3E8FF),
+              Color(0xFFE0F2FE),
+              Color(0xFFFFFFFF),
             ],
             stops: [0.0, 0.45, 1.0],
           ),
@@ -49,35 +60,37 @@ class _ParentRecentSecurityActivityScreenState
             children: [
               const SecurityPrivacySubAppBar(title: 'Recent Security Activity'),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 540),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Header Subtitle Description
-                          Text(
-                            'View your login history and account activity.',
-                            style: AppTypography.bodyMedium.copyWith(
-                              color: const Color(0xFF64748B),
-                              fontSize: 14,
+                child: AppRefreshIndicator(
+                  onRefresh: () async {
+                    await ref
+                        .read(securityActivityControllerProvider.notifier)
+                        .loadActivityLogs(forceRefresh: true);
+                  },
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 20,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 540),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'View your login history and account security events.',
+                              style: AppTypography.bodyMedium.copyWith(
+                                color: const Color(0xFF64748B),
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Filter Chips Row
-                          _buildFilterChips(),
-                          const SizedBox(height: 24),
-
-                          // Account Security Status Card
-                          _buildSecurityStatusCard(),
-                          const SizedBox(height: 24),
-
-                          // Activity List or Empty State
-                          _buildActivityContent(),
-                        ],
+                            const SizedBox(height: 16),
+                            _buildFilterChips(state),
+                            const SizedBox(height: 24),
+                            _buildBody(context, state),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -90,96 +103,208 @@ class _ParentRecentSecurityActivityScreenState
     );
   }
 
-  Widget _buildFilterChips() {
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _filters.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final isSelected = _selectedFilterIndex == index;
-          return InkWell(
-            onTap: () {
-              setState(() {
-                _selectedFilterIndex = index;
-              });
-            },
-            borderRadius: BorderRadius.circular(20),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected
-                      ? AppColors.primary
-                      : const Color(0xFFCBD5E1).withValues(alpha: 0.6),
-                ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.25),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : [
-                        const BoxShadow(
-                          color: Color(0x08000000),
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
+  Widget _buildFilterChips(SecurityActivityState state) {
+    final selected = state is SecurityActivityLoaded
+        ? state.selectedFilter
+        : 'All';
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: _filters.map((filter) {
+          final isSelected = selected.toLowerCase() == filter.toLowerCase();
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(filter),
+              selected: isSelected,
+              onSelected: (val) {
+                if (val) {
+                  ref
+                      .read(securityActivityControllerProvider.notifier)
+                      .setFilter(filter);
+                }
+              },
+              selectedColor: const Color(0xFF1E4ED8),
+              backgroundColor: Colors.white,
+              labelStyle: GoogleFonts.hankenGrotesk(
+                color: isSelected ? Colors.white : const Color(0xFF434655),
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                fontSize: 13,
               ),
-              child: Center(
-                child: Text(
-                  _filters[index],
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected ? Colors.white : const Color(0xFF475569),
-                  ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: isSelected
+                      ? const Color(0xFF1E4ED8)
+                      : const Color(0xFFE2E8F0),
                 ),
               ),
             ),
           );
-        },
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildSecurityStatusCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
+  Widget _buildBody(BuildContext context, SecurityActivityState state) {
+    if (state is SecurityActivityLoading || state is SecurityActivityInitial) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 48),
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
+    if (state is SecurityActivityError) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFFCA5A5)),
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              color: AppColors.error,
+              size: 40,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Failed to load security activity',
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1A1B23),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              state.message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 13,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                ref
+                    .read(securityActivityControllerProvider.notifier)
+                    .loadActivityLogs(forceRefresh: true);
+              },
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Try Again'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (state is SecurityActivityLoaded) {
+      final items = state.filteredActivities;
+
+      if (items.isEmpty) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
-        ],
-      ),
+          child: Column(
+            children: [
+              const Icon(
+                Icons.shield_outlined,
+                size: 48,
+                color: Color(0xFF94A3B8),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No Activity Recorded',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1A1B23),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                state.selectedFilter == 'All'
+                    ? 'No security events have been logged for this account yet.'
+                    : 'No "${state.selectedFilter}" events found in your recent history.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 13,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x06000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: items.length,
+          separatorBuilder: (context, index) => const Divider(
+            height: 1,
+            color: Color(0xFFF1F5F9),
+            indent: 64,
+            endIndent: 16,
+          ),
+          itemBuilder: (context, index) {
+            final activity = items[index];
+            return _buildActivityTile(activity);
+          },
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildActivityTile(SecurityActivityEntity activity) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFFECFDF5),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFA7F3D0)),
+              color: activity.iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
-              Icons.shield_outlined,
-              color: Color(0xFF10B981),
-              size: 24,
+            child: Icon(
+              activity.iconData,
+              color: activity.iconColor,
+              size: 20,
             ),
           ),
           const SizedBox(width: 14),
@@ -187,133 +312,32 @@ class _ParentRecentSecurityActivityScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      'Account Protected',
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD1FAE5),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'Secure',
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF065F46),
-                        ),
-                      ),
-                    ),
-                  ],
+                Text(
+                  activity.displayTitle,
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF0F172A),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Biometric authentication, encrypted tokens, and active session protection are active.',
+                  activity.displayDescription,
                   style: GoogleFonts.hankenGrotesk(
-                    fontSize: 12.5,
-                    height: 1.4,
+                    fontSize: 13,
                     color: const Color(0xFF64748B),
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActivityContent() {
-    // Audit verified: The backend currently has no public parent activity event stream.
-    // Explicit, honest UI representation per instructions.
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x06000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: const Icon(
-              Icons.history_toggle_off_rounded,
-              size: 28,
-              color: Color(0xFF94A3B8),
-            ),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(width: 8),
           Text(
-            'No Recent Security Alerts',
+            activity.formattedTimestamp,
             style: GoogleFonts.hankenGrotesk(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF1E293B),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'No suspicious login attempts or security warnings have occurred for your account in the selected filter (${_filters[_selectedFilterIndex]}).',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.hankenGrotesk(
-              fontSize: 13,
-              height: 1.45,
-              color: const Color(0xFF64748B),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.info_outline_rounded,
-                  size: 16,
-                  color: Color(0xFF64748B),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    'Event audit logs are synchronized automatically.',
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF475569),
-                    ),
-                  ),
-                ),
-              ],
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF94A3B8),
             ),
           ),
         ],

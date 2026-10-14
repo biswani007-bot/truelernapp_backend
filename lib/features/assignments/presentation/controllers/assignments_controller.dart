@@ -1,61 +1,114 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../dashboard/presentation/controllers/children_controller.dart';
+import '../../../dashboard/presentation/controllers/children_state.dart';
 import '../../domain/repositories/assignments_repository.dart';
 import '../../data/repositories/assignments_repository_impl.dart';
-import '../../domain/entities/assignment_entity.dart';
 import 'assignments_state.dart';
 
 class AssignmentsController extends Notifier<AssignmentsState> {
+  int _requestToken = 0;
+
   @override
   AssignmentsState build() {
-    return const AssignmentsLoaded(
-      allAssignments: [
-        AssignmentEntity(
-          id: 'asg_1',
-          title: "The Grandmaster's Homework",
-          topic: 'Practical Thinking',
-          status: AssignmentStatus.pending,
-          dueDate: 'Due: Feb 20',
-          buttonText: 'Open Assignment',
-        ),
-        AssignmentEntity(
-          id: 'asg_2',
-          title: 'Confidence Quiz',
-          topic: 'Communication',
-          status: AssignmentStatus.completed,
-          score: 95,
-          totalMarks: 100,
-        ),
-        AssignmentEntity(
-          id: 'asg_3',
-          title: 'Daily Habits Tracker',
-          topic: 'Time Management',
-          status: AssignmentStatus.overdue,
-          overdueDate: 'Was due: Feb 10',
-          buttonText: 'Submit Late',
-          isLateSubmissionAllowed: true,
-        ),
-      ],
-      selectedFilter: 'All',
-    );
+    // Listen to ChildrenController to handle active child switches globally
+    ref.listen<ChildrenState>(childrenControllerProvider, (prev, next) {
+      if (next is ChildrenLoaded) {
+        final prevChildId = prev is ChildrenLoaded ? prev.activeChildId : null;
+        if (next.activeChildId != prevChildId) {
+          loadAssignments(childStudentId: next.activeChildId, isRefresh: true);
+        }
+      } else if (next is ChildrenInitial || next is ChildrenLoading) {
+        state = const AssignmentsLoading();
+      }
+    });
+
+    final children = ref.watch(childrenControllerProvider);
+    if (children is ChildrenLoaded && children.activeChildId != null) {
+      Future.microtask(
+        () => loadAssignments(childStudentId: children.activeChildId),
+      );
+    }
+
+    return const AssignmentsInitial();
   }
 
-  AssignmentsRepository get _repository => ref.read(assignmentsRepositoryProvider);
+  AssignmentsRepository get _repository =>
+      ref.read(assignmentsRepositoryProvider);
 
-  Future<void> loadAssignments({String? childStudentId}) async {
+  /// Loads assignments strictly for the specified [childStudentId].
+  ///
+  /// Requirements:
+  /// 1. Immediately clears previous child's data and transitions to [AssignmentsLoading].
+  /// 2. If [childStudentId] is null or empty, transitions cleanly to empty list.
+  /// 3. Request token prevents out-of-order race conditions when switching quickly.
+  /// 4. Filters out any assignments not matching [childStudentId] (defense-in-depth).
+  Future<void> loadAssignments({
+    String? childStudentId,
+    bool isRefresh = false,
+  }) async {
+    final token = ++_requestToken;
+
+    final current = state;
+    // On pull-to-refresh for the same child, preserve current loaded state and filter
+    final bool preserveExisting =
+        isRefresh &&
+        current is AssignmentsLoaded &&
+        current.childStudentId == childStudentId;
+
+    if (!preserveExisting) {
+      state = AssignmentsLoading(childStudentId: childStudentId);
+    }
+
+    if (childStudentId == null || childStudentId.isEmpty) {
+      state = const AssignmentsLoaded(
+        allAssignments: [],
+        childStudentId: null,
+        selectedFilter: 'All',
+      );
+      return;
+    }
+
     try {
       final items = await _repository.getAssignments(
-        childStudentId: childStudentId ?? 'default_child',
+        childStudentId: childStudentId,
       );
-      state = AssignmentsLoaded(allAssignments: items, selectedFilter: 'All');
+
+      // Race condition check: if a new request was issued, discard this response
+      if (token != _requestToken) return;
+
+      // Filter defensively to guarantee no data leakage
+      final childItems = items
+          .where(
+            (a) =>
+                a.childStudentId == null || a.childStudentId == childStudentId,
+          )
+          .toList();
+
+      final String filterToUse = preserveExisting
+          ? current.selectedFilter
+          : 'All';
+
+      state = AssignmentsLoaded(
+        allAssignments: childItems,
+        childStudentId: childStudentId,
+        selectedFilter: filterToUse,
+      );
     } catch (e) {
-      // Keep existing loaded state or set error
+      if (token != _requestToken) return;
+      if (!preserveExisting) {
+        state = AssignmentsError(
+          'Unable to load assignments: ${e.toString()}',
+          childStudentId: childStudentId,
+        );
+      }
     }
   }
 
   void setFilter(String filter) {
-    if (state is AssignmentsLoaded) {
-      final loaded = state as AssignmentsLoaded;
-      state = loaded.copyWith(selectedFilter: filter);
+    final current = state;
+    if (current is AssignmentsLoaded) {
+      state = current.copyWith(selectedFilter: filter);
     }
   }
 }
@@ -63,5 +116,5 @@ class AssignmentsController extends Notifier<AssignmentsState> {
 /// Provider for [AssignmentsController].
 final assignmentsControllerProvider =
     NotifierProvider<AssignmentsController, AssignmentsState>(() {
-  return AssignmentsController();
-});
+      return AssignmentsController();
+    });

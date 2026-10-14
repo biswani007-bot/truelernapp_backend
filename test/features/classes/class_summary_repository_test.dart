@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:truelearn/core/network/api_client.dart';
 import 'package:truelearn/features/assignments/domain/entities/assignment_entity.dart';
+import 'package:truelearn/features/assignments/domain/entities/assignment_submission_entity.dart';
 import 'package:truelearn/features/assignments/domain/repositories/assignments_repository.dart';
 import 'package:truelearn/features/classes/data/repositories/class_summary_repository_impl.dart';
 import 'package:truelearn/features/classes/domain/entities/class_entity.dart';
@@ -29,8 +30,45 @@ class MockAssignmentsRepository implements AssignmentsRepository {
   List<AssignmentEntity> assignments = [];
 
   @override
-  Future<List<AssignmentEntity>> getAssignments({required String childStudentId}) async {
+  Future<List<AssignmentEntity>> getAssignments({
+    required String childStudentId,
+  }) async {
     return assignments;
+  }
+
+  @override
+  Future<AssignmentEntity?> getAssignmentDetail({
+    required String childStudentId,
+    required String assignmentId,
+  }) async {
+    return assignments.cast<AssignmentEntity?>().firstWhere(
+      (a) => a?.id == assignmentId,
+      orElse: () => null,
+    );
+  }
+
+  @override
+  Future<AssignmentSubmissionEntity> submitAssignment({
+    required String childStudentId,
+    required String assignmentId,
+    required String fileName,
+    required int fileSize,
+    required String fileType,
+    String? fileUrl,
+    String? comments,
+  }) async {
+    return AssignmentSubmissionEntity(
+      id: 'sub_test',
+      status: SubmissionStatus.submitted,
+      submittedAt: DateTime.now(),
+      files: [
+        SubmissionFileEntity(
+          fileName: fileName,
+          fileSize: fileSize,
+          fileType: fileType,
+        ),
+      ],
+    );
   }
 }
 
@@ -89,10 +127,7 @@ void main() {
             'startDate': now.toIso8601String(),
             'status': 'scheduled',
             'effectiveStatus': 'attended',
-            'attendance': {
-              'status': 'present',
-              'durationAttended': 85,
-            },
+            'attendance': {'status': 'present', 'durationAttended': 85},
           },
           {
             'id': 'class-02',
@@ -149,32 +184,31 @@ void main() {
       expect(summary.assignmentDueDate, contains('Due'));
     });
 
-    test('gracefully resolves defensive values when remote endpoints return empty', () async {
-      fakeApiClient.responses['/api/parent/children/child-123/live-classes'] = {
-        'success': true,
-        'data': [],
-      };
-      fakeApiClient.responses['/api/parent/children/child-123/attendance'] = {
-        'success': true,
-        'data': {'records': []},
-      };
-      fakeApiClient.responses['/api/parent/children/child-123/assignments'] = {
-        'success': true,
-        'data': [],
-      };
+    test(
+      'gracefully resolves defensive values when remote endpoints return empty',
+      () async {
+        fakeApiClient.responses['/api/parent/children/child-123/live-classes'] =
+            {'success': true, 'data': []};
+        fakeApiClient.responses['/api/parent/children/child-123/attendance'] = {
+          'success': true,
+          'data': {'records': []},
+        };
+        fakeApiClient.responses['/api/parent/children/child-123/assignments'] =
+            {'success': true, 'data': []};
 
-      final summary = await repository.getClassSummary(
-        childStudentId: 'child-123',
-        classId: 'class-fallback',
-      );
+        final summary = await repository.getClassSummary(
+          childStudentId: 'child-123',
+          classId: 'class-fallback',
+        );
 
-      expect(summary.classId, 'class-fallback');
-      expect(summary.classTitle, 'Live Class');
-      expect(summary.teacherName, isNull);
-      expect(summary.scheduledDurationMinutes, isNull);
-      expect(summary.skillsPracticed, isEmpty);
-      expect(summary.nextClassTitle, isNull);
-      expect(summary.assignmentId, isNull);
-    });
+        expect(summary.classId, 'class-fallback');
+        expect(summary.classTitle, 'Live Class');
+        expect(summary.teacherName, isNull);
+        expect(summary.scheduledDurationMinutes, isNull);
+        expect(summary.skillsPracticed, isEmpty);
+        expect(summary.nextClassTitle, isNull);
+        expect(summary.assignmentId, isNull);
+      },
+    );
   });
 }

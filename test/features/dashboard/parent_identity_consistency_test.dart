@@ -53,12 +53,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Parent Identity Consistency Across All UI Screens', () {
-    testWidgets('Hamburger Drawer displays authenticated parent Rock Mercer and email',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            authControllerProvider.overrideWith(() => FakeAuthController(
+    testWidgets(
+      'Hamburger Drawer displays authenticated parent Rock Mercer and email',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authControllerProvider.overrideWith(
+                () => FakeAuthController(
                   Authenticated(
                     accessToken: 'token_123',
                     user: const UserDto(
@@ -68,43 +70,51 @@ void main() {
                       role: 'parent',
                     ),
                   ),
-                )),
-            parentProfileControllerProvider.overrideWith(() => FakeParentProfileController(
+                ),
+              ),
+              parentProfileControllerProvider.overrideWith(
+                () => FakeParentProfileController(
                   const ParentProfileLoaded(profile: kMockParentProfile),
-                )),
-          ],
-          child: const MaterialApp(
-            home: Scaffold(
-              drawer: ParentHamburgerDrawer(),
-              body: Center(child: Text('Dashboard')),
+                ),
+              ),
+            ],
+            child: const MaterialApp(
+              home: Scaffold(
+                drawer: ParentHamburgerDrawer(),
+                body: Center(child: Text('Dashboard')),
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      // Open drawer
-      final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold));
-      scaffoldState.openDrawer();
-      await tester.pumpAndSettle();
+        // Open drawer
+        final scaffoldState = tester.state<ScaffoldState>(
+          find.byType(Scaffold),
+        );
+        scaffoldState.openDrawer();
+        await tester.pumpAndSettle();
 
-      // Verify Parent Name & Email
-      expect(find.byKey(const Key('drawer_parent_name')), findsOneWidget);
-      expect(find.text('Rock Mercer'), findsOneWidget);
-      expect(find.byKey(const Key('drawer_parent_email')), findsOneWidget);
-      expect(find.text('parent@truelern.com'), findsOneWidget);
+        // Verify Parent Name & Email
+        expect(find.byKey(const Key('drawer_parent_name')), findsOneWidget);
+        expect(find.text('Rock Mercer'), findsOneWidget);
+        expect(find.byKey(const Key('drawer_parent_email')), findsOneWidget);
+        expect(find.text('parent@truelern.com'), findsOneWidget);
 
-      // Verify old hardcoded name is NOT present
-      expect(find.text('Hi, PPs'), findsNothing);
-      expect(find.text('PPs Mercer'), findsNothing);
-      expect(find.text('alex.mercer@truelern.com'), findsNothing);
-    });
+        // Verify old hardcoded name is NOT present
+        expect(find.text('Hi, PPs'), findsNothing);
+        expect(find.text('PPs Mercer'), findsNothing);
+        expect(find.text('alex.mercer@truelern.com'), findsNothing);
+      },
+    );
 
-    testWidgets('Parent Profile Screen displays authenticated parent Rock Mercer and email',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            authControllerProvider.overrideWith(() => FakeAuthController(
+    testWidgets(
+      'Parent Profile Screen displays authenticated parent Rock Mercer and email',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authControllerProvider.overrideWith(
+                () => FakeAuthController(
                   Authenticated(
                     accessToken: 'token_123',
                     user: const UserDto(
@@ -114,36 +124,40 @@ void main() {
                       role: 'parent',
                     ),
                   ),
-                )),
-            parentProfileControllerProvider.overrideWith(() => FakeParentProfileController(
+                ),
+              ),
+              parentProfileControllerProvider.overrideWith(
+                () => FakeParentProfileController(
                   const ParentProfileLoaded(profile: kMockParentProfile),
-                )),
-          ],
-          child: const MaterialApp(
-            home: ParentProfileScreen(),
+                ),
+              ),
+            ],
+            child: const MaterialApp(home: ParentProfileScreen()),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      // Verify Parent Profile Hero
-      expect(find.byKey(const Key('profile_parent_name')), findsOneWidget);
-      expect(find.text('Rock Mercer'), findsOneWidget);
-      expect(find.byKey(const Key('profile_parent_email')), findsOneWidget);
-      expect(find.text('parent@truelern.com'), findsOneWidget);
+        // Verify Parent Profile Hero
+        expect(find.byKey(const Key('profile_parent_name')), findsOneWidget);
+        expect(find.text('Rock Mercer'), findsOneWidget);
+        expect(find.byKey(const Key('profile_parent_email')), findsOneWidget);
+        expect(find.text('parent@truelern.com'), findsOneWidget);
 
-      // Verify old hardcoded name is NOT present
-      expect(find.text('PPs Mercer'), findsNothing);
-      expect(find.text('alex.mercer@truelern.com'), findsNothing);
-    });
+        // Verify old hardcoded name is NOT present
+        expect(find.text('PPs Mercer'), findsNothing);
+        expect(find.text('alex.mercer@truelern.com'), findsNothing);
+      },
+    );
 
-    testWidgets('Parent Account Settings Screen displays authenticated parent Rock Mercer and email',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            authControllerProvider.overrideWith(() => FakeAuthController(
+    testWidgets(
+      'Parent Account Settings Screen displays authenticated parent Rock Mercer and email',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authControllerProvider.overrideWith(
+                () => FakeAuthController(
                   Authenticated(
                     accessToken: 'token_123',
                     user: const UserDto(
@@ -153,38 +167,48 @@ void main() {
                       role: 'parent',
                     ),
                   ),
-                )),
-            parentProfileControllerProvider.overrideWith(() => FakeParentProfileController(
+                ),
+              ),
+              parentProfileControllerProvider.overrideWith(
+                () => FakeParentProfileController(
                   const ParentProfileLoaded(profile: kMockParentProfile),
-                )),
-          ],
-          child: const MaterialApp(
-            home: ParentAccountSettingsScreen(),
+                ),
+              ),
+            ],
+            child: const MaterialApp(home: ParentAccountSettingsScreen()),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      // Verify Parent Header & Personal Card
-      expect(find.byKey(const Key('account_settings_parent_name')), findsOneWidget);
-      expect(find.text('Rock Mercer'), findsNWidgets(2)); // Header + Personal row
-      expect(find.text('parent@truelern.com'), findsOneWidget);
-      expect(find.text('Parent Account'), findsOneWidget);
+        // Verify Parent Header & Personal Card
+        expect(
+          find.byKey(const Key('account_settings_parent_name')),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Rock Mercer'),
+          findsNWidgets(2),
+        ); // Header + Personal row
+        expect(find.text('parent@truelern.com'), findsOneWidget);
+        expect(find.text('Parent Account'), findsOneWidget);
 
-      // Verify old hardcoded name is NOT present
-      expect(find.text('PPs'), findsNothing);
-      expect(find.text('PPs Mercher'), findsNothing);
-      expect(find.text('alex@rivers.com'), findsNothing);
-      expect(find.text('Student Account'), findsNothing);
-    });
+        // Verify old hardcoded name is NOT present
+        expect(find.text('PPs'), findsNothing);
+        expect(find.text('PPs Mercher'), findsNothing);
+        expect(find.text('alex@rivers.com'), findsNothing);
+        expect(find.text('Student Account'), findsNothing);
+      },
+    );
 
-    testWidgets('Switching active child NEVER changes authenticated Parent identity',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            authControllerProvider.overrideWith(() => FakeAuthController(
+    testWidgets(
+      'Switching active child NEVER changes authenticated Parent identity',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authControllerProvider.overrideWith(
+                () => FakeAuthController(
                   Authenticated(
                     accessToken: 'token_123',
                     user: const UserDto(
@@ -194,46 +218,57 @@ void main() {
                       role: 'parent',
                     ),
                   ),
-                )),
-            parentProfileControllerProvider.overrideWith(() => FakeParentProfileController(
+                ),
+              ),
+              parentProfileControllerProvider.overrideWith(
+                () => FakeParentProfileController(
                   const ParentProfileLoaded(profile: kMockParentProfile),
-                )),
-            childrenControllerProvider.overrideWith(() => FakeChildrenController(
+                ),
+              ),
+              childrenControllerProvider.overrideWith(
+                () => FakeChildrenController(
                   const ChildrenLoaded(
                     children: kMockChildren,
                     activeChildId: 'child_1', // Ethan
                   ),
-                )),
-          ],
-          child: const MaterialApp(
-            home: Scaffold(
-              drawer: ParentHamburgerDrawer(),
-              body: Center(child: Text('Dashboard Content')),
+                ),
+              ),
+            ],
+            child: const MaterialApp(
+              home: Scaffold(
+                drawer: ParentHamburgerDrawer(),
+                body: Center(child: Text('Dashboard Content')),
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      // Open drawer while child 1 (Ethan) is active
-      final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold));
-      scaffoldState.openDrawer();
-      await tester.pumpAndSettle();
+        // Open drawer while child 1 (Ethan) is active
+        final scaffoldState = tester.state<ScaffoldState>(
+          find.byType(Scaffold),
+        );
+        scaffoldState.openDrawer();
+        await tester.pumpAndSettle();
 
-      expect(find.text('Rock Mercer'), findsOneWidget);
-      expect(find.text('parent@truelern.com'), findsOneWidget);
+        expect(find.text('Rock Mercer'), findsOneWidget);
+        expect(find.text('parent@truelern.com'), findsOneWidget);
 
-      // Switch active child to child 2 (Alex) using the active container's notifier
-      final container = ProviderScope.containerOf(tester.element(find.byType(Scaffold)));
-      (container.read(childrenControllerProvider.notifier) as FakeChildrenController)
-          .setActiveChild('child_2');
-      await tester.pumpAndSettle();
+        // Switch active child to child 2 (Alex) using the active container's notifier
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(Scaffold)),
+        );
+        (container.read(
+          childrenControllerProvider.notifier,
+        ) as FakeChildrenController).setActiveChild('child_2');
+        await tester.pumpAndSettle();
 
-      // Parent identity MUST REMAIN Rock Mercer
-      expect(find.text('Rock Mercer'), findsOneWidget);
-      expect(find.text('parent@truelern.com'), findsOneWidget);
-      expect(find.text('Alex Mercer'), findsNothing);
-      expect(find.text('Ethan Mercer'), findsNothing);
-    });
+        // Parent identity MUST REMAIN Rock Mercer
+        expect(find.text('Rock Mercer'), findsOneWidget);
+        expect(find.text('parent@truelern.com'), findsOneWidget);
+        expect(find.text('Alex Mercer'), findsNothing);
+        expect(find.text('Ethan Mercer'), findsNothing);
+      },
+    );
   });
 }
 

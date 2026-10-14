@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -9,10 +10,7 @@ import '../../../../core/theme/app_typography.dart';
 /// If 0: shows "No pending assignments"
 /// If > 0: shows count with warning color
 class AssignmentSummaryCard extends StatelessWidget {
-  const AssignmentSummaryCard({
-    super.key,
-    required this.pendingCount,
-  });
+  const AssignmentSummaryCard({super.key, required this.pendingCount});
 
   /// Pending assignments count from API. Null means not available from API.
   final int? pendingCount;
@@ -29,7 +27,9 @@ class AssignmentSummaryCard extends StatelessWidget {
         color: hasPending ? AppColors.warningBg : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: hasPending ? AppColors.warning.withValues(alpha: 0.4) : AppColors.border,
+          color: hasPending
+              ? AppColors.warning.withValues(alpha: 0.4)
+              : AppColors.border,
         ),
         boxShadow: [
           BoxShadow(
@@ -53,7 +53,9 @@ class AssignmentSummaryCard extends StatelessWidget {
             child: Icon(
               Icons.assignment_outlined,
               size: 24,
-              color: hasPending ? AppColors.warningDark : AppColors.textSecondary,
+              color: hasPending
+                  ? AppColors.warningDark
+                  : AppColors.textSecondary,
             ),
           ),
           const SizedBox(width: 14),
@@ -72,8 +74,8 @@ class AssignmentSummaryCard extends StatelessWidget {
                   hasPending
                       ? '${pendingCount!} pending ${pendingCount == 1 ? 'assignment' : 'assignments'}'
                       : hasData
-                          ? 'No pending assignments'
-                          : 'Not available',
+                      ? 'No pending assignments'
+                      : 'Not available',
                   style: AppTypography.titleSmall.copyWith(
                     color: hasPending
                         ? AppColors.warningDark

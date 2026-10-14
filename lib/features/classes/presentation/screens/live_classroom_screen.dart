@@ -8,6 +8,8 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../domain/entities/class_entity.dart';
 import '../../domain/entities/class_join_entity.dart';
+import '../controllers/classes_controller.dart';
+import '../controllers/classes_state.dart';
 
 /// SCR-17 Live Classroom Screen
 ///
@@ -36,7 +38,8 @@ class LiveClassroomScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<LiveClassroomScreen> createState() => _LiveClassroomScreenState();
+  ConsumerState<LiveClassroomScreen> createState() =>
+      _LiveClassroomScreenState();
 }
 
 class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
@@ -59,6 +62,30 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
     });
 
     try {
+      // 0. 15-Minute Entry Window Guard:
+      ClassEntity? resolvedSession = widget.session;
+      if (resolvedSession == null) {
+        final classesState = ref.read(classesControllerProvider);
+        if (classesState is ClassesLoaded) {
+          resolvedSession = classesState.classes
+              .where((c) => c.id == widget.classId)
+              .firstOrNull;
+        }
+      }
+
+      if (widget.joinData == null &&
+          resolvedSession != null &&
+          resolvedSession.scheduledStartTime != null &&
+          !resolvedSession.canEnterLiveClass()) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'You can join 15 minutes before the class starts.';
+          });
+        }
+        return;
+      }
+
       // 1. Read Parent access token from FlutterSecureStorage
       final token = await ref.read(secureStorageProvider).getAccessToken();
       // 2. Verify token is non-empty
@@ -66,7 +93,8 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _errorMessage = 'Authentication session missing. Please sign in again.';
+            _errorMessage =
+                'Authentication session missing. Please sign in again.';
           });
         }
         return;
@@ -84,9 +112,15 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
       );
 
       // 4. Confirm cookie was successfully written using getCookies API
-      final cookies = await cookieManager.getCookies(domain: Uri.parse('https://truelern.visital.in'));
-      final hasToken = cookies.any((c) => c.name == 'accessToken' && c.value.isNotEmpty);
-      debugPrint('[WebView Auth] Pre-load cookie verification: accessToken present = $hasToken');
+      final cookies = await cookieManager.getCookies(
+        domain: Uri.parse('https://truelern.visital.in'),
+      );
+      final hasToken = cookies.any(
+        (c) => c.name == 'accessToken' && c.value.isNotEmpty,
+      );
+      debugPrint(
+        '[WebView Auth] Pre-load cookie verification: accessToken present = $hasToken',
+      );
       if (!hasToken) {
         await cookieManager.setCookie(
           WebViewCookie(
@@ -119,7 +153,9 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
             if (msg.startsWith('TOKEN_STATUS:')) {
               final statusStr = msg.substring('TOKEN_STATUS:'.length);
               final status = int.tryParse(statusStr) ?? 0;
-              debugPrint('[WebView Auth] /api/live-classes/${widget.classId}/token HTTP status: $status');
+              debugPrint(
+                '[WebView Auth] /api/live-classes/${widget.classId}/token HTTP status: $status',
+              );
               if (status == 401) {
                 if (mounted) {
                   setState(() {
@@ -136,7 +172,9 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
                 }
               }
             } else if (msg == 'classroom_exit') {
-              debugPrint('[WebView Navigation] Classroom exit triggered via client navigation/Jitsi');
+              debugPrint(
+                '[WebView Navigation] Classroom exit triggered via client navigation/Jitsi',
+              );
               _navigateToSummary();
             }
           },
@@ -170,12 +208,16 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
               _injectClassroomStylesAndBridge(controller);
             },
             onWebResourceError: (WebResourceError error) {
-              debugPrint('[WebView Navigation] WebResourceError: ${error.errorCode} - ${error.description} on ${error.url}');
+              debugPrint(
+                '[WebView Navigation] WebResourceError: ${error.errorCode} - ${error.description} on ${error.url}',
+              );
             },
             onNavigationRequest: (NavigationRequest request) {
               final uri = Uri.tryParse(request.url);
               final isMain = request.isMainFrame;
-              debugPrint('[WebView Navigation] Navigation requested: isMainFrame=$isMain, url=${request.url}');
+              debugPrint(
+                '[WebView Navigation] Navigation requested: isMainFrame=$isMain, url=${request.url}',
+              );
 
               if (uri != null) {
                 final path = uri.path;
@@ -183,11 +225,14 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
                 // Intercept navigation that leaves the classroom room
                 if (isMain &&
                     (path == '/parent/dashboard' ||
-                     path == '/parent/live-classes' ||
-                     path == '/student/dashboard' ||
-                     path == '/student/live-classes' ||
-                     (path.startsWith('/parent/') && !path.contains('/room')))) {
-                  debugPrint('[WebView Navigation] Detected navigation to exit route ($path) -> Transitioning to native Class Summary');
+                        path == '/parent/live-classes' ||
+                        path == '/student/dashboard' ||
+                        path == '/student/live-classes' ||
+                        (path.startsWith('/parent/') &&
+                            !path.contains('/room')))) {
+                  debugPrint(
+                    '[WebView Navigation] Detected navigation to exit route ($path) -> Transitioning to native Class Summary',
+                  );
                   _navigateToSummary();
                   return NavigationDecision.prevent;
                 }
@@ -198,18 +243,26 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
         );
 
       if (controller.platform is AndroidWebViewController) {
-        final androidController = controller.platform as AndroidWebViewController;
+        final androidController =
+            controller.platform as AndroidWebViewController;
         androidController.setMediaPlaybackRequiresUserGesture(false);
         androidController.setOnPlatformPermissionRequest((request) {
           request.grant();
         });
-        final androidCookieManager = cookieManager.platform as AndroidWebViewCookieManager;
-        await androidCookieManager.setAcceptThirdPartyCookies(androidController, true);
+        final androidCookieManager =
+            cookieManager.platform as AndroidWebViewCookieManager;
+        await androidCookieManager.setAcceptThirdPartyCookies(
+          androidController,
+          true,
+        );
       }
 
       // 5. Load classroom URL: https://truelern.visital.in/parent/live-classes/{classId}/room
-      final targetUrl = 'https://truelern.visital.in/parent/live-classes/${widget.classId}/room';
-      debugPrint('[WebView Navigation] Loading classroom target URL: $targetUrl');
+      final targetUrl =
+          'https://truelern.visital.in/parent/live-classes/${widget.classId}/room';
+      debugPrint(
+        '[WebView Navigation] Loading classroom target URL: $targetUrl',
+      );
       await controller.loadRequest(Uri.parse(targetUrl));
 
       if (mounted) {
@@ -230,15 +283,23 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
   Future<void> _verifyCookiePersistence() async {
     try {
       final cookieManager = WebViewCookieManager();
-      final cookies = await cookieManager.getCookies(domain: Uri.parse('https://truelern.visital.in'));
-      final hasAccessToken = cookies.any((c) => c.name == 'accessToken' && c.value.isNotEmpty);
-      debugPrint('[WebView Auth] Classroom route cookie check: accessToken present = $hasAccessToken');
+      final cookies = await cookieManager.getCookies(
+        domain: Uri.parse('https://truelern.visital.in'),
+      );
+      final hasAccessToken = cookies.any(
+        (c) => c.name == 'accessToken' && c.value.isNotEmpty,
+      );
+      debugPrint(
+        '[WebView Auth] Classroom route cookie check: accessToken present = $hasAccessToken',
+      );
     } catch (e) {
       debugPrint('[WebView Auth] Classroom route cookie check error: $e');
     }
   }
 
-  Future<void> _injectClassroomStylesAndBridge(WebViewController controller) async {
+  Future<void> _injectClassroomStylesAndBridge(
+    WebViewController controller,
+  ) async {
     try {
       // 1. Hide Web Portal Header & Sidebar
       // 2. Hide "Parent Access Verified" / "TRUELEARN PARENT OBSERVATION" banners
@@ -378,7 +439,9 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
     if (_hasNavigatedToSummary || !mounted) return;
     _hasNavigatedToSummary = true;
 
-    debugPrint('[Classroom Navigation] Navigating to Class Summary (Revised) for class ${widget.classId}');
+    debugPrint(
+      '[Classroom Navigation] Navigating to Class Summary (Revised) for class ${widget.classId}',
+    );
     try {
       context.go(
         '/parent/classes/${widget.classId}/summary',
@@ -417,119 +480,131 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
                     ),
                   ),
 
-            // Loading Overlay
-            if (_isLoading)
-              Container(
-                color: const Color(0xFF0F172A),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E293B),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF334155)),
-                        ),
-                        padding: const EdgeInsets.all(14),
-                        child: const CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE11D48)),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Connecting to TrueLern Live Classroom...',
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _loadingProgress > 0
-                            ? 'Securing media channels: $_loadingProgress%'
-                            : 'Establishing encrypted WebRTC session',
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: const Color(0xFF94A3B8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            // Error State Overlay
-            if (_errorMessage != null)
-              Container(
-                color: const Color(0xFF0F172A),
-                padding: const EdgeInsets.all(24),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.error_outline_rounded,
-                        color: Color(0xFFEF4444),
-                        size: 48,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Connection Notice',
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _errorMessage!,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 13,
-                          color: const Color(0xFF94A3B8),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
+                // Loading Overlay
+                if (_isLoading)
+                  Container(
+                    color: const Color(0xFF0F172A),
+                    child: Center(
+                      child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          OutlinedButton(
-                            onPressed: _navigateToSummary,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: const BorderSide(color: Color(0xFF334155)),
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFF334155),
+                              ),
                             ),
-                            child: const Text('Return to Classes'),
+                            padding: const EdgeInsets.all(14),
+                            child: const CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFFE11D48),
+                              ),
+                            ),
                           ),
-                          const SizedBox(width: 12),
-                          ElevatedButton(
-                            onPressed: _initializeWebView,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFE11D48),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Connecting to TrueLern Live Classroom...',
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
                             ),
-                            child: const Text('Retry Connection'),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _loadingProgress > 0
+                                ? 'Securing media channels: $_loadingProgress%'
+                                : 'Establishing encrypted WebRTC session',
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xFF94A3B8),
+                            ),
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ],
+
+                // Error State Overlay
+                if (_errorMessage != null)
+                  Container(
+                    color: const Color(0xFF0F172A),
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.error_outline_rounded,
+                            color: Color(0xFFEF4444),
+                            size: 48,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Connection Notice',
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 13,
+                              color: const Color(0xFF94A3B8),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              OutlinedButton(
+                                onPressed: _navigateToSummary,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  side: const BorderSide(
+                                    color: Color(0xFF334155),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                child: const Text('Return to Classes'),
+                              ),
+                              const SizedBox(width: 12),
+                              ElevatedButton(
+                                onPressed: _initializeWebView,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFE11D48),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                child: const Text('Retry Connection'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 }

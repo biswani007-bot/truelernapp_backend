@@ -23,10 +23,15 @@ abstract class DashboardRepository {
   Future<DashboardEntity> getChildDashboard({required String childStudentId});
 }
 
-/// Abstract contract for linking a new child to a parent account.
+/// Abstract contract for linking and unlinking children for a parent account.
 ///
-/// Endpoint: POST /api/parent/children
+/// Endpoints:
+/// - POST /api/parent/children
+/// - DELETE /api/parent/children/{childStudentId}
 abstract class AddChildRepository {
   /// Adds and links a new child to the authenticated parent account.
   Future<ChildEntity> addChild(AddChildRequestDto request);
+
+  /// Unlinks/removes a child from the authenticated parent account.
+  Future<void> unlinkChild({required String childStudentId});
 }

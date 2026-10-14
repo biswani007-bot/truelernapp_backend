@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../data/repositories/dashboard_repository_impl.dart';
 import '../../data/repositories/student_dashboard_repository_impl.dart';
 import '../../domain/repositories/dashboard_repository.dart';
@@ -70,7 +71,9 @@ class DashboardController extends Notifier<DashboardState> {
 
     final current = state;
     // On refresh of the same child, preserve current DashboardLoaded state during fetch
-    if (!isRefresh || current is! DashboardLoaded || current.childStudentId != childStudentId) {
+    if (!isRefresh ||
+        current is! DashboardLoaded ||
+        current.childStudentId != childStudentId) {
       state = const DashboardLoading();
     }
 
@@ -80,7 +83,8 @@ class DashboardController extends Notifier<DashboardState> {
       );
 
       // Race condition check: ensure response is still for the active child context
-      if (token != _requestToken || _currentlyLoadingChildId != childStudentId) {
+      if (token != _requestToken ||
+          _currentlyLoadingChildId != childStudentId) {
         return;
       }
 
@@ -89,7 +93,8 @@ class DashboardController extends Notifier<DashboardState> {
         dashboard: entity,
       );
     } catch (error) {
-      if (token != _requestToken || _currentlyLoadingChildId != childStudentId) {
+      if (token != _requestToken ||
+          _currentlyLoadingChildId != childStudentId) {
         return;
       }
       if (!isRefresh || state is! DashboardLoaded) {
@@ -121,4 +126,6 @@ class DashboardController extends Notifier<DashboardState> {
 
 /// Global provider for [DashboardController].
 final dashboardControllerProvider =
-    NotifierProvider<DashboardController, DashboardState>(DashboardController.new);
+    NotifierProvider<DashboardController, DashboardState>(
+      DashboardController.new,
+    );

@@ -60,45 +60,51 @@ void main() {
       expect(entity.nextClassTitle, equals('Junior Foundation first class'));
       expect(entity.nextClassTimeFormatted, isNotNull);
       expect(entity.assignmentId, equals('6a87011ffae35df7c876b0d9'));
-      expect(entity.assignmentTitle, equals('Module 1 Practicum: Simple Request Router'));
+      expect(
+        entity.assignmentTitle,
+        equals('Module 1 Practicum: Simple Request Router'),
+      );
       expect(entity.assignmentDueDate, contains('Due'));
     });
 
-    test('handles fallback when attendance is in separate attendance record', () {
-      final classJson = {
-        'id': '6ab27c8aaabd606a21c0e4a6',
-        'classTitle': 'testing',
-        'duration': 150,
-        'instructor': 'Elizabeth Vance',
-      };
+    test(
+      'handles fallback when attendance is in separate attendance record',
+      () {
+        final classJson = {
+          'id': '6ab27c8aaabd606a21c0e4a6',
+          'classTitle': 'testing',
+          'duration': 150,
+          'instructor': 'Elizabeth Vance',
+        };
 
-      final attendanceRecord = {
-        'id': '6ab27f49aabd606a21c0e6c7',
-        'status': 'late',
-        'durationAttended': 24,
-        'classTitle': 'testing',
-      };
+        final attendanceRecord = {
+          'id': '6ab27f49aabd606a21c0e6c7',
+          'status': 'late',
+          'durationAttended': 24,
+          'classTitle': 'testing',
+        };
 
-      final dto = ClassSummaryDto.fromBackend(
-        targetClassId: '6ab27c8aaabd606a21c0e4a6',
-        classJson: classJson,
-        attendanceRecordJson: attendanceRecord,
-        nextClassJson: null,
-        assignmentJson: null,
-      );
+        final dto = ClassSummaryDto.fromBackend(
+          targetClassId: '6ab27c8aaabd606a21c0e4a6',
+          classJson: classJson,
+          attendanceRecordJson: attendanceRecord,
+          nextClassJson: null,
+          assignmentJson: null,
+        );
 
-      final entity = dto.toEntity();
+        final entity = dto.toEntity();
 
-      expect(entity.classId, equals('6ab27c8aaabd606a21c0e4a6'));
-      expect(entity.classTitle, equals('testing'));
-      expect(entity.teacherName, equals('Elizabeth Vance'));
-      expect(entity.scheduledDurationMinutes, equals(150));
-      expect(entity.attendedDurationMinutes, equals(24));
-      expect(entity.attendanceStatus, equals('late'));
-      expect(entity.isAttended, isTrue);
-      expect(entity.nextClassTitle, isNull);
-      expect(entity.assignmentId, isNull);
-    });
+        expect(entity.classId, equals('6ab27c8aaabd606a21c0e4a6'));
+        expect(entity.classTitle, equals('testing'));
+        expect(entity.teacherName, equals('Elizabeth Vance'));
+        expect(entity.scheduledDurationMinutes, equals(150));
+        expect(entity.attendedDurationMinutes, equals(24));
+        expect(entity.attendanceStatus, equals('late'));
+        expect(entity.isAttended, isTrue);
+        expect(entity.nextClassTitle, isNull);
+        expect(entity.assignmentId, isNull);
+      },
+    );
 
     test('handles completely null and missing fields defensively', () {
       final dto = ClassSummaryDto.fromBackend(

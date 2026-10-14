@@ -78,10 +78,15 @@ void main() {
     });
 
     test('loadSummary transitions through loading to loaded and resolves active child ID', () async {
-      final controller = container.read(classSummaryControllerProvider.notifier);
+      final controller = container.read(
+        classSummaryControllerProvider.notifier,
+      );
 
       final future = controller.loadSummary(classId: 'class-123');
-      expect(container.read(classSummaryControllerProvider), isA<ClassSummaryLoading>());
+      expect(
+        container.read(classSummaryControllerProvider),
+        isA<ClassSummaryLoading>(),
+      );
 
       await future;
 
@@ -94,7 +99,9 @@ void main() {
     });
 
     test('loadSummary respects explicitly passed childStudentId', () async {
-      final controller = container.read(classSummaryControllerProvider.notifier);
+      final controller = container.read(
+        classSummaryControllerProvider.notifier,
+      );
 
       await controller.loadSummary(
         classId: 'class-custom',
@@ -108,7 +115,9 @@ void main() {
 
     test('loadSummary transitions to error on exception', () async {
       mockRepo.shouldThrow = true;
-      final controller = container.read(classSummaryControllerProvider.notifier);
+      final controller = container.read(
+        classSummaryControllerProvider.notifier,
+      );
 
       await controller.loadSummary(classId: 'class-err');
 

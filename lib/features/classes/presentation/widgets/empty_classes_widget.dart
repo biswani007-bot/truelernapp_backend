@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -8,11 +9,7 @@ import '../../../../core/theme/app_typography.dart';
 /// Follows Figma typography, spacing, and neutral color tokens.
 /// Does not invent fake classes.
 class EmptyClassesWidget extends StatelessWidget {
-  const EmptyClassesWidget({
-    super.key,
-    this.childName,
-    this.onRefresh,
-  });
+  const EmptyClassesWidget({super.key, this.childName, this.onRefresh});
 
   /// Name of the active ward.
   final String? childName;
@@ -77,7 +74,10 @@ class EmptyClassesWidget extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   textStyle: AppTypography.titleSmall,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ],

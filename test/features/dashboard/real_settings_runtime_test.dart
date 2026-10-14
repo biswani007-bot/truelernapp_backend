@@ -19,7 +19,8 @@ class LiveVerificationStorage implements SecureStorageService {
   Future<String?> getAccessToken() async => _data['access_token'];
 
   @override
-  Future<void> saveAccessToken(String token) async => _data['access_token'] = token;
+  Future<void> saveAccessToken(String token) async =>
+      _data['access_token'] = token;
 
   @override
   Future<void> deleteAccessToken() async => _data.remove('access_token');
@@ -28,7 +29,8 @@ class LiveVerificationStorage implements SecureStorageService {
   Future<String?> getRefreshToken() async => _data['refresh_token'];
 
   @override
-  Future<void> saveRefreshToken(String token) async => _data['refresh_token'] = token;
+  Future<void> saveRefreshToken(String token) async =>
+      _data['refresh_token'] = token;
 
   @override
   Future<void> deleteRefreshToken() async => _data.remove('refresh_token');
@@ -40,7 +42,8 @@ class LiveVerificationStorage implements SecureStorageService {
   Future<void> saveUserId(String id) async => _data['user_id'] = id;
 
   @override
-  Future<void> saveActiveChildId(String childId) async => _data['active_child_id'] = childId;
+  Future<void> saveActiveChildId(String childId) async =>
+      _data['active_child_id'] = childId;
 
   @override
   Future<String?> getActiveChildId() async => _data['active_child_id'];
@@ -62,9 +65,7 @@ void main() {
     setUpAll(() async {
       final storage = LiveVerificationStorage();
       container = ProviderContainer(
-        overrides: [
-          secureStorageProvider.overrideWithValue(storage),
-        ],
+        overrides: [secureStorageProvider.overrideWithValue(storage)],
       );
 
       final authNotifier = container.read(authControllerProvider.notifier);
@@ -99,7 +100,9 @@ void main() {
       expect(profile.firstName, isNotEmpty);
       expect(profile.lastName, isNotEmpty);
       expect(profile.parentId, startsWith('PAR-'));
-      print('Personal Information: name=${profile.fullName}, email=${profile.email}, id=${profile.parentId}');
+      print(
+        'Personal Information: name=${profile.fullName}, email=${profile.email}, id=${profile.parentId}',
+      );
 
       // 2. PATCH /api/parent/profile
       final originalAddress = profile.address;
@@ -134,7 +137,9 @@ void main() {
       final prefs = await privacyRepo.getPreferences();
       expect(prefs.id, isNotEmpty);
       expect(prefs.eventPreferences, isNotNull);
-      print('Privacy Preferences: id=${prefs.id}, attendance=${prefs.shareAttendanceData}, reports=${prefs.shareLearningProgress}');
+      print(
+        'Privacy Preferences: id=${prefs.id}, attendance=${prefs.shareAttendanceData}, reports=${prefs.shareLearningProgress}',
+      );
 
       // 2. PATCH /api/parent/preferences
       final originalAttendance = prefs.shareAttendanceData;
@@ -153,7 +158,9 @@ void main() {
 
       // Revert back
       updatedEvents['attendance'] = originalAttendance;
-      await privacyRepo.updatePreferences(prefs.copyWith(eventPreferences: updatedEvents));
+      await privacyRepo.updatePreferences(
+        prefs.copyWith(eventPreferences: updatedEvents),
+      );
       print('Privacy Preferences: PATCH & Persistence Verified 100%');
     });
 
@@ -164,7 +171,9 @@ void main() {
       // 1. GET /api/notifications/preferences
       final commPrefs = await commRepo.getPreferences();
       expect(commPrefs.id, isNotEmpty);
-      print('Communication Preferences: push=${commPrefs.pushEnabled}, email=${commPrefs.emailEnabled}, whatsapp=${commPrefs.whatsappEnabled}');
+      print(
+        'Communication Preferences: push=${commPrefs.pushEnabled}, email=${commPrefs.emailEnabled}, whatsapp=${commPrefs.whatsappEnabled}',
+      );
 
       // 2. POST /api/notifications/preferences
       final originalPush = commPrefs.pushEnabled;
@@ -179,7 +188,9 @@ void main() {
       expect(reloaded.pushEnabled, toggledPush);
 
       // Revert back
-      await commRepo.updatePreferences(commPrefs.copyWith(pushEnabled: originalPush));
+      await commRepo.updatePreferences(
+        commPrefs.copyWith(pushEnabled: originalPush),
+      );
       print('Communication Preferences: POST & Persistence Verified 100%');
     });
   });

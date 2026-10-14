@@ -27,4 +27,3 @@ abstract class ClassesRepository {
     required String classId,
   });
 }
-

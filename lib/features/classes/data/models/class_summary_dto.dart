@@ -46,12 +46,14 @@ class ClassSummaryDto {
     required Map<String, dynamic>? assignmentJson,
   }) {
     // 1. Class title & ID
-    final classId = (classJson?['id'] ?? classJson?['_id'] ?? targetClassId).toString();
-    final classTitle = (classJson?['classTitle'] ??
-            classJson?['title'] ??
-            attendanceRecordJson?['classTitle'] ??
-            'Live Class')
+    final classId = (classJson?['id'] ?? classJson?['_id'] ?? targetClassId)
         .toString();
+    final classTitle =
+        (classJson?['classTitle'] ??
+                classJson?['title'] ??
+                attendanceRecordJson?['classTitle'] ??
+                'Live Class')
+            .toString();
 
     // 2. Instructor / Teacher
     String? teacherName;
@@ -59,10 +61,12 @@ class ClassSummaryDto {
     if (rawTeacher is String && rawTeacher.trim().isNotEmpty) {
       teacherName = rawTeacher.trim();
     } else if (rawTeacher is Map<String, dynamic>) {
-      final name = rawTeacher['name'] ??
-          [rawTeacher['firstName'], rawTeacher['lastName']]
-              .where((s) => s != null && s.toString().trim().isNotEmpty)
-              .join(' ');
+      final name =
+          rawTeacher['name'] ??
+          [
+            rawTeacher['firstName'],
+            rawTeacher['lastName'],
+          ].where((s) => s != null && s.toString().trim().isNotEmpty).join(' ');
       if (name.toString().trim().isNotEmpty) {
         teacherName = name.toString().trim();
       }
@@ -98,7 +102,8 @@ class ClassSummaryDto {
 
     // 4. Attendance status
     String? status;
-    if (classAttendance is Map<String, dynamic> && classAttendance['status'] != null) {
+    if (classAttendance is Map<String, dynamic> &&
+        classAttendance['status'] != null) {
       status = classAttendance['status']?.toString();
     } else if (attendanceRecordJson?['status'] != null) {
       status = attendanceRecordJson!['status']?.toString();
@@ -106,7 +111,8 @@ class ClassSummaryDto {
       status = classJson!['effectiveStatus']?.toString();
     }
 
-    final isAttended = status == null ||
+    final isAttended =
+        status == null ||
         status.toLowerCase() == 'present' ||
         status.toLowerCase() == 'attended' ||
         status.toLowerCase() == 'late' ||
@@ -118,19 +124,23 @@ class ClassSummaryDto {
     if (rawSkills is List) {
       for (final s in rawSkills) {
         if (s is Map<String, dynamic>) {
-          skills.add(SkillPracticed(
-            title: s['title']?.toString() ?? s['name']?.toString() ?? '',
-            svgPath: s['icon']?.toString() ?? 'assets/icons/voice_mic.svg',
-            colorHex: s['colorHex'] is int ? s['colorHex'] : 0xFF22D3EE,
-            bgColorHex: s['bgColorHex'] is int ? s['bgColorHex'] : 0x1A22D3EE,
-          ));
+          skills.add(
+            SkillPracticed(
+              title: s['title']?.toString() ?? s['name']?.toString() ?? '',
+              svgPath: s['icon']?.toString() ?? 'assets/icons/voice_mic.svg',
+              colorHex: s['colorHex'] is int ? s['colorHex'] : 0xFF22D3EE,
+              bgColorHex: s['bgColorHex'] is int ? s['bgColorHex'] : 0x1A22D3EE,
+            ),
+          );
         } else if (s is String && s.trim().isNotEmpty) {
-          skills.add(SkillPracticed(
-            title: s.trim(),
-            svgPath: 'assets/icons/voice_mic.svg',
-            colorHex: 0xFF22D3EE,
-            bgColorHex: 0x1A22D3EE,
-          ));
+          skills.add(
+            SkillPracticed(
+              title: s.trim(),
+              svgPath: 'assets/icons/voice_mic.svg',
+              colorHex: 0xFF22D3EE,
+              bgColorHex: 0x1A22D3EE,
+            ),
+          );
         }
       }
     }
@@ -141,8 +151,10 @@ class ClassSummaryDto {
     String? nextTimeFormatted;
     if (nextClassJson != null) {
       nextId = (nextClassJson['id'] ?? nextClassJson['_id'])?.toString();
-      nextTitle = (nextClassJson['classTitle'] ?? nextClassJson['title'])?.toString();
-      final rawDate = nextClassJson['startDate'] ?? nextClassJson['scheduledStartTime'];
+      nextTitle = (nextClassJson['classTitle'] ?? nextClassJson['title'])
+          ?.toString();
+      final rawDate =
+          nextClassJson['startDate'] ?? nextClassJson['scheduledStartTime'];
       if (rawDate != null) {
         final dt = DateTime.tryParse(rawDate.toString())?.toLocal();
         if (dt != null) {
@@ -156,7 +168,8 @@ class ClassSummaryDto {
     String? assignmentTitle;
     String? assignmentDueDate;
     if (assignmentJson != null) {
-      assignmentId = (assignmentJson['id'] ?? assignmentJson['_id'])?.toString();
+      assignmentId = (assignmentJson['id'] ?? assignmentJson['_id'])
+          ?.toString();
       assignmentTitle = assignmentJson['title']?.toString();
       final rawDueDate = assignmentJson['dueDate'];
       if (rawDueDate != null) {
@@ -189,21 +202,21 @@ class ClassSummaryDto {
 
   /// Converts DTO to domain entity.
   ClassSummaryEntity toEntity() => ClassSummaryEntity(
-        classId: classId,
-        classTitle: classTitle,
-        teacherName: teacherName,
-        scheduledDurationMinutes: scheduledDurationMinutes,
-        attendedDurationMinutes: attendedDurationMinutes,
-        attendanceStatus: attendanceStatus,
-        isAttended: isAttended,
-        skillsPracticed: skillsPracticed,
-        nextClassId: nextClassId,
-        nextClassTitle: nextClassTitle,
-        nextClassTimeFormatted: nextClassTimeFormatted,
-        assignmentId: assignmentId,
-        assignmentTitle: assignmentTitle,
-        assignmentDueDate: assignmentDueDate,
-      );
+    classId: classId,
+    classTitle: classTitle,
+    teacherName: teacherName,
+    scheduledDurationMinutes: scheduledDurationMinutes,
+    attendedDurationMinutes: attendedDurationMinutes,
+    attendanceStatus: attendanceStatus,
+    isAttended: isAttended,
+    skillsPracticed: skillsPracticed,
+    nextClassId: nextClassId,
+    nextClassTitle: nextClassTitle,
+    nextClassTimeFormatted: nextClassTimeFormatted,
+    assignmentId: assignmentId,
+    assignmentTitle: assignmentTitle,
+    assignmentDueDate: assignmentDueDate,
+  );
 
   static String _formatDateTime(DateTime dt) {
     final now = DateTime.now();
@@ -213,7 +226,9 @@ class ClassSummaryDto {
 
     final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
     final amPm = dt.hour >= 12 ? 'PM' : 'AM';
-    final minuteStr = dt.minute > 0 ? ':${dt.minute.toString().padLeft(2, '0')}' : '';
+    final minuteStr = dt.minute > 0
+        ? ':${dt.minute.toString().padLeft(2, '0')}'
+        : '';
     final timeStr = '$hour$minuteStr $amPm';
 
     if (diffDays == 0) {
@@ -222,7 +237,20 @@ class ClassSummaryDto {
       return 'Tomorrow, $timeStr';
     } else {
       const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       final weekday = weekdays[dt.weekday - 1];
       final month = months[dt.month - 1];
       return '$weekday, $month ${dt.day}, $timeStr';
@@ -240,10 +268,31 @@ class ClassSummaryDto {
     } else if (diffDays == 1) {
       return 'Due Tomorrow';
     } else if (diffDays > 1 && diffDays <= 6) {
-      const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const weekdays = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ];
       return 'Due ${weekdays[dt.weekday - 1]}';
     } else {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return 'Due ${months[dt.month - 1]} ${dt.day}';
     }
   }

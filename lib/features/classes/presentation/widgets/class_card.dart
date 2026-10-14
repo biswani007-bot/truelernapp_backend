@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/class_entity.dart';
@@ -13,11 +14,7 @@ import '../../domain/entities/class_entity.dart';
 ///   - LIVE: Soft green bg (#ECFDF5), text #10B981
 ///   - COMPLETED: Neutral slate bg (#F1F5F9), text #64748B
 class ClassCard extends StatelessWidget {
-  const ClassCard({
-    super.key,
-    required this.session,
-    this.onTap,
-  });
+  const ClassCard({super.key, required this.session, this.onTap});
 
   final ClassEntity session;
   final VoidCallback? onTap;
@@ -25,7 +22,10 @@ class ClassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasSubject = session.subject != null && session.subject!.isNotEmpty;
-    final timeRange = _formatTimeRange(session.scheduledStartTime, session.scheduledEndTime);
+    final timeRange = _formatTimeRange(
+      session.scheduledStartTime,
+      session.scheduledEndTime,
+    );
     final status = session.status?.toUpperCase() ?? 'UPCOMING';
 
     return Container(
@@ -57,7 +57,10 @@ class ClassCard extends StatelessWidget {
                   children: [
                     if (hasSubject)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(8),
@@ -116,14 +119,17 @@ class ClassCard extends StatelessWidget {
                     ),
 
                     // Teacher avatar and name
-                    if (session.teacherName != null && session.teacherName!.isNotEmpty) ...[
+                    if (session.teacherName != null &&
+                        session.teacherName!.isNotEmpty) ...[
                       const SizedBox(width: 12),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           CircleAvatar(
                             radius: 12,
-                            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                            backgroundColor: AppColors.primary.withValues(
+                              alpha: 0.12,
+                            ),
                             backgroundImage: session.teacherAvatar != null
                                 ? NetworkImage(session.teacherAvatar!)
                                 : null,

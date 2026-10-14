@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -70,7 +71,9 @@ class MetricCard extends StatelessWidget {
                 value ?? '—',
                 style: AppTypography.displayMedium.copyWith(
                   fontSize: 28,
-                  color: value != null ? AppColors.textPrimary : AppColors.textMuted,
+                  color: value != null
+                      ? AppColors.textPrimary
+                      : AppColors.textMuted,
                 ),
               ),
               if (value != null && unit != null) ...[

@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/router/route_paths.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 
@@ -39,10 +41,7 @@ Future<void> showDemoBookingConfirmedPopup(
         child: FadeTransition(
           opacity: anim1,
           child: ScaleTransition(
-            scale: CurvedAnimation(
-              parent: anim1,
-              curve: Curves.easeOutCubic,
-            ),
+            scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic),
             child: child,
           ),
         ),
@@ -120,7 +119,10 @@ class _DemoBookingConfirmedPopupState
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: 16.0,
+        vertical: 24.0,
+      ),
       elevation: 0,
       child: Center(
         child: ConstrainedBox(
@@ -245,10 +247,14 @@ class _DemoBookingConfirmedPopupState
                           width: double.infinity,
                           padding: const EdgeInsets.all(13.0),
                           decoration: BoxDecoration(
-                            color: const Color(0x0D0037B1), // rgba(0, 55, 177, 0.05)
+                            color: const Color(
+                              0x0D0037B1,
+                            ), // rgba(0, 55, 177, 0.05)
                             borderRadius: BorderRadius.circular(8.0),
                             border: Border.all(
-                              color: const Color(0x1A0037B1), // rgba(0, 55, 177, 0.1)
+                              color: const Color(
+                                0x1A0037B1,
+                              ), // rgba(0, 55, 177, 0.1)
                             ),
                           ),
                           child: Row(
@@ -323,10 +329,7 @@ class _DemoBookingConfirmedPopupState
     );
   }
 
-  Widget _buildDetailRow({
-    required String label,
-    required String value,
-  }) {
+  Widget _buildDetailRow({required String label, required String value}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,

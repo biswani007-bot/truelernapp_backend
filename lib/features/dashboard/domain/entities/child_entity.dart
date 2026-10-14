@@ -14,6 +14,10 @@ class ChildEntity {
     this.relationshipType,
     this.status,
     this.dateOfBirth,
+    this.isCustodial,
+    this.isEmergencyContact,
+    this.canAccessPortal,
+    this.explicitAge,
   });
 
   /// The student's unique identifier — required for all child-context API calls.
@@ -27,16 +31,46 @@ class ChildEntity {
   final String? relationshipType;
   final String? status;
   final String? dateOfBirth;
+  final bool? isCustodial;
+  final bool? isEmergencyContact;
+  final bool? canAccessPortal;
+  final int? explicitAge;
 
   /// Derived display name: firstName + lastName (trimmed).
   String get displayName {
-    final parts = [firstName, if (lastName != null && lastName!.isNotEmpty) lastName!];
+    final parts = [
+      firstName,
+      if (lastName != null && lastName!.isNotEmpty) lastName!,
+    ];
     return parts.join(' ');
+  }
+
+  /// Derived age calculated from dateOfBirth or explicit API age if available.
+  int? get age {
+    if (dateOfBirth != null && dateOfBirth!.trim().isNotEmpty) {
+      try {
+        final dob = DateTime.parse(dateOfBirth!.trim());
+        final now = DateTime.now();
+        var calculatedAge = now.year - dob.year;
+        if (now.month < dob.month ||
+            (now.month == dob.month && now.day < dob.day)) {
+          calculatedAge--;
+        }
+        if (calculatedAge > 0) return calculatedAge;
+      } catch (_) {
+        // Fall back to explicitAge if date parsing fails
+      }
+    }
+    if (explicitAge != null && explicitAge! > 0) {
+      return explicitAge;
+    }
+    return null;
   }
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || other is ChildEntity && studentId == other.studentId;
+      identical(this, other) ||
+      other is ChildEntity && studentId == other.studentId;
 
   @override
   int get hashCode => studentId.hashCode;

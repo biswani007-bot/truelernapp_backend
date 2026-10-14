@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/router/route_paths.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../auth/presentation/controllers/auth_state.dart';
 import '../controllers/parent_profile_controller.dart';
 import '../controllers/parent_profile_state.dart';
+import '../controllers/children_controller.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
 
 /// Parent Profile Screen.
 ///
@@ -18,7 +21,8 @@ class ParentProfileScreen extends ConsumerStatefulWidget {
   const ParentProfileScreen({super.key});
 
   @override
-  ConsumerState<ParentProfileScreen> createState() => _ParentProfileScreenState();
+  ConsumerState<ParentProfileScreen> createState() =>
+      _ParentProfileScreenState();
 }
 
 class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
@@ -38,6 +42,17 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
     });
   }
 
+  Future<void> _onRefresh() async {
+    await Future.wait([
+      ref
+          .read(parentProfileControllerProvider.notifier)
+          .loadProfile(refresh: true),
+      ref
+          .read(childrenControllerProvider.notifier)
+          .loadChildren(isRefresh: true),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileState = ref.watch(parentProfileControllerProvider);
@@ -49,7 +64,8 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
       displayName = profileState.profile.fullName;
       displayEmail = profileState.profile.email;
     } else if (authState is Authenticated && authState.user != null) {
-      displayName = (authState.user!.name != null && authState.user!.name!.isNotEmpty)
+      displayName =
+          (authState.user!.name != null && authState.user!.name!.isNotEmpty)
           ? authState.user!.name!
           : 'Parent';
       displayEmail = authState.user!.email ?? '';
@@ -63,20 +79,23 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
       // No AppBar here — the shell screen suppresses its AppBar for this tab
       // and we build a custom one embedded in the body below.
       backgroundColor: const Color(0xFFF5F7FA),
-      body: SingleChildScrollView(
-        key: const Key('profile_scroll_view'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Hero Header Area (Node 76:1712) ──────────────────────────
-            _buildHeroHeader(context, name: displayName, email: displayEmail),
+      body: AppRefreshIndicator(
+        onRefresh: _onRefresh,
+        child: SingleChildScrollView(
+          key: const Key('profile_scroll_view'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Hero Header Area (Node 76:1712) ──────────────────────────
+              _buildHeroHeader(context, name: displayName, email: displayEmail),
 
-            // ── Main Content Surface (Node 76:1735/76:1736) ──────────────
-            _buildContentSurface(context),
+              // ── Main Content Surface (Node 76:1735/76:1736) ──────────────
+              _buildContentSurface(context),
 
-            const SizedBox(height: 32),
-          ],
+              const SizedBox(height: 32),
+            ],
+          ),
         ),
       ),
     );
@@ -84,7 +103,11 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
 
   /// Hero Header — dark gradient background (#0F172A → #1E3A8A),
   /// TopAppBar, avatar circle with edit badge, name and email.
-  Widget _buildHeroHeader(BuildContext context, {required String name, required String email}) {
+  Widget _buildHeroHeader(
+    BuildContext context, {
+    required String name,
+    required String email,
+  }) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 48, 16, 96),
       decoration: const BoxDecoration(
@@ -144,7 +167,8 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
           // Edit button — Node 76:1720 (blue bg, pencil icon)
           InkWell(
             borderRadius: BorderRadius.circular(8),
-            onTap: () => GoRouter.of(context).push(AppRoutePaths.parentPersonalInfo),
+            onTap: () =>
+                GoRouter.of(context).push(AppRoutePaths.parentPersonalInfo),
             child: Container(
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
               decoration: BoxDecoration(
@@ -212,7 +236,8 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
               right: 0,
               child: InkWell(
                 borderRadius: BorderRadius.circular(999),
-                onTap: () => GoRouter.of(context).push(AppRoutePaths.parentPersonalInfo),
+                onTap: () =>
+                    GoRouter.of(context).push(AppRoutePaths.parentPersonalInfo),
                 child: Container(
                   width: 28,
                   height: 28,
@@ -383,7 +408,7 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
       onTap: () {
         if (item.label == 'My Child') {
           // Navigate to My Child screen
-          GoRouter.of(context).go(AppRoutePaths.myChildren);
+          GoRouter.of(context).push(AppRoutePaths.myChildren);
         } else if (item.label == 'Security & Privacy') {
           // Navigate to Security & Privacy screen
           GoRouter.of(context).push(AppRoutePaths.parentSecurityPrivacy);
@@ -415,11 +440,7 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
                 color: const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                item.icon,
-                size: 20,
-                color: const Color(0xFF475569),
-              ),
+              child: Icon(item.icon, size: 20, color: const Color(0xFF475569)),
             ),
 
             const SizedBox(width: 16),

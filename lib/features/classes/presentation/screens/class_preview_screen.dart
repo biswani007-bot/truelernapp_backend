@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/theme/app_typography.dart';
 import '../../../dashboard/presentation/controllers/children_controller.dart';
 import '../../../dashboard/presentation/controllers/children_state.dart';
@@ -11,13 +12,7 @@ import '../controllers/classes_state.dart';
 import '../services/native_device_preview_service.dart';
 
 /// Camera initialization and display states for Class Preview
-enum CameraState {
-  uninitialized,
-  initializing,
-  active,
-  disabled,
-  error,
-}
+enum CameraState { uninitialized, initializing, active, disabled, error }
 
 /// Class Preview Screen (Figma Frame 76:3154 titled "Ready to Join (Revised)").
 ///
@@ -47,11 +42,7 @@ enum CameraState {
 ///   - Primary Button: "JOIN LIVE CLASS →" (#0037B1 solid blue, 12px radius, shadow) with duplicate-tap prevention
 ///   - Secondary Outlined Button: "Test Audio" (#0037B1 text, #DCE1FF border, 12px radius)
 class ClassPreviewScreen extends ConsumerStatefulWidget {
-  const ClassPreviewScreen({
-    super.key,
-    required this.classId,
-    this.session,
-  });
+  const ClassPreviewScreen({super.key, required this.classId, this.session});
 
   final String classId;
   final ClassEntity? session;
@@ -80,9 +71,13 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.session == null) {
         final childrenState = ref.read(childrenControllerProvider);
-        final childId = childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+        final childId = childrenState is ChildrenLoaded
+            ? childrenState.activeChildId
+            : null;
         if (childId != null && childId.isNotEmpty) {
-          ref.read(classesControllerProvider.notifier).loadClasses(childStudentId: childId);
+          ref
+              .read(classesControllerProvider.notifier)
+              .loadClasses(childStudentId: childId);
         }
       }
       _checkAndRequestPermissions();
@@ -91,7 +86,8 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       _devicePreviewService.stopCamera();
     } else if (state == AppLifecycleState.resumed) {
       if (_permissions?.cameraGranted == true && _isCameraOn) {
@@ -122,7 +118,9 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
         setState(() {
           _permissions = current;
           _isCheckingPermissions = false;
-          _cameraState = _isCameraOn ? CameraState.active : CameraState.disabled;
+          _cameraState = _isCameraOn
+              ? CameraState.active
+              : CameraState.disabled;
         });
       }
       if (_isCameraOn) {
@@ -164,7 +162,9 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
         }
         if (!res.cameraGranted) {
           if (res.cameraPermanentlyDenied) {
-            _showSettingsPrompt('Camera permission is required. Please enable it in Android Settings.');
+            _showSettingsPrompt(
+              'Camera permission is required. Please enable it in Android Settings.',
+            );
           }
           return;
         }
@@ -197,7 +197,9 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
       }
       if (!res.microphoneGranted) {
         if (res.microphonePermanentlyDenied) {
-          _showSettingsPrompt('Microphone permission is required. Please enable it in Android Settings.');
+          _showSettingsPrompt(
+            'Microphone permission is required. Please enable it in Android Settings.',
+          );
         }
         return;
       }
@@ -255,23 +257,34 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
     if (resolvedSession == null) {
       final classesState = ref.watch(classesControllerProvider);
       if (classesState is ClassesLoaded) {
-        resolvedSession = classesState.classes.where((c) => c.id == widget.classId).firstOrNull;
+        resolvedSession = classesState.classes
+            .where((c) => c.id == widget.classId)
+            .firstOrNull;
       }
     }
 
     final childrenState = ref.watch(childrenControllerProvider);
-    final activeChild = childrenState is ChildrenLoaded ? childrenState.activeChild : null;
-    final studentName = activeChild != null && activeChild.displayName.isNotEmpty
+    final activeChild = childrenState is ChildrenLoaded
+        ? childrenState.activeChild
+        : null;
+    final studentName =
+        activeChild != null && activeChild.displayName.isNotEmpty
         ? activeChild.displayName
         : 'Student';
 
     final title = (resolvedSession != null && resolvedSession.title.isNotEmpty)
         ? resolvedSession.title
         : 'Live Class';
-    final category = (resolvedSession != null && resolvedSession.subject != null && resolvedSession.subject!.isNotEmpty)
+    final category =
+        (resolvedSession != null &&
+            resolvedSession.subject != null &&
+            resolvedSession.subject!.isNotEmpty)
         ? resolvedSession.subject!
         : 'Curriculum';
-    final teacher = (resolvedSession != null && resolvedSession.teacherName != null && resolvedSession.teacherName!.isNotEmpty)
+    final teacher =
+        (resolvedSession != null &&
+            resolvedSession.teacherName != null &&
+            resolvedSession.teacherName!.isNotEmpty)
         ? resolvedSession.teacherName!
         : 'Instructor';
 
@@ -300,7 +313,10 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
               Expanded(
                 child: SingleChildScrollView(
                   key: const Key('class_preview_scroll_view'),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -357,7 +373,11 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
             child: IconButton(
               key: const Key('class_preview_back_button'),
               padding: EdgeInsets.zero,
-              icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF191C1E), size: 20),
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Color(0xFF191C1E),
+                size: 20,
+              ),
               onPressed: () {
                 if (Navigator.of(context).canPop()) {
                   Navigator.of(context).pop();
@@ -446,7 +466,10 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
 
               // Category Pill (Node 76:3190)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF22D3EE).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(9999),
@@ -479,7 +502,11 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.person_outline_rounded, size: 16, color: Color(0xFF434655)),
+                  const Icon(
+                    Icons.person_outline_rounded,
+                    size: 16,
+                    color: Color(0xFF434655),
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     'Teacher: $teacher',
@@ -523,134 +550,158 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
               width: availableWidth,
               height: containerHeight,
               child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF2E3039),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.8),
-                width: 4,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 15,
-                  offset: const Offset(0, 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E3039),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    width: 4,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 15,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Real Live Camera / Permission / State View (NO STATIC ASSETS)
-                _buildRealCameraSurface(),
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Real Live Camera / Permission / State View (NO STATIC ASSETS)
+                    _buildRealCameraSurface(),
 
-                // Bottom floating overlay controls
-                Positioned(
-                  left: 12,
-                  right: 12,
-                  bottom: 12,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Student name pill
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: _isCameraOn && (_permissions?.cameraGranted ?? false)
-                                    ? const Color(0xFF4ADE80)
-                                    : const Color(0xFF9CA3AF),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              studentName,
-                              style: AppTypography.labelMedium.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Control buttons: Mic & Camera toggle
-                      Row(
+                    // Bottom floating overlay controls
+                    Positioned(
+                      left: 12,
+                      right: 12,
+                      bottom: 12,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Mic Button
-                          GestureDetector(
-                            key: const Key('preview_mic_toggle'),
-                            onTap: _toggleMicrophone,
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: (_isMicOn && (_permissions?.microphoneGranted ?? false))
-                                    ? Colors.white.withValues(alpha: 0.25)
-                                    : const Color(0xFFDC2626),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
-                              ),
-                              child: Icon(
-                                (_isMicOn && (_permissions?.microphoneGranted ?? false))
-                                    ? Icons.mic_rounded
-                                    : Icons.mic_off_rounded,
-                                size: 18,
-                                color: Colors.white,
-                              ),
+                          // Student name pill
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        _isCameraOn &&
+                                            (_permissions?.cameraGranted ??
+                                                false)
+                                        ? const Color(0xFF4ADE80)
+                                        : const Color(0xFF9CA3AF),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  studentName,
+                                  style: AppTypography.labelMedium.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 8),
 
-                          // Camera Button
-                          GestureDetector(
-                            key: const Key('preview_camera_toggle'),
-                            onTap: _toggleCamera,
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: (_isCameraOn && (_permissions?.cameraGranted ?? false))
-                                    ? Colors.white.withValues(alpha: 0.25)
-                                    : const Color(0xFFDC2626),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+                          // Control buttons: Mic & Camera toggle
+                          Row(
+                            children: [
+                              // Mic Button
+                              GestureDetector(
+                                key: const Key('preview_mic_toggle'),
+                                onTap: _toggleMicrophone,
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        (_isMicOn &&
+                                            (_permissions?.microphoneGranted ??
+                                                false))
+                                        ? Colors.white.withValues(alpha: 0.25)
+                                        : const Color(0xFFDC2626),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    (_isMicOn &&
+                                            (_permissions?.microphoneGranted ??
+                                                false))
+                                        ? Icons.mic_rounded
+                                        : Icons.mic_off_rounded,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
-                              child: Icon(
-                                (_isCameraOn && (_permissions?.cameraGranted ?? false))
-                                    ? Icons.videocam_rounded
-                                    : Icons.videocam_off_rounded,
-                                size: 18,
-                                color: Colors.white,
+                              const SizedBox(width: 8),
+
+                              // Camera Button
+                              GestureDetector(
+                                key: const Key('preview_camera_toggle'),
+                                onTap: _toggleCamera,
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        (_isCameraOn &&
+                                            (_permissions?.cameraGranted ??
+                                                false))
+                                        ? Colors.white.withValues(alpha: 0.25)
+                                        : const Color(0xFFDC2626),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    (_isCameraOn &&
+                                            (_permissions?.cameraGranted ??
+                                                false))
+                                        ? Icons.videocam_rounded
+                                        : Icons.videocam_off_rounded,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          );
-        },
-      ),
-    ],
-  );
-}
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
 
   /// Builds the real camera surface or truthful fallback error/permission UI.
   /// NO STATIC OR FAKE IMAGES ARE USED.
@@ -692,11 +743,19 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.videocam_off_rounded, size: 40, color: Color(0xFFF87171)),
+              const Icon(
+                Icons.videocam_off_rounded,
+                size: 40,
+                color: Color(0xFFF87171),
+              ),
               const SizedBox(height: 8),
               const Text(
                 'Camera Permission Required',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 4),
@@ -714,12 +773,20 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0037B1),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 child: Text(
                   isPermDenied ? 'Open Settings' : 'Grant Permission',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -736,7 +803,11 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.videocam_off_rounded, size: 48, color: Colors.white54),
+              const Icon(
+                Icons.videocam_off_rounded,
+                size: 48,
+                color: Colors.white54,
+              ),
               const SizedBox(height: 8),
               Text(
                 'Camera is Turned Off',
@@ -756,11 +827,19 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded, size: 40, color: Color(0xFFF87171)),
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 40,
+                color: Color(0xFFF87171),
+              ),
               const SizedBox(height: 8),
               const Text(
                 'Camera Unavailable',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
               const SizedBox(height: 8),
               OutlinedButton(
@@ -799,7 +878,8 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
     final isMicOff = micGranted && !_isMicOn;
 
     final camGranted = _permissions?.cameraGranted == true;
-    final isCamActive = camGranted && _isCameraOn && _cameraState == CameraState.active;
+    final isCamActive =
+        camGranted && _isCameraOn && _cameraState == CameraState.active;
     final isCamOff = camGranted && !_isCameraOn;
 
     return Container(
@@ -883,7 +963,9 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
 
     final trailingIcon = isSuccess
         ? Icons.check_circle_rounded
-        : (isWarning ? Icons.warning_amber_rounded : Icons.remove_circle_outline_rounded);
+        : (isWarning
+              ? Icons.warning_amber_rounded
+              : Icons.remove_circle_outline_rounded);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -938,11 +1020,7 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
                 ),
               ),
               const SizedBox(width: 6),
-              Icon(
-                trailingIcon,
-                size: 20,
-                color: statusColor,
-              ),
+              Icon(trailingIcon, size: 20, color: statusColor),
             ],
           ),
         ],
@@ -950,7 +1028,16 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, ClassEntity? resolvedSession) {
+  Widget _buildActionButtons(
+    BuildContext context,
+    ClassEntity? resolvedSession,
+  ) {
+    final now = DateTime.now();
+    final canEnter =
+        resolvedSession == null || resolvedSession.canEnterLiveClass(now);
+    final isWithinWindow =
+        resolvedSession == null || resolvedSession.isWithinEntryWindow(now);
+
     return Column(
       children: [
         // Primary Join Button (Node 76:3256)
@@ -961,13 +1048,19 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
             key: const Key('preview_join_live_class_button'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0037B1),
-              elevation: 4,
-              shadowColor: const Color(0xFF0037B1).withValues(alpha: 0.3),
+              disabledBackgroundColor: const Color(0xFFE2E8F0),
+              disabledForegroundColor: const Color(0xFF94A3B8),
+              elevation: canEnter ? 4 : 0,
+              shadowColor: canEnter
+                  ? const Color(0xFF0037B1).withValues(alpha: 0.3)
+                  : Colors.transparent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            onPressed: _isJoining ? null : () => _handleJoin(context, resolvedSession),
+            onPressed: (_isJoining || !canEnter)
+                ? null
+                : () => _handleJoin(context, resolvedSession),
             child: _isJoining
                 ? const SizedBox(
                     width: 22,
@@ -983,18 +1076,64 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
                       Text(
                         'JOIN LIVE CLASS',
                         style: AppTypography.labelMedium.copyWith(
-                          color: Colors.white,
+                          color: canEnter
+                              ? Colors.white
+                              : const Color(0xFF94A3B8),
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
                           letterSpacing: 0.5,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        color: canEnter
+                            ? Colors.white
+                            : const Color(0xFF94A3B8),
+                        size: 16,
+                      ),
                     ],
                   ),
           ),
         ),
+        if (!isWithinWindow &&
+            !resolvedSession.isLive &&
+            !resolvedSession.isCompleted &&
+            !resolvedSession.isMissed &&
+            !resolvedSession.isCancelled) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.lock_clock_outlined,
+                  size: 16,
+                  color: Color(0xFF64748B),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    'You can join 15 minutes before the class starts',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: const Color(0xFF64748B),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
 
         // Secondary Test Audio Button (Node 76:3261)
@@ -1035,11 +1174,26 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
   void _handleJoin(BuildContext context, ClassEntity? resolvedSession) {
     if (_isJoining) return;
 
-    // Phase 1 Scope: Validate permissions before entering joining flow
-    if (_permissions?.cameraGranted != true || _permissions?.microphoneGranted != true) {
+    final now = DateTime.now();
+    if (resolvedSession != null && !resolvedSession.canEnterLiveClass(now)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Camera and microphone permissions are required to join the live class.'),
+          content: Text('You can join 15 minutes before the class starts.'),
+          backgroundColor: Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Phase 1 Scope: Validate permissions before entering joining flow
+    if (_permissions?.cameraGranted != true ||
+        _permissions?.microphoneGranted != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Camera and microphone permissions are required to join the live class.',
+          ),
           backgroundColor: Color(0xFFDC2626),
           behavior: SnackBarBehavior.floating,
         ),
@@ -1049,13 +1203,17 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
     }
 
     final childrenState = ref.read(childrenControllerProvider);
-    final activeChild = childrenState is ChildrenLoaded ? childrenState.activeChild : null;
+    final activeChild = childrenState is ChildrenLoaded
+        ? childrenState.activeChild
+        : null;
     final childStudentId = activeChild?.studentId;
 
     if (childStudentId == null || childStudentId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Active student context is required to join live class.'),
+          content: Text(
+            'Active student context is required to join live class.',
+          ),
           backgroundColor: Color(0xFFDC2626),
           behavior: SnackBarBehavior.floating,
         ),
@@ -1081,10 +1239,7 @@ class _ClassPreviewScreenState extends ConsumerState<ClassPreviewScreen>
     try {
       context.push(
         '/parent/classes/${widget.classId}/joining',
-        extra: {
-          'session': resolvedSession,
-          'childStudentId': childStudentId,
-        },
+        extra: {'session': resolvedSession, 'childStudentId': childStudentId},
       );
     } catch (_) {
       // In isolated test environments where GoRouter is not mounted

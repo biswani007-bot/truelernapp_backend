@@ -100,7 +100,9 @@ void main() {
       mockApiClient = MockApiClient();
       profileRepo = ParentProfileRepositoryImpl(apiClient: mockApiClient);
       privacyRepo = ParentPreferencesRepositoryImpl(apiClient: mockApiClient);
-      commRepo = NotificationPreferencesRepositoryImpl(apiClient: mockApiClient);
+      commRepo = NotificationPreferencesRepositoryImpl(
+        apiClient: mockApiClient,
+      );
     });
 
     // ──────────────────────────────────────────────
@@ -181,7 +183,10 @@ void main() {
 
     test('ParentProfile: API failure throws exception', () async {
       mockApiClient.shouldThrowGet = true;
-      expect(() => profileRepo.getParentProfile(), throwsA(isA<DioException>()));
+      expect(
+        () => profileRepo.getParentProfile(),
+        throwsA(isA<DioException>()),
+      );
     });
 
     // ──────────────────────────────────────────────
@@ -238,7 +243,10 @@ void main() {
       final result = await privacyRepo.updatePreferences(updated);
 
       expect(mockApiClient.lastPatchPath, '/parent/preferences');
-      expect(mockApiClient.lastPatchData?['eventPreferences']['attendance'], isFalse);
+      expect(
+        mockApiClient.lastPatchData?['eventPreferences']['attendance'],
+        isFalse,
+      );
       expect(result.shareAttendanceData, isFalse);
       expect(result.shareLearningProgress, isTrue);
     });
@@ -254,51 +262,57 @@ void main() {
         language: 'en',
         timezone: 'UTC',
       );
-      expect(() => privacyRepo.updatePreferences(dummy), throwsA(isA<DioException>()));
+      expect(
+        () => privacyRepo.updatePreferences(dummy),
+        throwsA(isA<DioException>()),
+      );
     });
 
     // ──────────────────────────────────────────────
     // 3. Communication Preferences Tests
     // ──────────────────────────────────────────────
-    test('CommunicationPreferences: response mapping & preference loading', () async {
-      mockApiClient.getResponse = {
-        'success': true,
-        'message': 'Notification preferences fetched',
-        'data': {
-          '_id': 'pref-12345',
-          'user': 'user-67890',
-          'channelPreferences': {
-            'email': true,
-            'sms': false,
-            'whatsapp': true,
-            'push': true,
-            'in-app': true,
+    test(
+      'CommunicationPreferences: response mapping & preference loading',
+      () async {
+        mockApiClient.getResponse = {
+          'success': true,
+          'message': 'Notification preferences fetched',
+          'data': {
+            '_id': 'pref-12345',
+            'user': 'user-67890',
+            'channelPreferences': {
+              'email': true,
+              'sms': false,
+              'whatsapp': true,
+              'push': true,
+              'in-app': true,
+            },
+            'eventPreferences': {
+              'admissions': true,
+              'enrollment': false,
+              'attendance': true,
+              'assignment': true,
+              'assessment': false,
+              'certificate': true,
+              'finance': false,
+              'reports': true,
+            },
+            'muteAll': false,
+            'digestEnabled': true,
           },
-          'eventPreferences': {
-            'admissions': true,
-            'enrollment': false,
-            'attendance': true,
-            'assignment': true,
-            'assessment': false,
-            'certificate': true,
-            'finance': false,
-            'reports': true,
-          },
-          'muteAll': false,
-          'digestEnabled': true,
-        },
-      };
+        };
 
-      final prefs = await commRepo.getPreferences();
+        final prefs = await commRepo.getPreferences();
 
-      expect(mockApiClient.lastGetPath, '/notifications/preferences');
-      expect(prefs.id, 'pref-12345');
-      expect(prefs.emailEnabled, isTrue);
-      expect(prefs.smsEnabled, isFalse);
-      expect(prefs.whatsappEnabled, isTrue);
-      expect(prefs.pushEnabled, isTrue);
-      expect(prefs.attendanceAlerts, isTrue);
-    });
+        expect(mockApiClient.lastGetPath, '/notifications/preferences');
+        expect(prefs.id, 'pref-12345');
+        expect(prefs.emailEnabled, isTrue);
+        expect(prefs.smsEnabled, isFalse);
+        expect(prefs.whatsappEnabled, isTrue);
+        expect(prefs.pushEnabled, isTrue);
+        expect(prefs.attendanceAlerts, isTrue);
+      },
+    );
 
     test('CommunicationPreferences: update sends POST payload', () async {
       mockApiClient.postResponse = {
@@ -378,7 +392,10 @@ void main() {
         muteAll: false,
         digestEnabled: false,
       );
-      expect(() => commRepo.updatePreferences(entity), throwsA(isA<DioException>()));
+      expect(
+        () => commRepo.updatePreferences(entity),
+        throwsA(isA<DioException>()),
+      );
     });
   });
 }

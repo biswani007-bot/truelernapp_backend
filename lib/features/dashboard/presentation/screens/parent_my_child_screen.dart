@@ -25,7 +25,8 @@ class ParentMyChildScreen extends ConsumerStatefulWidget {
   const ParentMyChildScreen({super.key});
 
   @override
-  ConsumerState<ParentMyChildScreen> createState() => _ParentMyChildScreenState();
+  ConsumerState<ParentMyChildScreen> createState() =>
+      _ParentMyChildScreenState();
 }
 
 class _ParentMyChildScreenState extends ConsumerState<ParentMyChildScreen> {
@@ -43,7 +44,9 @@ class _ParentMyChildScreenState extends ConsumerState<ParentMyChildScreen> {
     // a prior navigation. Using isRefresh: true keeps the existing list
     // visible during the reload instead of blanking the screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(childrenControllerProvider.notifier).loadChildren(isRefresh: true);
+      ref
+          .read(childrenControllerProvider.notifier)
+          .loadChildren(isRefresh: true);
     });
   }
 
@@ -51,80 +54,93 @@ class _ParentMyChildScreenState extends ConsumerState<ParentMyChildScreen> {
   Widget build(BuildContext context) {
     final childrenState = ref.watch(childrenControllerProvider);
 
-    return Scaffold(
-      key: const Key('parent_my_child_screen'),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF3E8FF), // rgb(243, 232, 255)
-              Color(0xFFE0F2FE), // rgb(224, 242, 254)
-              Color(0xFFFFFFFF), // rgb(255, 255, 255)
-            ],
-            stops: [0.0, 0.5, 1.0],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(AppRoutePaths.parentProfile);
+        }
+      },
+      child: Scaffold(
+        key: const Key('parent_my_child_screen'),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFF3E8FF), // rgb(243, 232, 255)
+                Color(0xFFE0F2FE), // rgb(224, 242, 254)
+                Color(0xFFFFFFFF), // rgb(255, 255, 255)
+              ],
+              stops: [0.0, 0.5, 1.0],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header - TopAppBar (Node 76:1046)
-              _buildTopAppBar(context),
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Header - TopAppBar (Node 76:1046)
+                _buildTopAppBar(context),
 
-              // Scrollable content (Node 76:963)
-              Expanded(
-                child: RefreshIndicator(
-                  color: const Color(0xFF0037B1),
-                  onRefresh: () => ref.read(childrenControllerProvider.notifier).loadChildren(isRefresh: true),
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 24),
+                // Scrollable content (Node 76:963)
+                Expanded(
+                  child: RefreshIndicator(
+                    color: const Color(0xFF0037B1),
+                    onRefresh: () => ref
+                        .read(childrenControllerProvider.notifier)
+                        .loadChildren(isRefresh: true),
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const SizedBox(height: 24),
 
-                        // Title & Subtitle Container (Node 76:964)
-                        Text(
-                          'My Child',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.hankenGrotesk(
-                            fontSize: 30,
-                            fontWeight: FontWeight.w700,
-                            height: 36 / 28,
-                            color: const Color(0xFF1A1B23),
+                          // Title & Subtitle Container (Node 76:964)
+                          Text(
+                            'My Child',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w700,
+                              height: 36 / 28,
+                              color: const Color(0xFF1A1B23),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Select a profile to view their learning journey.',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.hankenGrotesk(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w400,
-                            height: 24 / 16,
-                            color: const Color(0xFF434655),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Select a profile to view their learning journey.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w400,
+                              height: 24 / 16,
+                              color: const Color(0xFF434655),
+                            ),
                           ),
-                        ),
 
-                        const SizedBox(height: 24),
+                          const SizedBox(height: 24),
 
-                        // State-driven Children List
-                        _buildChildrenSection(context, childrenState),
+                          // State-driven Children List
+                          _buildChildrenSection(context, childrenState),
 
-                        const SizedBox(height: 24),
+                          const SizedBox(height: 24),
 
-                        // Button - Add Child Card (Node 76:1040)
-                        _buildAddChildCard(context),
+                          // Button - Add Child Card (Node 76:1040)
+                          _buildAddChildCard(context),
 
-                        const SizedBox(height: 32),
-                      ],
+                          const SizedBox(height: 32),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -257,7 +273,11 @@ class _ParentMyChildScreenState extends ConsumerState<ParentMyChildScreen> {
         ),
         child: Column(
           children: [
-            const Icon(Icons.error_outline_rounded, color: Color(0xFFE11D48), size: 36),
+            const Icon(
+              Icons.error_outline_rounded,
+              color: Color(0xFFE11D48),
+              size: 36,
+            ),
             const SizedBox(height: 12),
             Text(
               'Failed to load children',
@@ -275,11 +295,14 @@ class _ParentMyChildScreenState extends ConsumerState<ParentMyChildScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: () => ref.read(childrenControllerProvider.notifier).loadChildren(),
+              onPressed: () =>
+                  ref.read(childrenControllerProvider.notifier).loadChildren(),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0037B1),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Try Again'),
@@ -309,7 +332,11 @@ class _ParentMyChildScreenState extends ConsumerState<ParentMyChildScreen> {
                   shape: BoxShape.circle,
                   color: Color(0xFFEFF6FF),
                 ),
-                child: const Icon(Icons.family_restroom_rounded, size: 32, color: Color(0xFF0037B1)),
+                child: const Icon(
+                  Icons.family_restroom_rounded,
+                  size: 32,
+                  color: Color(0xFF0037B1),
+                ),
               ),
               const SizedBox(height: 16),
               Text(
@@ -344,7 +371,9 @@ class _ParentMyChildScreenState extends ConsumerState<ParentMyChildScreen> {
               index: i,
               isActive: children[i].studentId == state.activeChildId,
               onSelect: () {
-                ref.read(childrenControllerProvider.notifier).setActiveChild(children[i].studentId);
+                ref
+                    .read(childrenControllerProvider.notifier)
+                    .setActiveChild(children[i].studentId);
                 context.go(AppRoutePaths.parentDashboard);
               },
             ),
@@ -494,7 +523,9 @@ class _ChildCardItem extends ConsumerWidget {
     final theme = palettes[index % palettes.length];
 
     // Read real child dashboard metrics if available from GET /parent/children/{id}/dashboard
-    final dashboardAsync = ref.watch(childDashboardMetricsProvider(child.studentId));
+    final dashboardAsync = ref.watch(
+      childDashboardMetricsProvider(child.studentId),
+    );
 
     String skill = child.grade ?? 'General Curriculum';
     String attendanceText = '--';
@@ -504,9 +535,11 @@ class _ChildCardItem extends ConsumerWidget {
 
     dashboardAsync.whenData((dashboard) {
       if (dashboard.enrolledBatches.isNotEmpty) {
-        skill = dashboard.enrolledBatches.first.courseName ??
+        skill =
+            dashboard.enrolledBatches.first.courseName ??
             dashboard.enrolledBatches.first.batchName;
-      } else if (dashboard.activeTopic != null && dashboard.activeTopic!.isNotEmpty) {
+      } else if (dashboard.activeTopic != null &&
+          dashboard.activeTopic!.isNotEmpty) {
         skill = dashboard.activeTopic!;
       }
 
@@ -514,35 +547,43 @@ class _ChildCardItem extends ConsumerWidget {
         final rate = dashboard.attendanceRate!;
         attendanceText = '${rate.toInt()}%';
         attendanceValue = (rate / 100.0).clamp(0.0, 1.0);
-        // Overall progress reflects academic participation
-        progressValue = attendanceValue;
-        progressText = attendanceText;
+      }
+
+      final academicProg =
+          dashboard.overallProgress ??
+          (dashboard.enrolledBatches.isNotEmpty
+              ? dashboard.enrolledBatches.first.progressPercentage
+              : null);
+      if (academicProg != null) {
+        progressText = '${academicProg.toInt()}%';
+        progressValue = (academicProg / 100.0).clamp(0.0, 1.0);
       }
     });
 
     // Determine age or identifier badge
-    final tagText = child.grade != null && child.grade!.isNotEmpty
-        ? child.grade!
-        : (child.studentCode != null && child.studentCode!.isNotEmpty
-            ? child.studentCode!
-            : (child.status != null ? child.status!.toUpperCase() : 'Student'));
+    final tagText = child.age != null
+        ? 'Age ${child.age}'
+        : (child.grade != null && child.grade!.isNotEmpty
+              ? child.grade!
+              : (child.studentCode != null && child.studentCode!.isNotEmpty
+                    ? child.studentCode!
+                    : (child.status != null
+                          ? child.status!.toUpperCase()
+                          : 'Student')));
 
     // Select avatar based on gender/asset
     final avatarAsset = (child.gender?.toLowerCase() == 'female')
         ? _imgAvatarMia
-        : ((child.gender?.toLowerCase() == 'male') ? _imgAvatarAlex : theme.defaultAvatar);
+        : ((child.gender?.toLowerCase() == 'male')
+              ? _imgAvatarAlex
+              : theme.defaultAvatar);
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border(
-          left: BorderSide(
-            color: theme.accentColor,
-            width: 4,
-          ),
-        ),
+        border: Border(left: BorderSide(color: theme.accentColor, width: 4)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0A000000), // rgba(0, 0, 0, 0.04)
@@ -579,18 +620,20 @@ class _ChildCardItem extends ConsumerWidget {
                   ],
                 ),
                 child: ClipOval(
-                  child: (child.avatar != null && child.avatar!.startsWith('http'))
+                  child:
+                      (child.avatar != null && child.avatar!.startsWith('http'))
                       ? Image.network(
                           child.avatar!,
                           width: 60,
                           height: 60,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Image.asset(
-                            avatarAsset,
-                            width: 60,
-                            height: 60,
-                            fit: BoxFit.cover,
-                          ),
+                          errorBuilder: (context, error, stackTrace) =>
+                              Image.asset(
+                                avatarAsset,
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
+                              ),
                         )
                       : Image.asset(
                           avatarAsset,
@@ -618,7 +661,9 @@ class _ChildCardItem extends ConsumerWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            child.displayName.isNotEmpty ? child.displayName : 'Student',
+                            child.displayName.isNotEmpty
+                                ? child.displayName
+                                : 'Student',
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.hankenGrotesk(
                               fontSize: 21.5,
@@ -630,7 +675,10 @@ class _ChildCardItem extends ConsumerWidget {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFEDEDF9),
                             borderRadius: BorderRadius.circular(9999),
@@ -648,7 +696,10 @@ class _ChildCardItem extends ConsumerWidget {
                         if (isActive) ...[
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFDCFCE7),
                               borderRadius: BorderRadius.circular(4),
@@ -670,7 +721,10 @@ class _ChildCardItem extends ConsumerWidget {
 
                     // Skill Overlay Pill (Node 76:979 / 76:1014)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: theme.skillPillBgColor,
                         borderRadius: BorderRadius.circular(9999),
@@ -705,7 +759,38 @@ class _ChildCardItem extends ConsumerWidget {
             ],
           ),
 
-          const SizedBox(height: 24),
+          // Child Metadata Chips (Real API fields)
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              if (child.studentCode != null && child.studentCode!.isNotEmpty)
+                _InfoBadge(
+                  icon: Icons.badge_outlined,
+                  text: child.studentCode!,
+                  textColor: const Color(0xFF475569),
+                  bgColor: const Color(0xFFF1F5F9),
+                ),
+              if (child.relationshipType != null &&
+                  child.relationshipType!.isNotEmpty)
+                _InfoBadge(
+                  icon: Icons.people_outline_rounded,
+                  text: child.relationshipType!.toUpperCase(),
+                  textColor: const Color(0xFF4338CA),
+                  bgColor: const Color(0xFFEEF2FF),
+                ),
+              if (child.isCustodial == true)
+                _InfoBadge(
+                  icon: Icons.shield_outlined,
+                  text: 'Custodial',
+                  textColor: const Color(0xFF0369A1),
+                  bgColor: const Color(0xFFE0F2FE),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
 
           // Two Bento Metric Boxes (Node 76:984 / 76:1019)
           Row(
@@ -747,7 +832,9 @@ class _ChildCardItem extends ConsumerWidget {
                           value: progressValue,
                           minHeight: 6,
                           backgroundColor: const Color(0xFFF1F5F9),
-                          valueColor: AlwaysStoppedAnimation<Color>(theme.accentColor),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            theme.accentColor,
+                          ),
                         ),
                       ),
                     ],
@@ -794,7 +881,9 @@ class _ChildCardItem extends ConsumerWidget {
                           value: attendanceValue,
                           minHeight: 6,
                           backgroundColor: const Color(0xFFF1F5F9),
-                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0037B1)),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF0037B1),
+                          ),
                         ),
                       ),
                     ],
@@ -804,49 +893,364 @@ class _ChildCardItem extends ConsumerWidget {
             ],
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // Button - VIEW CHILD (Node 76:1001 / 76:1036)
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton(
-              key: Key('view_child_button_${child.studentId}'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E4ED8),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          // Action Buttons: VIEW CHILD & UNLINK CHILD
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: SizedBox(
+                  height: 44,
+                  child: ElevatedButton(
+                    key: Key('view_child_button_${child.studentId}'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E4ED8),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: onSelect,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'VIEW CHILD',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SvgPicture.asset(
+                          _svgArrowRight,
+                          width: 12,
+                          height: 12,
+                          colorFilter: const ColorFilter.mode(
+                            Colors.white,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              onPressed: onSelect,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'VIEW CHILD',
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      height: 20 / 14,
-                      color: Colors.white,
-                      letterSpacing: 0.1,
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: SizedBox(
+                  height: 44,
+                  child: OutlinedButton(
+                    key: Key('unlink_child_button_${child.studentId}'),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFFECDD3)),
+                      backgroundColor: const Color(0xFFFFF1F2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () => _confirmUnlinkChild(context, ref, child),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.link_off_rounded,
+                          size: 16,
+                          color: Color(0xFFE11D48),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'UNLINK',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFE11D48),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  SvgPicture.asset(
-                    _svgArrowRight,
-                    width: 12,
-                    height: 12,
-                    colorFilter: const ColorFilter.mode(
-                      Colors.white,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                ],
+                ),
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmUnlinkChild(
+    BuildContext context,
+    WidgetRef ref,
+    ChildEntity child,
+  ) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        bool isUnlinking = false;
+        String? unlinkError;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              elevation: 4,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 380),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Top Section: Icon & Title
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF1F2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.link_off_rounded,
+                              color: Color(0xFFE11D48),
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Unlink Child',
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF0F172A),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Confirmation Text
+                      Text(
+                        'Are you sure you want to unlink ${child.displayName} from your parent account?',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF1E293B),
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'This will remove access to their classes, assignments, and progress.',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF64748B),
+                          height: 1.4,
+                        ),
+                      ),
+                      if (unlinkError != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF1F2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFECDD3)),
+                          ),
+                          child: Text(
+                            unlinkError!,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFE11D48),
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      // Button Section: [ Cancel ]   [ Unlink ]
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 52,
+                              child: OutlinedButton(
+                                onPressed: isUnlinking
+                                    ? null
+                                    : () => Navigator.of(dialogCtx).pop(),
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: const Color(0xFF334155),
+                                  side: const BorderSide(
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Cancel',
+                                  style: GoogleFonts.hankenGrotesk(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF334155),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SizedBox(
+                              height: 52,
+                              child: ElevatedButton(
+                                key: Key(
+                                  'confirm_unlink_button_${child.studentId}',
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFE11D48),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: isUnlinking
+                                    ? null
+                                    : () async {
+                                        setDialogState(() {
+                                          isUnlinking = true;
+                                          unlinkError = null;
+                                        });
+                                        try {
+                                          await ref
+                                              .read(addChildRepositoryProvider)
+                                              .unlinkChild(
+                                                childStudentId: child.studentId,
+                                              );
+                                          await ref
+                                              .read(
+                                                childrenControllerProvider
+                                                    .notifier,
+                                              )
+                                              .loadChildren(isRefresh: true);
+                                          if (dialogCtx.mounted) {
+                                            Navigator.of(dialogCtx).pop();
+                                          }
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  '${child.displayName} has been unlinked.',
+                                                ),
+                                                backgroundColor: const Color(
+                                                  0xFF10B981,
+                                                ),
+                                                behavior:
+                                                    SnackBarBehavior.floating,
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          setDialogState(() {
+                                            isUnlinking = false;
+                                            unlinkError = e
+                                                .toString()
+                                                .replaceFirst(
+                                                  RegExp(r'^Exception:\s*'),
+                                                  '',
+                                                );
+                                          });
+                                        }
+                                      },
+                                child: isUnlinking
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        'Unlink',
+                                        style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// Small info badge chip for metadata
+class _InfoBadge extends StatelessWidget {
+  const _InfoBadge({
+    required this.icon,
+    required this.text,
+    required this.textColor,
+    required this.bgColor,
+  });
+
+  final IconData icon;
+  final String text;
+  final Color textColor;
+  final Color bgColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: textColor),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: textColor,
             ),
           ),
         ],
@@ -855,31 +1259,46 @@ class _ChildCardItem extends ConsumerWidget {
   }
 }
 
-/// Modal bottom sheet for adding a new child via POST /api/parent/children
+/// Modal bottom sheet for linking/adding a child via POST /api/parent/children
 class _AddChildBottomSheet extends ConsumerStatefulWidget {
   const _AddChildBottomSheet();
 
   @override
-  ConsumerState<_AddChildBottomSheet> createState() => _AddChildBottomSheetState();
+  ConsumerState<_AddChildBottomSheet> createState() =>
+      _AddChildBottomSheetState();
 }
 
 class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
   final _formKey = GlobalKey<FormState>();
+  final _studentCodeController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
-  final _gradeController = TextEditingController();
 
   String _gender = 'male';
-  String _relationship = 'father';
+  String _relationship = 'guardian';
+  DateTime? _selectedDob;
   bool _isSubmitting = false;
   String? _errorMessage;
 
   @override
   void dispose() {
+    _studentCodeController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _gradeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDob ?? DateTime(now.year - 10, now.month, now.day),
+      firstDate: DateTime(now.year - 25),
+      lastDate: now,
+    );
+    if (picked != null) {
+      setState(() => _selectedDob = picked);
+    }
   }
 
   Future<void> _submit() async {
@@ -891,22 +1310,33 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
     });
 
     try {
+      final dobStr = _selectedDob != null
+          ? '${_selectedDob!.year.toString().padLeft(4, '0')}-${_selectedDob!.month.toString().padLeft(2, '0')}-${_selectedDob!.day.toString().padLeft(2, '0')}'
+          : null;
+
       final req = AddChildRequestDto(
+        studentCode: _studentCodeController.text.trim().isNotEmpty
+            ? _studentCodeController.text.trim()
+            : null,
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         gender: _gender,
-        grade: _gradeController.text.trim().isNotEmpty ? _gradeController.text.trim() : null,
         relationshipType: _relationship,
+        dateOfBirth: dobStr,
       );
 
       final newChild = await ref.read(addChildRepositoryProvider).addChild(req);
-      await ref.read(childrenControllerProvider.notifier).loadChildren(isRefresh: true);
+      await ref
+          .read(childrenControllerProvider.notifier)
+          .loadChildren(isRefresh: true);
 
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${newChild.displayName} has been added successfully!'),
+            content: Text(
+              '${newChild.displayName} has been added successfully!',
+            ),
             backgroundColor: const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
           ),
@@ -916,7 +1346,10 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
-          _errorMessage = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+          _errorMessage = e.toString().replaceFirst(
+            RegExp(r'^Exception:\s*'),
+            '',
+          );
         });
       }
     }
@@ -957,7 +1390,7 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
 
               // Title
               Text(
-                'Add New Child',
+                'Add / Link Child',
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -984,12 +1417,19 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline, color: Color(0xFFE11D48), size: 18),
+                      const Icon(
+                        Icons.error_outline,
+                        color: Color(0xFFE11D48),
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(fontSize: 13, color: Color(0xFF9F1239)),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF9F1239),
+                          ),
                         ),
                       ),
                     ],
@@ -998,9 +1438,9 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
                 const SizedBox(height: 16),
               ],
 
-              // First Name
+              // Student Code (Optional)
               Text(
-                'First Name *',
+                'Student Code / Student ID (Optional)',
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -1009,12 +1449,19 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
               ),
               const SizedBox(height: 6),
               TextFormField(
-                controller: _firstNameController,
-                textCapitalization: TextCapitalization.words,
+                key: const Key('add_child_student_code_field'),
+                controller: _studentCodeController,
+                textCapitalization: TextCapitalization.characters,
                 decoration: InputDecoration(
-                  hintText: 'Enter first name',
-                  hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  hintText: 'e.g. STU-00008 (Leave blank if creating new)',
+                  hintStyle: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 14,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -1025,7 +1472,53 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFF0037B1), width: 1.5),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF0037B1),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // First Name *
+              Text(
+                'First Name *',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF334155),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                key: const Key('add_child_first_name_field'),
+                controller: _firstNameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  hintText: 'Enter first name',
+                  hintStyle: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 14,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF0037B1),
+                      width: 1.5,
+                    ),
                   ),
                 ),
                 validator: (val) {
@@ -1037,7 +1530,7 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
               ),
               const SizedBox(height: 14),
 
-              // Last Name
+              // Last Name *
               Text(
                 'Last Name *',
                 style: GoogleFonts.hankenGrotesk(
@@ -1048,12 +1541,19 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
               ),
               const SizedBox(height: 6),
               TextFormField(
+                key: const Key('add_child_last_name_field'),
                 controller: _lastNameController,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
                   hintText: 'Enter last name',
-                  hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  hintStyle: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 14,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -1064,7 +1564,10 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFF0037B1), width: 1.5),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF0037B1),
+                      width: 1.5,
+                    ),
                   ),
                 ),
                 validator: (val) {
@@ -1076,9 +1579,69 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
               ),
               const SizedBox(height: 14),
 
-              // Gender & Relationship in a row
+              // Relationship & Gender in a row
               Row(
                 children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Relationship *',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF334155),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        DropdownButtonFormField<String>(
+                          key: const Key('add_child_relationship_dropdown'),
+                          initialValue: _relationship,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'guardian',
+                              child: Text('Guardian'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'father',
+                              child: Text('Father'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'mother',
+                              child: Text('Mother'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'other',
+                              child: Text('Other'),
+                            ),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) setState(() => _relationship = v);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1093,64 +1656,42 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
                         ),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
+                          key: const Key('add_child_gender_dropdown'),
                           initialValue: _gender,
                           decoration: InputDecoration(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFCBD5E1),
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
                             ),
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'male', child: Text('Male')),
-                            DropdownMenuItem(value: 'female', child: Text('Female')),
-                            DropdownMenuItem(value: 'other', child: Text('Other')),
+                            DropdownMenuItem(
+                              value: 'male',
+                              child: Text('Male'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'female',
+                              child: Text('Female'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'other',
+                              child: Text('Other'),
+                            ),
                           ],
                           onChanged: (v) {
                             if (v != null) setState(() => _gender = v);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Relationship',
-                          style: GoogleFonts.hankenGrotesk(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF334155),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        DropdownButtonFormField<String>(
-                          initialValue: _relationship,
-                          decoration: InputDecoration(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                            ),
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 'father', child: Text('Father')),
-                            DropdownMenuItem(value: 'mother', child: Text('Mother')),
-                            DropdownMenuItem(value: 'guardian', child: Text('Guardian')),
-                          ],
-                          onChanged: (v) {
-                            if (v != null) setState(() => _relationship = v);
                           },
                         ),
                       ],
@@ -1160,9 +1701,9 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
               ),
               const SizedBox(height: 14),
 
-              // Grade / Class
+              // Date of Birth (Optional)
               Text(
-                'Grade / Class',
+                'Date of Birth (Optional)',
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -1170,23 +1711,48 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
                 ),
               ),
               const SizedBox(height: 6),
-              TextFormField(
-                controller: _gradeController,
-                decoration: InputDecoration(
-                  hintText: 'e.g. Grade 4, Junior Foundation',
-                  hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+              InkWell(
+                onTap: _pickDob,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
                   ),
-                  enabledBorder: OutlineInputBorder(
+                  decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFF0037B1), width: 1.5),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 18,
+                        color: Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        _selectedDob != null
+                            ? '${_selectedDob!.year}-${_selectedDob!.month.toString().padLeft(2, '0')}-${_selectedDob!.day.toString().padLeft(2, '0')}'
+                            : 'Select date of birth',
+                        style: TextStyle(
+                          color: _selectedDob != null
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFF94A3B8),
+                          fontSize: 14,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (_selectedDob != null)
+                        GestureDetector(
+                          onTap: () => setState(() => _selectedDob = null),
+                          child: const Icon(
+                            Icons.close,
+                            size: 16,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -1197,33 +1763,49 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         side: const BorderSide(color: Color(0xFFCBD5E1)),
                       ),
-                      child: const Text('Cancel', style: TextStyle(color: Color(0xFF475569))),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: Color(0xFF475569)),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
+                      key: const Key('add_child_submit_button'),
                       onPressed: _isSubmitting ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0037B1),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         elevation: 0,
                       ),
                       child: _isSubmitting
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
-                          : const Text('Add Child', style: TextStyle(fontWeight: FontWeight.w600)),
+                          : const Text(
+                              'Add Child',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
                     ),
                   ),
                 ],

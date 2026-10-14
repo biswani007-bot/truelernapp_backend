@@ -9,12 +9,18 @@ import 'package:truelearn/features/classes/presentation/services/native_device_p
 class _MockDevicePreviewService implements NativeDevicePreviewService {
   @override
   Future<DevicePreviewPermissions> checkPermissions() async {
-    return const DevicePreviewPermissions(cameraGranted: true, microphoneGranted: true);
+    return const DevicePreviewPermissions(
+      cameraGranted: true,
+      microphoneGranted: true,
+    );
   }
 
   @override
   Future<DevicePreviewPermissions> requestPermissions() async {
-    return const DevicePreviewPermissions(cameraGranted: true, microphoneGranted: true);
+    return const DevicePreviewPermissions(
+      cameraGranted: true,
+      microphoneGranted: true,
+    );
   }
 
   @override
@@ -34,7 +40,9 @@ void main() {
   Widget createSubject({ClassEntity? session}) {
     return ProviderScope(
       overrides: [
-        devicePreviewServiceProvider.overrideWithValue(_MockDevicePreviewService()),
+        devicePreviewServiceProvider.overrideWithValue(
+          _MockDevicePreviewService(),
+        ),
       ],
       child: MaterialApp(
         home: ClassPreviewScreen(
@@ -88,7 +96,11 @@ void main() {
     // 5. Actions
     final joinBtn = find.byKey(const Key('preview_join_live_class_button'));
     final testAudioBtn = find.byKey(const Key('preview_test_audio_button'));
-    await tester.scrollUntilVisible(joinBtn, 200, scrollable: find.byType(Scrollable));
+    await tester.scrollUntilVisible(
+      joinBtn,
+      200,
+      scrollable: find.byType(Scrollable),
+    );
     expect(joinBtn, findsOneWidget);
     expect(testAudioBtn, findsOneWidget);
     expect(find.text('JOIN LIVE CLASS'), findsOneWidget);
@@ -119,12 +131,18 @@ void main() {
     // Toggle mic off
     await tester.tap(find.byKey(const Key('preview_mic_toggle')));
     await tester.pump();
-    expect(find.text('Turned Off'), findsOneWidget); // Mic Device Check shows Turned Off
+    expect(
+      find.text('Turned Off'),
+      findsOneWidget,
+    ); // Mic Device Check shows Turned Off
 
     // Toggle mic back on
     await tester.tap(find.byKey(const Key('preview_mic_toggle')));
     await tester.pump();
     expect(find.text('Turned Off'), findsNothing);
-    expect(find.text('Ready'), findsOneWidget); // Mic Device Check shows Ready again
+    expect(
+      find.text('Ready'),
+      findsOneWidget,
+    ); // Mic Device Check shows Ready again
   });
 }

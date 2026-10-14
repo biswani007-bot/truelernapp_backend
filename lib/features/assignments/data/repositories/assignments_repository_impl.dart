@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/assignment_entity.dart';
+import '../../domain/entities/assignment_submission_entity.dart';
 import '../../domain/repositories/assignments_repository.dart';
 import '../models/assignment_dto.dart';
 
@@ -14,51 +16,128 @@ class AssignmentsRepositoryImpl implements AssignmentsRepository {
   const AssignmentsRepositoryImpl({required this.apiClient});
 
   @override
-  Future<List<AssignmentEntity>> getAssignments({required String childStudentId}) async {
-    try {
-      final response = await apiClient.get<Map<String, dynamic>>(
-        '/parent/children/$childStudentId/assignments',
-      );
+  Future<List<AssignmentEntity>> getAssignments({
+    required String childStudentId,
+  }) async {
+    final response = await apiClient.get<Map<String, dynamic>>(
+      '/parent/children/$childStudentId/assignments',
+    );
 
-      final body = response.data;
-      if (body != null && body['data'] is List && (body['data'] as List).isNotEmpty) {
-        return (body['data'] as List)
-            .whereType<Map<String, dynamic>>()
-            .map((json) => AssignmentDto.fromJson(json).toEntity())
-            .toList();
-      }
-    } catch (_) {
-      // Fallback to Figma default assignment items if remote endpoint is empty/in progress
+    final body = response.data;
+    if (body != null && body['data'] is List) {
+      return (body['data'] as List)
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (json) =>
+                AssignmentDto.fromJson(json)
+                    .toEntity(childStudentId: childStudentId),
+          )
+          .toList();
     }
 
-    // Default Figma items matching Node 76:1943 100% accurately:
-    return const [
-      AssignmentEntity(
-        id: 'asg_1',
-        title: "The Grandmaster's Homework",
-        topic: 'Practical Thinking',
-        status: AssignmentStatus.pending,
-        dueDate: 'Due: Feb 20',
-        buttonText: 'Open Assignment',
-      ),
-      AssignmentEntity(
-        id: 'asg_2',
-        title: 'Confidence Quiz',
-        topic: 'Communication',
-        status: AssignmentStatus.completed,
-        score: 95,
-        totalMarks: 100,
-      ),
-      AssignmentEntity(
-        id: 'asg_3',
-        title: 'Daily Habits Tracker',
-        topic: 'Time Management',
-        status: AssignmentStatus.overdue,
-        overdueDate: 'Was due: Feb 10',
-        buttonText: 'Submit Late',
-        isLateSubmissionAllowed: true,
-      ),
-    ];
+    return const [];
+  }
+
+  @override
+  Future<AssignmentEntity?> getAssignmentDetail({
+    required String childStudentId,
+    required String assignmentId,
+  }) async {
+    try {
+      final response = await apiClient.get<Map<String, dynamic>>(
+        '/parent/children/$childStudentId/assignments/$assignmentId',
+      );
+      final body = response.data;
+      if (body != null && body['data'] is Map<String, dynamic>) {
+        final json = body['data'] as Map<String, dynamic>;
+        return AssignmentDto.fromJson(json)
+            .toEntity(childStudentId: childStudentId);
+      }
+    } catch (_) {
+      // Gracefully fall back to list lookup if dedicated item call fails
+    }
+
+    final list = await getAssignments(childStudentId: childStudentId);
+    try {
+      return list.firstWhere((a) => a.id == assignmentId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<AssignmentSubmissionEntity> submitAssignment({
+    required String childStudentId,
+    required String assignmentId,
+    required String fileName,
+    required int fileSize,
+    required String fileType,
+    String? fileUrl,
+    String? comments,
+  }) async {
+    final submissionComment = (comments != null && comments.trim().isNotEmpty)
+        ? comments.trim()
+        : 'Submitted file: $fileName';
+
+    final response = await apiClient.post<Map<String, dynamic>>(
+      '/parent/children/$childStudentId/assignments/$assignmentId/submit',
+      data: {
+        'comments': submissionComment,
+        'files': [
+          {
+            'fileName': fileName,
+            'fileSize': fileSize,
+            'fileType': fileType,
+            'url': (fileUrl != null && fileUrl.isNotEmpty)
+                ? fileUrl
+                : 'file://$fileName',
+          },
+        ],
+        'links': <String>[],
+      },
+    );
+
+    final body = response.data;
+    if (body != null && body['data'] is Map<String, dynamic>) {
+      final submissionJson = body['data'] as Map<String, dynamic>;
+      final entity = AssignmentSubmissionEntity.fromJson(submissionJson);
+      // Ensure file info is present even if backend stored empty array
+      if (entity.files.isEmpty) {
+        return AssignmentSubmissionEntity(
+          id: entity.id,
+          submissionNumber: entity.submissionNumber,
+          submittedAt: entity.submittedAt ?? DateTime.now(),
+          attemptNumber: entity.attemptNumber,
+          status: entity.status,
+          lateSubmission: entity.lateSubmission,
+          files: [
+            SubmissionFileEntity(
+              fileName: fileName,
+              fileSize: fileSize,
+              fileType: fileType,
+              url: fileUrl,
+            ),
+          ],
+          links: entity.links,
+          comments: entity.comments,
+          isGraded: entity.isGraded,
+        );
+      }
+      return entity;
+    }
+
+    return AssignmentSubmissionEntity(
+      submittedAt: DateTime.now(),
+      status: SubmissionStatus.submitted,
+      files: [
+        SubmissionFileEntity(
+          fileName: fileName,
+          fileSize: fileSize,
+          fileType: fileType,
+          url: fileUrl,
+        ),
+      ],
+    );
   }
 }
 

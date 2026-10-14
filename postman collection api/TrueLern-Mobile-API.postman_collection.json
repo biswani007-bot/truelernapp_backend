@@ -1,0 +1,2523 @@
+{
+  "info": {
+    "_postman_id": "truelern-mobile-api-v1",
+    "name": "TrueLern Mobile API",
+    "description": "Production-ready API collection for TrueLern Mobile Applications (Student, Parent, Faculty, Admin). Sourced directly from live LMSCA/TrueLern backend routes.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "01 - Public",
+      "description": "Publicly accessible endpoints for marketing, catalog, and lead registration.",
+      "item": [
+        {
+          "name": "Book Free Demo (Lead Submission)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 or 200', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.leadId) {",
+                  "    pm.environment.set('leadId', jsonData.data.leadId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sarah Jenkins\",\n  \"parentName\": \"Sarah Jenkins\",\n  \"childName\": \"Tommy Jenkins\",\n  \"childAge\": 9,\n  \"email\": \"sarah.jenkins@example.com\",\n  \"phone\": \"+1-555-0199\",\n  \"interestedCourse\": \"Junior Foundation, Ages 6 to 10\",\n  \"preferredSchedule\": \"Weekend Morning (9 AM - 12 PM)\",\n  \"source\": \"mobile_app_demo\",\n  \"message\": \"Interested in weekend batch for 9 year old\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/public/lead",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "lead"
+              ]
+            },
+            "description": "Submits a verified lead from the public mobile onboarding flow. Verified against real Atlas database."
+          }
+        },
+        {
+          "name": "List Public Courses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/courses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "courses"
+              ]
+            },
+            "description": "Fetches public active course catalog."
+          }
+        },
+        {
+          "name": "List Course Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "categories"
+              ]
+            },
+            "description": "Fetches course categories for mobile course discovery."
+          }
+        },
+        {
+          "name": "Public Portal Configuration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/portal-config?portalId=student-portal",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "portal-config"
+              ],
+              "query": [
+                {
+                  "key": "portalId",
+                  "value": "student-portal"
+                }
+              ]
+            },
+            "description": "Fetches mobile app governance, branding colors, min app version, maintenance mode, and feature flags."
+          }
+        },
+        {
+          "name": "Public Search",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/search?q=foundation",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "foundation"
+                }
+              ]
+            },
+            "description": "Searches public courses, blogs, and events."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Authentication",
+      "description": "User authentication, mobile Google OAuth exchange, token refresh, logout, password lifecycle, and single-use handoff.",
+      "item": [
+        {
+          "name": "Native Google Sign-In (Mobile Exchange)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.environment.set('accessToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('parentToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                  "    pm.environment.set('parentUserId', jsonData.data.user.id);",
+                  "    if (jsonData.data.parent) {",
+                  "        pm.environment.set('parentId', jsonData.data.parent.id);",
+                  "    }",
+                  "    if (jsonData.data.children && jsonData.data.children.length > 0) {",
+                  "        pm.environment.set('studentId', jsonData.data.children[0].studentId);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"<GOOGLE_ID_TOKEN>\",\n  \"platform\": \"android\",\n  \"nonce\": \"<OPTIONAL_NONCE>\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/mobile/google",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "mobile",
+                "google"
+              ]
+            },
+            "description": "Exchanges a verified Google ID Token from Credential Manager for a TrueLern mobile Parent application session."
+          }
+        },
+        {
+          "name": "Mobile Refresh Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.environment.set('accessToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('parentToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/mobile/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "mobile",
+                "refresh"
+              ]
+            },
+            "description": "Refreshes short-lived TrueLern access token with refresh token rotation and replay prevention."
+          }
+        },
+        {
+          "name": "Mobile Logout Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.environment.unset('accessToken');",
+                  "pm.environment.unset('refreshToken');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/mobile/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "mobile",
+                "logout"
+              ]
+            },
+            "description": "Revokes active mobile application session and invalidates refreshToken in the database."
+          }
+        },
+        {
+          "name": "Get Current Parent Context (Mobile Me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/mobile/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "mobile",
+                "me"
+              ]
+            },
+            "description": "Retrieves authenticated Parent profile, user role, and linked children array via Bearer token."
+          }
+        },
+        {
+          "name": "Student Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.environment.set('accessToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('studentToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                  "    pm.environment.set('studentUserId', jsonData.data.user._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alex.mercer@truelern.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates student account. Automatically extracts and stores accessToken into environment."
+          }
+        },
+        {
+          "name": "Parent Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.environment.set('accessToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('parentToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                  "    pm.environment.set('parentUserId', jsonData.data.user._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"parent@truelern.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates parent account with multi-ward linked access."
+          }
+        },
+        {
+          "name": "Teacher / Faculty Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.environment.set('accessToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('teacherToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                  "    pm.environment.set('teacherUserId', jsonData.data.user._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"teacher@truelern.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates faculty/teacher account for live class instruction and grading."
+          }
+        },
+        {
+          "name": "Admin Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.environment.set('accessToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('adminToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                  "    pm.environment.set('adminUserId', jsonData.data.user._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@truelern.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates administrator account for mobile supervisor capabilities."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "refreshToken={{refreshToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Silent rotation of JWT accessToken using stored refreshToken."
+          }
+        },
+        {
+          "name": "Auth Handoff Verification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/handoff?token={{handoffToken}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "handoff"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{handoffToken}}"
+                }
+              ]
+            },
+            "description": "Validates short-lived checkout handoff token after public enrollment."
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"password123\",\n  \"newPassword\": \"NewSecurePassword456!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "change-password"
+              ]
+            },
+            "description": "Changes current user password and invalidates active refresh tokens."
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alex.mercer@truelern.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "Generates password reset token and dispatches reset notification."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Invalidates server-side session and clears refreshToken."
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Student",
+      "description": "Student profile, enrolled cohorts, timeline, and academic records.",
+      "item": [
+        {
+          "name": "Get Student List (Admin/Counsellor view)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students?limit=10&page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Paginated list of students."
+          }
+        },
+        {
+          "name": "Get Student Profile Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "{{studentId}}"
+              ]
+            },
+            "description": "Fetches detailed student profile."
+          }
+        },
+        {
+          "name": "Get Student Timeline",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentId}}/timeline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "{{studentId}}",
+                "timeline"
+              ]
+            },
+            "description": "Chronological audit timeline of student registration, enrollment, and status changes."
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Parent",
+      "description": "Parent portal endpoints with strict ParentStudentLink authorization.",
+      "item": [
+        {
+          "name": "Get Linked Children",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.length > 0) {",
+                  "    pm.environment.set('childStudentId', jsonData.data[0].studentId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{parentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/children",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "children"
+              ]
+            },
+            "description": "Returns all verified wards linked to the authenticated parent (e.g. Alex Mercer, Mia Mercer)."
+          }
+        },
+        {
+          "name": "Get Child Dashboard Context",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{parentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/children/{{childStudentId}}/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "children",
+                "{{childStudentId}}",
+                "dashboard"
+              ]
+            },
+            "description": "Aggregated overview of child attendance percentage, upcoming live classes, enrolled batches, pending assignments, and fee status."
+          }
+        },
+        {
+          "name": "Get Child Attendance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{parentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/children/{{childStudentId}}/attendance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "children",
+                "{{childStudentId}}",
+                "attendance"
+              ]
+            },
+            "description": "Attendance summary and session breakdown for selected ward."
+          }
+        },
+        {
+          "name": "Get Child Academics & Courses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{parentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/children/{{childStudentId}}/academics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "children",
+                "{{childStudentId}}",
+                "academics"
+              ]
+            },
+            "description": "Enrolled courses, syllabus details, and curriculum progress for selected ward."
+          }
+        },
+        {
+          "name": "Get Child Assignments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{parentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/children/{{childStudentId}}/assignments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "children",
+                "{{childStudentId}}",
+                "assignments"
+              ]
+            },
+            "description": "Assignment submissions, pending homework, teacher marks, and feedback for selected ward."
+          }
+        },
+        {
+          "name": "Get Child Assessments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{parentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/children/{{childStudentId}}/assessments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "children",
+                "{{childStudentId}}",
+                "assessments"
+              ]
+            },
+            "description": "Assessment scores, passing status, and percentage results (questions/answers sanitized)."
+          }
+        },
+        {
+          "name": "Get Child Live Classes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{parentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/children/{{childStudentId}}/live-classes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "children",
+                "{{childStudentId}}",
+                "live-classes"
+              ]
+            },
+            "description": "Upcoming and past live classroom schedules for selected ward."
+          }
+        },
+        {
+          "name": "Get Child Recordings & Revision",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{parentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/children/{{childStudentId}}/recordings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "children",
+                "{{childStudentId}}",
+                "recordings"
+              ]
+            },
+            "description": "Recorded classroom sessions available for review and study."
+          }
+        },
+        {
+          "name": "Get Child Finance & Invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{parentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/children/{{childStudentId}}/finance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "children",
+                "{{childStudentId}}",
+                "finance"
+              ]
+            },
+            "description": "Invoices, paid amounts, balance due, and receipt records for selected ward."
+          }
+        },
+        {
+          "name": "Get Parent Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{parentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "notifications"
+              ]
+            },
+            "description": "Notifications directed to the parent concerning attendance alerts, fee reminders, and class schedules."
+          }
+        },
+        {
+          "name": "Get Password Setup Prompt Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "description": "Bearer token authentication"
+              },
+              {
+                "key": "Cookie",
+                "value": "accessToken={{accessToken}}; refreshToken={{refreshToken}}",
+                "type": "text",
+                "description": "Cookie authentication fallback"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/security/password-prompt-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "security",
+                "password-prompt-status"
+              ],
+              "variable": []
+            },
+            "description": "**Purpose:** Check OAuth Password Setup Prompt Eligibility for Parent Mobile App.\n**Authentication:** Bearer Token (Parent)\n**Returns:** `showPrompt`, `hasPassword`, `dismissedAt`, `dontAskAgain`, `cooldownActive`."
+          },
+          "response": []
+        },
+        {
+          "name": "Dismiss Password Setup Prompt (Maybe Later)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "description": "Bearer token authentication"
+              },
+              {
+                "key": "Cookie",
+                "value": "accessToken={{accessToken}}; refreshToken={{refreshToken}}",
+                "type": "text",
+                "description": "Cookie authentication fallback"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text",
+                "description": "JSON payload"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/security/dismiss-password-prompt",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "security",
+                "dismiss-password-prompt"
+              ],
+              "variable": []
+            },
+            "description": "**Purpose:** Dismiss password popup with 24-hour snooze cooldown.\n**Authentication:** Bearer Token (Parent)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"maybe_later\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Dismiss Password Setup Prompt (Don't Ask Again)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "description": "Bearer token authentication"
+              },
+              {
+                "key": "Cookie",
+                "value": "accessToken={{accessToken}}; refreshToken={{refreshToken}}",
+                "type": "text",
+                "description": "Cookie authentication fallback"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text",
+                "description": "JSON payload"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/security/dismiss-password-prompt",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "security",
+                "dismiss-password-prompt"
+              ],
+              "variable": []
+            },
+            "description": "**Purpose:** Permanently opt out of password setup popup.\n**Authentication:** Bearer Token (Parent)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"dont_ask_again\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Account Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "description": "Bearer token authentication"
+              },
+              {
+                "key": "Cookie",
+                "value": "accessToken={{accessToken}}; refreshToken={{refreshToken}}",
+                "type": "text",
+                "description": "Cookie authentication fallback"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text",
+                "description": "JSON payload"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/security/setup-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "security",
+                "setup-password"
+              ],
+              "variable": []
+            },
+            "description": "**Purpose:** Configure email/password credentials for OAuth parent.\n**Authentication:** Bearer Token (Parent)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"SecurePassword123!\",\n  \"confirmPassword\": \"SecurePassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Child Assessment Launch Session",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "description": "Bearer token authentication"
+              },
+              {
+                "key": "Cookie",
+                "value": "accessToken={{accessToken}}; refreshToken={{refreshToken}}",
+                "type": "text",
+                "description": "Cookie authentication fallback"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/children/{{childStudentId}}/assessments/{{assessmentId}}/session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "children",
+                "{{childStudentId}}",
+                "assessments",
+                "{{assessmentId}}",
+                "session"
+              ],
+              "variable": []
+            },
+            "description": "**Purpose:** Retrieve child assessment launch session.\n**Authentication:** Bearer Token (Parent)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 - Faculty",
+      "description": "Teacher endpoints for instruction, batch tracking, and availability.",
+      "item": [
+        {
+          "name": "Get Teachers List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/teachers?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "teachers"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "List of faculty members and subject assignments."
+          }
+        },
+        {
+          "name": "Get Teacher Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/teachers/{{teacherId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "teachers",
+                "{{teacherId}}"
+              ]
+            },
+            "description": "Faculty profile information, bio, and assigned courses."
+          }
+        },
+        {
+          "name": "Get Teacher Availability Schedule",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/teachers/{{teacherId}}/availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "teachers",
+                "{{teacherId}}",
+                "availability"
+              ]
+            },
+            "description": "Weekly availability schedule and max teaching hours."
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Courses",
+      "description": "Course catalog, curriculum modules, and syllabus.",
+      "item": [
+        {
+          "name": "Get Courses List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses?limit=10&status=active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                }
+              ]
+            },
+            "description": "Paginated list of active courses."
+          }
+        },
+        {
+          "name": "Get Course Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/{{courseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "{{courseId}}"
+              ]
+            },
+            "description": "Course overview, learning outcomes, pricing, and prerequisites."
+          }
+        },
+        {
+          "name": "Get Course Curriculum",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/{{courseId}}/curriculum",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "{{courseId}}",
+                "curriculum"
+              ]
+            },
+            "description": "Structured curriculum breakdown into modules, topics, and lessons."
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Enrollments",
+      "description": "Student course enrollments and cohort batch assignments.",
+      "item": [
+        {
+          "name": "Get Enrollments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollments?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enrollments"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Active enrollment records."
+          }
+        },
+        {
+          "name": "Get Batches List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/batches?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "batches"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Cohort batches with capacity and teacher assignment."
+          }
+        },
+        {
+          "name": "Get Batch Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/batches/{{batchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "batches",
+                "{{batchId}}"
+              ]
+            },
+            "description": "Batch schedule, roster count, assigned instructor, and course."
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Live Classes",
+      "description": "Live classroom sessions, scheduling, and secure Jitsi room token generation.",
+      "item": [
+        {
+          "name": "Get Live Classes List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/live-classes?limit=10&sort=startDate&order=asc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "live-classes"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "startDate"
+                },
+                {
+                  "key": "order",
+                  "value": "asc"
+                }
+              ]
+            },
+            "description": "Live class sessions filtered by batch, teacher, or date."
+          }
+        },
+        {
+          "name": "Get Live Class Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/live-classes/{{liveClassId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "live-classes",
+                "{{liveClassId}}"
+              ]
+            },
+            "description": "Class title, scheduled start/end, duration, teacher, and status."
+          }
+        },
+        {
+          "name": "Generate Live Classroom Jitsi Token (HIGH PRIORITY)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/live-classes/{{liveClassId}}/token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "live-classes",
+                "{{liveClassId}}",
+                "token"
+              ]
+            },
+            "description": "Generates secure JWT room token for Jitsi Meet integration. Grants moderator permissions to Teachers/Admins, and attendee permissions to enrolled Students."
+          }
+        },
+        {
+          "name": "Get Live Class Announcements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/live-classes/{{liveClassId}}/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "live-classes",
+                "{{liveClassId}}",
+                "announcements"
+              ]
+            },
+            "description": "Announcements posted by faculty for a specific live session."
+          }
+        },
+        {
+          "name": "Get Live Class Resources",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/live-classes/{{liveClassId}}/resources",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "live-classes",
+                "{{liveClassId}}",
+                "resources"
+              ]
+            },
+            "description": "Slide decks, reference PDFs, and downloadable materials attached to the class."
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - Recordings & Revision",
+      "description": "Classroom lecture recordings with HTTP Range partial content video streaming.",
+      "item": [
+        {
+          "name": "Stream Recording Video (HTTP Range Support)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Range",
+                "value": "bytes=0-1048575"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/recordings/{{recordingId}}/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "recordings",
+                "{{recordingId}}",
+                "stream"
+              ]
+            },
+            "description": "Streams video recording with HTTP 206 Partial Content support for mobile video players (ExoPlayer / AVPlayer)."
+          }
+        },
+        {
+          "name": "Get Live Class Recordings Metadata",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/live-classes/{{liveClassId}}/recordings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "live-classes",
+                "{{liveClassId}}",
+                "recordings"
+              ]
+            },
+            "description": "List of recordings associated with a completed live class session."
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Attendance",
+      "description": "Student and cohort attendance logs and session management.",
+      "item": [
+        {
+          "name": "Get Attendance Records",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance?student={{studentId}}&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance"
+              ],
+              "query": [
+                {
+                  "key": "student",
+                  "value": "{{studentId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Paginated attendance history."
+          }
+        },
+        {
+          "name": "Get Attendance Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/summary?student={{studentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "student",
+                  "value": "{{studentId}}"
+                }
+              ]
+            },
+            "description": "Calculated summary with total sessions, present, absent, late counts, and percentage."
+          }
+        },
+        {
+          "name": "Mark Attendance (Teacher/Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{teacherToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"student\": \"{{studentId}}\",\n  \"batch\": \"{{batchId}}\",\n  \"liveClass\": \"{{liveClassId}}\",\n  \"status\": \"present\",\n  \"remarks\": \"Active in discussion\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance"
+              ]
+            },
+            "description": "Marks individual student attendance record."
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 - Assignments",
+      "description": "Homework assignments, file submissions, evaluations, and grading.",
+      "item": [
+        {
+          "name": "Get Assignments List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments?limit=10&status=published",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assignments"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "published"
+                }
+              ]
+            },
+            "description": "List of published assignments."
+          }
+        },
+        {
+          "name": "Get Assignment Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments/{{assignmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assignments",
+                "{{assignmentId}}"
+              ]
+            },
+            "description": "Assignment instructions, due date, total marks, and attachments."
+          }
+        },
+        {
+          "name": "Submit Assignment (Student)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"submissionText\": \"Completed exercises on conditional logic and loops.\",\n  \"attachments\": [\n    \"https://storage.truelern.com/uploads/homework_submission_1.pdf\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments/{{assignmentId}}/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assignments",
+                "{{assignmentId}}",
+                "submit"
+              ]
+            },
+            "description": "Submits student assignment text and file attachment URLs."
+          }
+        },
+        {
+          "name": "Evaluate Submission (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{teacherToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"submissionId\": \"{{submissionId}}\",\n  \"marksAwarded\": 95,\n  \"feedback\": \"Excellent solution and clean structure.\",\n  \"status\": \"graded\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments/{{assignmentId}}/evaluate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assignments",
+                "{{assignmentId}}",
+                "evaluate"
+              ]
+            },
+            "description": "Grades student submission with marks and feedback."
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 - Assessments",
+      "description": "Quizzes, tests, attempts, and result grading.",
+      "item": [
+        {
+          "name": "Get Assessments List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assessments?limit=10&status=published",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assessments"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "published"
+                }
+              ]
+            },
+            "description": "List of active quizzes and exams."
+          }
+        },
+        {
+          "name": "Get Assessment Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assessments/{{assessmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assessments",
+                "{{assessmentId}}"
+              ]
+            },
+            "description": "Assessment title, duration minutes, total marks, and passing threshold."
+          }
+        },
+        {
+          "name": "Start Assessment Attempt (Student)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assessments/{{assessmentId}}/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assessments",
+                "{{assessmentId}}",
+                "start"
+              ]
+            },
+            "description": "Initiates a timed assessment attempt session."
+          }
+        },
+        {
+          "name": "Submit Assessment Answers (Student)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attemptId\": \"{{attemptId}}\",\n  \"answers\": [\n    {\n      \"questionId\": \"q1\",\n      \"selectedOption\": \"A\"\n    },\n    {\n      \"questionId\": \"q2\",\n      \"writtenAnswer\": \"Inheritance allows code reuse across classes.\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assessments/{{assessmentId}}/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assessments",
+                "{{assessmentId}}",
+                "submit"
+              ]
+            },
+            "description": "Submits completed answers for grading."
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 - Finance",
+      "description": "Invoices, payment receipts, fee plans, and balance calculations (Stripe remains deferred).",
+      "item": [
+        {
+          "name": "Get Invoices List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/invoices?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "invoices"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "List of tuition invoices and billing statements."
+          }
+        },
+        {
+          "name": "Get Invoice Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/invoices/{{invoiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "invoices",
+                "{{invoiceId}}"
+              ]
+            },
+            "description": "Invoice breakdown, total amount, amount paid, and balance due."
+          }
+        },
+        {
+          "name": "Get Payments History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/payments?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "payments"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Transaction history and payment confirmation references."
+          }
+        },
+        {
+          "name": "Get Receipts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/receipts?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "receipts"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Downloadable payment receipt records."
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 - Notifications",
+      "description": "In-app notifications inbox, read/unread states, and user alert preferences.",
+      "item": [
+        {
+          "name": "Get Notifications Inbox",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/inbox?limit=20&page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "inbox"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "User notification feed with unread indicators."
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notificationId\": \"{{notificationId}}\",\n  \"action\": \"read\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/inbox",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "inbox"
+              ]
+            },
+            "description": "Updates notification status to read."
+          }
+        },
+        {
+          "name": "Archive Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notificationId\": \"{{notificationId}}\",\n  \"action\": \"archive\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/inbox",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "inbox"
+              ]
+            },
+            "description": "Archives notification from active inbox."
+          }
+        },
+        {
+          "name": "Get Notification Preferences",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "preferences"
+              ]
+            },
+            "description": "User channel preferences for email, SMS, and in-app alerts."
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 - Calendar",
+      "description": "Calendar feed and ICS export for synchronizing schedules to iOS/Android device calendars.",
+      "item": [
+        {
+          "name": "Export Calendar ICS Feed",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/calendar/ics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "calendar",
+                "ics"
+              ]
+            },
+            "description": "Generates iCalendar standard (.ics) stream for live classes and assignment due dates."
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 - Certificates",
+      "description": "Course completion certificates, verification, and credentials.",
+      "item": [
+        {
+          "name": "Get Certificates List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/certificates?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "certificates"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Earned certificates of completion."
+          }
+        },
+        {
+          "name": "Verify Certificate",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/certificates/verify?code={{certificateCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "certificates",
+                "verify"
+              ],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "{{certificateCode}}"
+                }
+              ]
+            },
+            "description": "Public verification of issued certificate credentials."
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 - Admin (Mobile Optional)",
+      "description": "ADMIN MOBILE OPTIONAL — Lightweight monitoring and supervision endpoints.",
+      "item": [
+        {
+          "name": "CRM Leads List (Admin Mobile View)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/crm/leads?limit=10&page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "crm",
+                "leads"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Real-time admissions leads monitoring."
+          }
+        },
+        {
+          "name": "Academic Health & Analytics Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/academic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "analytics",
+                "academic"
+              ]
+            },
+            "description": "High-level summary of active cohort health, attendance rates, and retention."
+          }
+        }
+      ]
+    }
+  ]
+}

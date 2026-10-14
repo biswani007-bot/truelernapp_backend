@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../features/assignments/presentation/screens/assignment_submission_screen.dart';
 import '../../features/assignments/presentation/screens/assignment_submitted_screen.dart';
 import '../../features/assignments/presentation/screens/assignments_screen.dart';
@@ -39,11 +40,14 @@ import '../../features/dashboard/presentation/screens/parent_payment_successful_
 import '../../features/dashboard/presentation/screens/parent_messages_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_notifications_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_account_settings_screen.dart';
-import '../../features/dashboard/presentation/screens/parent_achievements_screen.dart';
+import '../../features/assessments/domain/entities/assessment_attempt_details_entity.dart';
+import '../../features/assessments/presentation/screens/parent_assessments_screen.dart';
+import '../../features/assessments/presentation/screens/assessment_runner_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_learning_progress_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_shell_screen.dart';
-import '../../features/dashboard/presentation/screens/teacher_feedback_screen.dart';
 import '../../features/dashboard/presentation/screens/demo_booking_dashboard_screen.dart';
+import '../../features/certificates/presentation/screens/certificates_screen.dart';
+import '../../features/counselor/presentation/screens/counselor_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import 'route_names.dart';
@@ -127,7 +131,11 @@ class RouterNotifier extends ChangeNotifier {
 
     // 2. Unauthenticated access prevention:
     // If not authenticated and attempting to access any protected area, redirect to /login.
-    if (!isAuthenticated && !isLogin && !isSplash && !isOnboarding && !isDemoDashboard) {
+    if (!isAuthenticated &&
+        !isLogin &&
+        !isSplash &&
+        !isOnboarding &&
+        !isDemoDashboard) {
       return AppRoutePaths.login;
     }
 
@@ -148,9 +156,13 @@ final routerNotifierProvider = Provider<RouterNotifier>((ref) {
 
 /// Global root navigator key for full-screen routes outside the persistent shell
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'rootNav');
-final dashboardNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'dashboardNav');
+final dashboardNavigatorKey = GlobalKey<NavigatorState>(
+  debugLabel: 'dashboardNav',
+);
 final classesNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'classesNav');
-final assignmentsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'assignmentsNav');
+final assignmentsNavigatorKey = GlobalKey<NavigatorState>(
+  debugLabel: 'assignmentsNav',
+);
 final profileNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'profileNav');
 
 /// Global provider for application [GoRouter].
@@ -232,7 +244,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Branch 1: Classes Tab (SCR-13 Class Schedule & SCR-14 Class Details)
+          // Branch 1: Classes Tab (SCR-13 Class Schedule)
           StatefulShellBranch(
             navigatorKey: classesNavigatorKey,
             routes: [
@@ -240,128 +252,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: AppRoutePaths.parentClasses,
                 name: AppRouteNames.parentClasses,
                 builder: (context, state) => const ParentClassesScreen(),
-                routes: [
-                  // Literal 'program' route MUST come before parameterized ':classId'
-                  // to prevent GoRouter from matching 'program' as a classId.
-                  GoRoute(
-                    path: 'program',
-                    name: AppRouteNames.currentProgram,
-                    builder: (context, state) => const CurrentProgramScreen(),
-                    routes: [
-                      GoRoute(
-                        path: 'topic',
-                        name: AppRouteNames.topicDetail,
-                        builder: (context, state) => const TopicDetailScreen(),
-                      ),
-                    ],
-                  ),
-                  GoRoute(
-                    path: ':classId',
-                    name: AppRouteNames.classDetails,
-                    builder: (context, state) {
-                      final classId = state.pathParameters['classId'] ?? '';
-                      final session = state.extra is ClassEntity ? state.extra as ClassEntity : null;
-                      return ClassDetailsScreen(
-                        classId: classId,
-                        session: session,
-                      );
-                    },
-                    routes: [
-                      GoRoute(
-                        path: 'preview',
-                        name: AppRouteNames.classPreview,
-                        builder: (context, state) {
-                          final classId = state.pathParameters['classId'] ?? '';
-                          final session = state.extra is ClassEntity ? state.extra as ClassEntity : null;
-                          return ClassPreviewScreen(
-                            classId: classId,
-                            session: session,
-                          );
-                        },
-                      ),
-                      GoRoute(
-                        path: 'joining',
-                        name: AppRouteNames.joiningClass,
-                        parentNavigatorKey: rootNavigatorKey,
-                        builder: (context, state) {
-                          final classId = state.pathParameters['classId'] ?? '';
-                          ClassEntity? session;
-                          String? childStudentId;
-
-                          if (state.extra is ClassEntity) {
-                            session = state.extra as ClassEntity;
-                          } else if (state.extra is Map<String, dynamic>) {
-                            final map = state.extra as Map<String, dynamic>;
-                            session = map['session'] as ClassEntity?;
-                            childStudentId = map['childStudentId'] as String?;
-                          }
-
-                          return JoiningClassScreen(
-                            classId: classId,
-                            session: session,
-                            childStudentId: childStudentId,
-                          );
-                        },
-                      ),
-                      GoRoute(
-                        path: 'live',
-                        name: AppRouteNames.liveClassroom,
-                        parentNavigatorKey: rootNavigatorKey,
-                        builder: (context, state) {
-                          final classId = state.pathParameters['classId'] ?? '';
-                          ClassEntity? session;
-                          ClassJoinEntity? joinData;
-
-                          String? childStudentId;
-                          if (state.extra is ClassEntity) {
-                            session = state.extra as ClassEntity;
-                          } else if (state.extra is ClassJoinEntity) {
-                            joinData = state.extra as ClassJoinEntity;
-                          } else if (state.extra is Map<String, dynamic>) {
-                            final map = state.extra as Map<String, dynamic>;
-                            session = map['session'] as ClassEntity?;
-                            joinData = map['joinData'] as ClassJoinEntity?;
-                            childStudentId = map['childStudentId'] as String?;
-                          }
-
-                          return LiveClassroomScreen(
-                            classId: classId,
-                            session: session,
-                            joinData: joinData,
-                            childStudentId: childStudentId,
-                          );
-                        },
-                      ),
-                      GoRoute(
-                        path: 'summary',
-                        name: AppRouteNames.classSummary,
-                        parentNavigatorKey: rootNavigatorKey,
-                        builder: (context, state) {
-                          final classId = state.pathParameters['classId'] ?? '';
-                          ClassEntity? session;
-                          String? childStudentId;
-                          if (state.extra is ClassEntity) {
-                            session = state.extra as ClassEntity;
-                          } else if (state.extra is Map<String, dynamic>) {
-                            final map = state.extra as Map<String, dynamic>;
-                            session = map['session'] as ClassEntity?;
-                            childStudentId = map['childStudentId'] as String?;
-                          }
-                          return ClassSummaryScreen(
-                            classId: classId,
-                            session: session,
-                            childStudentId: childStudentId,
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
               ),
             ],
           ),
 
-          // Branch 2: Assignments Tab [IMPLEMENTED]
+          // Branch 2: Assignments Tab
           StatefulShellBranch(
             navigatorKey: assignmentsNavigatorKey,
             routes: [
@@ -369,37 +264,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: AppRoutePaths.parentAssignments,
                 name: AppRouteNames.parentAssignments,
                 builder: (context, state) => const AssignmentsScreen(),
-                routes: [
-                  GoRoute(
-                    path: ':assignmentId/submission',
-                    name: AppRouteNames.assignmentSubmission,
-                    builder: (context, state) {
-                      final assignmentId = state.pathParameters['assignmentId'] ?? '';
-                      final assignment = state.extra is AssignmentEntity
-                          ? state.extra as AssignmentEntity
-                          : null;
-                      return AssignmentSubmissionScreen(
-                        assignmentId: assignmentId,
-                        assignment: assignment,
-                        showAllStatesOverview: false,
-                      );
-                    },
-                  ),
-                  GoRoute(
-                    path: ':assignmentId/submitted',
-                    name: AppRouteNames.assignmentSubmitted,
-                    builder: (context, state) {
-                      final assignmentId = state.pathParameters['assignmentId'] ?? '';
-                      final assignment = state.extra is AssignmentEntity
-                          ? state.extra as AssignmentEntity
-                          : null;
-                      return AssignmentSubmittedScreen(
-                        assignmentId: assignmentId,
-                        assignment: assignment,
-                      );
-                    },
-                  ),
-                ],
               ),
             ],
           ),
@@ -472,7 +336,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutePaths.parentCommunicationPreferences,
         name: AppRouteNames.parentCommunicationPreferences,
-        builder: (context, state) => const ParentCommunicationPreferencesScreen(),
+        builder: (context, state) =>
+            const ParentCommunicationPreferencesScreen(),
       ),
       GoRoute(
         path: AppRoutePaths.parentDataPrivacy,
@@ -505,19 +370,228 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ParentAccountSettingsScreen(),
       ),
       GoRoute(
+        path: AppRoutePaths.assessments,
+        name: AppRouteNames.assessments,
+        builder: (context, state) => const ParentAssessmentsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.assessmentRunner,
+        name: AppRouteNames.assessmentRunner,
+        builder: (context, state) {
+          if (state.extra is AssessmentAttemptDetailsEntity) {
+            return AssessmentRunnerScreen(
+              attemptDetails: state.extra as AssessmentAttemptDetailsEntity,
+            );
+          }
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return AssessmentRunnerScreen(
+            attemptDetails:
+                extra['attemptDetails'] as AssessmentAttemptDetailsEntity?,
+            assessmentId: extra['assessmentId'] as String? ?? '',
+            assessmentTitle: extra['assessmentTitle'] as String?,
+            studentId: extra['studentId'] as String?,
+            studentName: extra['studentName'] as String?,
+            redirectUrl: extra['redirectUrl'] as String?,
+          );
+        },
+      ),
+      GoRoute(
         path: AppRoutePaths.achievements,
         name: AppRouteNames.achievements,
-        builder: (context, state) => const ParentAchievementsScreen(),
+        builder: (context, state) => const ParentAssessmentsScreen(),
       ),
       GoRoute(
         path: AppRoutePaths.learningProgress,
         name: AppRouteNames.learningProgress,
         builder: (context, state) => const ParentLearningProgressScreen(),
+        routes: [
+          GoRoute(
+            path: 'classes',
+            name: AppRouteNames.progressClasses,
+            builder: (context, state) => const ParentClassesScreen(),
+          ),
+        ],
       ),
       GoRoute(
-        path: AppRoutePaths.teacherFeedback,
-        name: AppRouteNames.teacherFeedback,
-        builder: (context, state) => const TeacherFeedbackScreen(),
+        path: AppRoutePaths.parentCertificates,
+        name: AppRouteNames.parentCertificates,
+        builder: (context, state) => const ParentCertificatesScreen(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.parentCounselor,
+        name: AppRouteNames.parentCounselor,
+        builder: (context, state) => const ParentCounselorScreen(),
+      ),
+      // Full-screen Current Program Route (literal 'program' registered BEFORE ':classId' to prevent path parameter collision)
+      GoRoute(
+        path: AppRoutePaths.currentProgram,
+        name: AppRouteNames.currentProgram,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const CurrentProgramScreen(),
+      ),
+      // Full-screen Topic Detail Route
+      GoRoute(
+        path: AppRoutePaths.topicDetail,
+        name: AppRouteNames.topicDetail,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final extra = state.extra;
+          final topicTitle = extra is String
+              ? extra
+              : (extra is Map ? extra['topicTitle']?.toString() : null);
+          final topicId = extra is Map ? extra['topicId']?.toString() : null;
+          return TopicDetailScreen(topicTitle: topicTitle, topicId: topicId);
+        },
+      ),
+      // Full-screen Class Details Route with sub-routes
+      GoRoute(
+        path: AppRoutePaths.classDetails,
+        name: AppRouteNames.classDetails,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final classId = state.pathParameters['classId'] ?? '';
+          final session = state.extra is ClassEntity
+              ? state.extra as ClassEntity
+              : null;
+          return ClassDetailsScreen(classId: classId, session: session);
+        },
+        routes: [
+          GoRoute(
+            path: 'preview',
+            name: AppRouteNames.classPreview,
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final classId = state.pathParameters['classId'] ?? '';
+              final session = state.extra is ClassEntity
+                  ? state.extra as ClassEntity
+                  : null;
+              return ClassPreviewScreen(classId: classId, session: session);
+            },
+          ),
+          GoRoute(
+            path: 'joining',
+            name: AppRouteNames.joiningClass,
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final classId = state.pathParameters['classId'] ?? '';
+              ClassEntity? session;
+              String? childStudentId;
+
+              if (state.extra is ClassEntity) {
+                session = state.extra as ClassEntity;
+              } else if (state.extra is Map<String, dynamic>) {
+                final map = state.extra as Map<String, dynamic>;
+                session = map['session'] as ClassEntity?;
+                childStudentId = map['childStudentId'] as String?;
+              }
+
+              return JoiningClassScreen(
+                classId: classId,
+                session: session,
+                childStudentId: childStudentId,
+              );
+            },
+          ),
+          GoRoute(
+            path: 'live',
+            name: AppRouteNames.liveClassroom,
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final classId = state.pathParameters['classId'] ?? '';
+              ClassEntity? session;
+              ClassJoinEntity? joinData;
+
+              String? childStudentId;
+              if (state.extra is ClassEntity) {
+                session = state.extra as ClassEntity;
+              } else if (state.extra is Map<String, dynamic>) {
+                final map = state.extra as Map<String, dynamic>;
+                session = map['session'] as ClassEntity?;
+                joinData = map['joinData'] as ClassJoinEntity?;
+                childStudentId = map['childStudentId'] as String?;
+              }
+
+              return LiveClassroomScreen(
+                classId: classId,
+                session: session,
+                joinData: joinData,
+                childStudentId: childStudentId,
+              );
+            },
+          ),
+          GoRoute(
+            path: 'summary',
+            name: AppRouteNames.classSummary,
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final classId = state.pathParameters['classId'] ?? '';
+              ClassEntity? session;
+              String? childStudentId;
+              if (state.extra is ClassEntity) {
+                session = state.extra as ClassEntity;
+              } else if (state.extra is Map<String, dynamic>) {
+                final map = state.extra as Map<String, dynamic>;
+                session = map['session'] as ClassEntity?;
+                childStudentId = map['childStudentId'] as String?;
+              }
+              return ClassSummaryScreen(
+                classId: classId,
+                session: session,
+                childStudentId: childStudentId,
+              );
+            },
+          ),
+        ],
+      ),
+      // Full-screen Assignment Details Route with sub-routes
+      GoRoute(
+        path: AppRoutePaths.assignmentDetails,
+        name: AppRouteNames.assignmentDetails,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final assignmentId = state.pathParameters['assignmentId'] ?? '';
+          final assignment = state.extra is AssignmentEntity
+              ? state.extra as AssignmentEntity
+              : null;
+          return AssignmentSubmissionScreen(
+            assignmentId: assignmentId,
+            assignment: assignment,
+            showAllStatesOverview: false,
+          );
+        },
+        routes: [
+          GoRoute(
+            path: 'submission',
+            name: AppRouteNames.assignmentSubmission,
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final assignmentId = state.pathParameters['assignmentId'] ?? '';
+              final assignment = state.extra is AssignmentEntity
+                  ? state.extra as AssignmentEntity
+                  : null;
+              return AssignmentSubmissionScreen(
+                assignmentId: assignmentId,
+                assignment: assignment,
+                showAllStatesOverview: false,
+              );
+            },
+          ),
+          GoRoute(
+            path: 'submitted',
+            name: AppRouteNames.assignmentSubmitted,
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final assignmentId = state.pathParameters['assignmentId'] ?? '';
+              final assignment = state.extra is AssignmentEntity
+                  ? state.extra as AssignmentEntity
+                  : null;
+              return AssignmentSubmittedScreen(
+                assignmentId: assignmentId,
+                assignment: assignment,
+              );
+            },
+          ),
+        ],
       ),
     ],
   );

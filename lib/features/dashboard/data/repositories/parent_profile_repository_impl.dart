@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/parent_profile_entity.dart';
 import '../../domain/repositories/parent_profile_repository.dart';
@@ -11,7 +12,9 @@ class ParentProfileRepositoryImpl implements ParentProfileRepository {
 
   @override
   Future<ParentProfileEntity> getParentProfile() async {
-    final response = await apiClient.get<Map<String, dynamic>>('/parent/profile');
+    final response = await apiClient.get<Map<String, dynamic>>(
+      '/parent/profile',
+    );
     final data = response.data;
     if (data == null) {
       throw Exception('Empty response from /parent/profile');
@@ -61,7 +64,9 @@ class ParentProfileRepositoryImpl implements ParentProfileRepository {
   }
 }
 
-final parentProfileRepositoryProvider = Provider<ParentProfileRepository>((ref) {
+final parentProfileRepositoryProvider = Provider<ParentProfileRepository>((
+  ref,
+) {
   final apiClient = ref.watch(apiClientProvider);
   return ParentProfileRepositoryImpl(apiClient: apiClient);
 });

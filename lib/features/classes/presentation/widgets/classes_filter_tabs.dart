@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_typography.dart';
 
 /// Horizontal filter tabs matching Figma Node `76:1880`.
@@ -37,7 +38,8 @@ class ClassesFilterTabs extends StatelessWidget {
         separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final filter = filters[index];
-          final isSelected = filter.toLowerCase() == selectedFilter.toLowerCase();
+          final isSelected =
+              filter.toLowerCase() == selectedFilter.toLowerCase();
 
           return Material(
             color: Colors.transparent,
@@ -46,7 +48,10 @@ class ClassesFilterTabs extends StatelessWidget {
               onTap: () => onFilterChanged(filter),
               borderRadius: BorderRadius.circular(9999),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 9,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected ? const Color(0xFF0037B1) : Colors.white,
                   borderRadius: BorderRadius.circular(9999),
@@ -68,7 +73,9 @@ class ClassesFilterTabs extends StatelessWidget {
                   child: Text(
                     filter,
                     style: AppTypography.labelMedium.copyWith(
-                      color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF0F172A),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       letterSpacing: 0.5,

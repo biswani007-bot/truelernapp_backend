@@ -39,12 +39,22 @@ class ParentProfileEntity {
   final String designation;
 
   String get fullName {
-    final parts = [firstName, middleName, lastName].where((s) => s.trim().isNotEmpty);
+    final parts = [
+      firstName,
+      middleName,
+      lastName,
+    ].where((s) => s.trim().isNotEmpty);
     return parts.isEmpty ? 'Parent' : parts.join(' ');
   }
 
   String get fullAddress {
-    final parts = [address, city, state, postalCode, country].where((s) => s.trim().isNotEmpty);
+    final parts = [
+      address,
+      city,
+      state,
+      postalCode,
+      country,
+    ].where((s) => s.trim().isNotEmpty);
     return parts.isEmpty ? 'Not provided' : parts.join(', ');
   }
 

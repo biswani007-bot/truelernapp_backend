@@ -4,47 +4,271 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/router/route_names.dart';
+import '../../../assignments/domain/entities/assignment_entity.dart';
+import '../../../assignments/presentation/controllers/assignments_controller.dart';
+import '../../../assignments/presentation/controllers/assignments_state.dart';
+import '../../../dashboard/presentation/controllers/children_controller.dart';
+import '../../../dashboard/presentation/controllers/children_state.dart';
+import '../../../dashboard/presentation/controllers/dashboard_controller.dart';
+import '../../../dashboard/presentation/controllers/dashboard_state.dart';
+import '../../domain/entities/class_entity.dart';
+import '../controllers/classes_controller.dart';
+import '../controllers/classes_state.dart';
+import '../screens/parent_classes_screen.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
 
-import '../../../classes/presentation/controllers/classes_controller.dart';
-import '../../../classes/presentation/controllers/classes_state.dart';
-
-/// Current Program (New) Screen (Figma Frame `76:2787`, 390 x 1506.5).
+/// Current Program Screen (Figma Frame `76:2787`).
 ///
-/// Fully matches Figma parent canvas 69:2 specifications:
-/// - TopAppBar (`76:2899`): Back button, TrueLern centered logo, Notification bell.
-/// - Section Hero Header (`76:2790`): 3D illustration `rocket_illustration.png`, "ACTIVE TRACK" cyan pill,
-///   "Communication & Public Speaking" title, descriptive subtitle.
-/// - Section Progress Card (`76:2802`): "Track Progress", "12 of 24 classes completed", 50% cyan indicator,
-///   horizontal module selector (`Basics`, `Storytelling` [Active], `Debate`, `Final Pitch`).
-/// - Section Bento Grid (`76:2839`):
-///   - Next Live Class Card (`76:2840`): "Speaking With Confidence", "Tomorrow", time badge, "Join Class" CTA.
-///   - Current Assignments Card (`76:2857`): "Recent Assignments", "2 Pending", item preview, "View All Tasks" CTA.
-/// - Section Skills Acquired (`76:2880`): "Skills in Focus", 3 cards: `Confidence` (Teal), `Expression` (Blue), `Dialogue` (Purple).
-class CurrentProgramScreen extends ConsumerWidget {
+/// Fully wired to backend via existing providers:
+/// - [classesControllerProvider]    → live-classes API (upcoming class, schedule)
+/// - [dashboardControllerProvider]  → dashboard API (track name, progress, enrolled batches)
+/// - [assignmentsControllerProvider]→ assignments API (pending count, recent task)
+/// - [childrenControllerProvider]   → active child context
+///
+/// No static/mock data is used. All displayed data comes from the backend.
+class CurrentProgramScreen extends ConsumerStatefulWidget {
   const CurrentProgramScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Dynamic integration with classes provider
-    final classesState = ref.watch(classesControllerProvider);
-    // Note: assignmentsState wired in for future dynamic assignment data
+  ConsumerState<CurrentProgramScreen> createState() =>
+      _CurrentProgramScreenState();
+}
 
-    // Figma Node 76:2848 & 76:2863 exact baseline values
-    String nextClassTitle = 'Speaking With Confidence';
-    String nextClassTime = '7:00 PM - 8:00 PM';
-    String nextClassBadge = 'Tomorrow';
+class _CurrentProgramScreenState extends ConsumerState<CurrentProgramScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+  }
 
-    String pendingAssignmentsCount = '2 Pending';
-    String recentTaskTitle = 'Record a 1-min intro';
-    String recentTaskDue = 'Due Today';
+  /// Triggers a fresh fetch of all required data for this screen.
+  Future<void> _loadData({bool isRefresh = false}) async {
+    final childrenState = ref.read(childrenControllerProvider);
+    if (childrenState is! ChildrenLoaded) {
+      await ref
+          .read(childrenControllerProvider.notifier)
+          .loadChildren(isRefresh: isRefresh);
+      return;
+    }
+    await _fetchForChild(childrenState.activeChildId, isRefresh: isRefresh);
+  }
 
-    if (classesState is ClassesLoaded && classesState.classes.isNotEmpty) {
-      final upcoming = classesState.classes.first;
-      nextClassTitle = upcoming.title;
-      if (upcoming.scheduledStartTime != null) {
-        nextClassTime =
-            '${upcoming.scheduledStartTime!.hour.toString().padLeft(2, '0')}:${upcoming.scheduledStartTime!.minute.toString().padLeft(2, '0')}';
+  Future<void> _fetchForChild(String? childId, {bool isRefresh = false}) async {
+    if (childId == null || childId.isEmpty) return;
+
+    await Future.wait([
+      ref
+          .read(classesControllerProvider.notifier)
+          .loadClasses(childStudentId: childId, isRefresh: isRefresh),
+      ref
+          .read(dashboardControllerProvider.notifier)
+          .loadDashboard(childStudentId: childId, isRefresh: isRefresh),
+      ref
+          .read(assignmentsControllerProvider.notifier)
+          .loadAssignments(childStudentId: childId, isRefresh: isRefresh),
+    ]);
+  }
+
+  /// Formats a [DateTime] badge relative to today: "Today", "Tomorrow", or the
+  /// abbreviated weekday (e.g. "Mon, 28 Sep").
+  String _formatClassBadge(DateTime? scheduledStart, [DateTime? nowOverride]) {
+    if (scheduledStart == null) return '';
+    final local = scheduledStart.toLocal();
+    final now = nowOverride ?? DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final classDay = DateTime(local.year, local.month, local.day);
+    final diff = classDay.difference(today).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Tomorrow';
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${local.day} ${months[local.month - 1]}';
+  }
+
+  /// Formats a time range string from [start] to [end] local times.
+  String _formatTimeRange(DateTime? start, DateTime? end) {
+    if (start == null) return '';
+    final localStart = start.toLocal();
+    final localEnd = end?.toLocal();
+
+    String fmt(DateTime dt) {
+      final h = dt.hour;
+      final m = dt.minute.toString().padLeft(2, '0');
+      final period = h >= 12 ? 'PM' : 'AM';
+      final hour12 = h % 12 == 0 ? 12 : h % 12;
+      return '$hour12:$m $period';
+    }
+
+    final startStr = fmt(localStart);
+    if (localEnd == null) return startStr;
+    return '$startStr – ${fmt(localEnd)}';
+  }
+
+  // ──────────────────────────────── Build ─────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    // Watch children to detect active child
+    final childrenState = ref.watch(childrenControllerProvider);
+
+    // When children finish loading or switch, trigger fetch for the active child
+    ref.listen<ChildrenState>(childrenControllerProvider, (prev, next) {
+      if (next is ChildrenLoaded) {
+        final prevChildId = prev is ChildrenLoaded ? prev.activeChildId : null;
+        if (next.activeChildId != prevChildId) {
+          _fetchForChild(next.activeChildId);
+        }
       }
+    });
+
+    final classesState = ref.watch(classesControllerProvider);
+    final dashboardState = ref.watch(dashboardControllerProvider);
+    final assignmentsState = ref.watch(assignmentsControllerProvider);
+
+    // Derive active child ID (null-safe)
+    final String? activeChildId = childrenState is ChildrenLoaded
+        ? childrenState.activeChildId
+        : null;
+
+    final isDashboardForActiveChild =
+        dashboardState is DashboardLoaded &&
+        (activeChildId == null ||
+            dashboardState.childStudentId == activeChildId);
+
+    final isClassesForActiveChild =
+        classesState is ClassesLoaded &&
+        (classesState.childStudentId == null ||
+            classesState.childStudentId == activeChildId);
+
+    final isAssignmentsForActiveChild =
+        assignmentsState is AssignmentsLoaded &&
+        (assignmentsState.childStudentId == null ||
+            assignmentsState.childStudentId == activeChildId);
+
+    // Determine overall loading states per section to prevent stale child data leakage
+    final isChildrenLoading =
+        childrenState is ChildrenInitial || childrenState is ChildrenLoading;
+    final isDashboardLoading =
+        dashboardState is DashboardInitial ||
+        dashboardState is DashboardLoading ||
+        (dashboardState is DashboardLoaded && !isDashboardForActiveChild);
+    final isClassesLoading =
+        classesState is ClassesInitial ||
+        classesState is ClassesLoading ||
+        (classesState is ClassesLoaded && !isClassesForActiveChild);
+    final isAssignmentsLoading =
+        assignmentsState is AssignmentsInitial ||
+        assignmentsState is AssignmentsLoading ||
+        (assignmentsState is AssignmentsLoaded && !isAssignmentsForActiveChild);
+
+    // Dashboard data strictly for active child
+    final dashLoaded = isDashboardForActiveChild
+        ? dashboardState.dashboard
+        : null;
+    final enrolledBatch = dashLoaded?.enrolledBatches.firstOrNull;
+    final trackName =
+        enrolledBatch?.courseName ??
+        enrolledBatch?.batchName ??
+        dashLoaded?.activeTopic;
+    final progressPercentage =
+        enrolledBatch?.progressPercentage ?? dashLoaded?.overallProgress;
+
+    // Next class from live-classes API strictly for active child
+    final now = ref.watch(currentDeviceDateProvider);
+    ClassEntity? nextClass;
+    if (isClassesForActiveChild && classesState.classes.isNotEmpty) {
+      // Exclude terminal / past / cancelled sessions
+      final validClasses = classesState.classes.where((c) {
+        if (c.isCancelled) return false;
+        if (c.isMissedAt(now)) return false;
+        if (c.isCompletedAt(now) && !c.isUpcomingAt(now)) return false;
+        return true;
+      }).toList();
+
+      if (validClasses.isNotEmpty) {
+        // Priority 1: Currently LIVE session
+        final liveCandidates = validClasses.where((c) => c.isLive).toList();
+        if (liveCandidates.isNotEmpty) {
+          liveCandidates.sort(
+            (a, b) => (a.scheduledStartTime ?? DateTime(0)).compareTo(
+              b.scheduledStartTime ?? DateTime(0),
+            ),
+          );
+          nextClass = liveCandidates.first;
+        } else {
+          // Priority 2: Upcoming or ongoing session whose scheduled end time is after now
+          final upcomingCandidates = validClasses.where((c) {
+            if (c.isUpcomingAt(now)) return true;
+            final end =
+                c.scheduledEndTime?.toLocal() ??
+                (c.scheduledStartTime?.toLocal().add(
+                  Duration(minutes: c.duration ?? 60),
+                ));
+            return end != null && end.isAfter(now);
+          }).toList();
+
+          if (upcomingCandidates.isNotEmpty) {
+            upcomingCandidates.sort(
+              (a, b) => (a.scheduledStartTime ?? DateTime(0)).compareTo(
+                b.scheduledStartTime ?? DateTime(0),
+              ),
+            );
+            nextClass = upcomingCandidates.first;
+          }
+        }
+      }
+    }
+
+    // Recent pending assignment strictly for active child
+    AssignmentEntity? recentAssignment;
+    int computedPending = 0;
+
+    if (isAssignmentsForActiveChild &&
+        assignmentsState.allAssignments.isNotEmpty) {
+      // Deduplicate assignments by ID
+      final seenIds = <String>{};
+      final uniqueAssignments = <AssignmentEntity>[];
+      for (final a in assignmentsState.allAssignments) {
+        if (seenIds.add(a.id)) {
+          uniqueAssignments.add(a);
+        }
+      }
+
+      final childFiltered = uniqueAssignments
+          .where(
+            (a) =>
+                activeChildId == null ||
+                a.childStudentId == null ||
+                a.childStudentId == activeChildId,
+          )
+          .toList();
+
+      // Strictly count pending assignments (overdue, completed, and submitted are excluded)
+      final pending = childFiltered
+          .where((a) => a.status == AssignmentStatus.pending)
+          .toList();
+
+      computedPending = pending.length;
+      if (pending.isNotEmpty) {
+        recentAssignment = pending.first;
+      } else if (childFiltered.isNotEmpty) {
+        recentAssignment = childFiltered.first;
+      }
+    } else if (isDashboardForActiveChild &&
+        dashLoaded?.pendingAssignmentsCount != null) {
+      computedPending = dashLoaded!.pendingAssignmentsCount!;
     }
 
     return Scaffold(
@@ -54,55 +278,106 @@ class CurrentProgramScreen extends ConsumerWidget {
         bottom: true,
         child: Stack(
           children: [
-            // Scrollable Content Canvas (Node 76:2788)
-            SingleChildScrollView(
-              padding: const EdgeInsets.only(
-                top: 88, // Space for Header TopAppBar
-                bottom: 32, // Bottom margin
-              ),
-              physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // 1. Section - Hero Header (Node 76:2790)
-                    _buildHeroHeader(),
+            // Scrollable content
+            AppRefreshIndicator(
+              onRefresh: () => _loadData(isRefresh: true),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(top: 88, bottom: 32),
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // 1. Hero Header
+                      if (isChildrenLoading || isDashboardLoading)
+                        _buildHeroSkeleton()
+                      else if (dashboardState is DashboardError &&
+                          !isDashboardForActiveChild)
+                        _buildErrorBanner(
+                          message: dashboardState.message,
+                          onRetry: () => _fetchForChild(activeChildId),
+                        )
+                      else if (dashboardState is DashboardNoChild)
+                        _buildNoChildBanner()
+                      else
+                        _buildHeroHeader(trackName: trackName),
 
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-                    // 2. Section - Progress Card (Node 76:2802)
-                    _buildProgressCard(),
+                      // 2. Progress Card
+                      if (isChildrenLoading || isDashboardLoading)
+                        _buildProgressSkeleton()
+                      else if (dashLoaded != null)
+                        _buildProgressCard(
+                          trackName: trackName,
+                          batch: enrolledBatch,
+                          progressPercentage: progressPercentage,
+                        )
+                      else
+                        const SizedBox.shrink(),
 
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-                    // 3. Section - Bento Grid: Next Class & Current Topic (Node 76:2839)
-                    _buildNextLiveClassCard(
-                      context,
-                      title: nextClassTitle,
-                      time: nextClassTime,
-                      badge: nextClassBadge,
-                    ),
+                      // 3. Next Live Class Card
+                      if (isClassesLoading || isChildrenLoading)
+                        _buildCardSkeleton(height: 180)
+                      else if (classesState is ClassesError &&
+                          !isClassesForActiveChild)
+                        _buildErrorBanner(
+                          message: classesState.message,
+                          onRetry: () => ref
+                              .read(classesControllerProvider.notifier)
+                              .retry(),
+                        )
+                      else if (nextClass != null)
+                        _buildNextLiveClassCard(
+                          context,
+                          title: nextClass.title,
+                          time: _formatTimeRange(
+                            nextClass.scheduledStartTime,
+                            nextClass.scheduledEndTime,
+                          ),
+                          badge: _formatClassBadge(
+                            nextClass.scheduledStartTime,
+                            now,
+                          ),
+                        )
+                      else
+                        _buildNoClassCard(context),
 
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 12),
 
-                    _buildRecentAssignmentsCard(
-                      context,
-                      pendingText: pendingAssignmentsCount,
-                      taskTitle: recentTaskTitle,
-                      taskDue: recentTaskDue,
-                    ),
+                      // 4. Recent Assignments Card
+                      if (isAssignmentsLoading || isChildrenLoading)
+                        _buildCardSkeleton(height: 200)
+                      else if (assignmentsState is AssignmentsError &&
+                          !isAssignmentsForActiveChild)
+                        _buildErrorBanner(
+                          message: assignmentsState.message,
+                          onRetry: () => _fetchForChild(activeChildId),
+                        )
+                      else
+                        _buildRecentAssignmentsCard(
+                          context,
+                          pendingCount: computedPending,
+                          recentAssignment: recentAssignment,
+                          hasAssignments:
+                              isAssignmentsForActiveChild &&
+                              recentAssignment != null,
+                        ),
 
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-                    // 4. Section - Skills Acquired (Node 76:2879)
-                    _buildSkillsAcquiredSection(),
-                  ],
+                      // 5. Skills in Focus (static layout section — no API data exists for this)
+                      _buildSkillsAcquiredSection(),
+                    ],
+                  ),
                 ),
               ),
             ),
 
-            // TopAppBar Floating Header (Node 76:2899)
+            // Floating TopAppBar
             Positioned(
               top: 0,
               left: 0,
@@ -115,7 +390,8 @@ class CurrentProgramScreen extends ConsumerWidget {
     );
   }
 
-  /// Header TopAppBar (Figma Node 76:2899)
+  // ─────────────────────────── TopAppBar ──────────────────────────────────
+
   Widget _buildTopAppBar(BuildContext context) {
     return Container(
       padding: EdgeInsets.only(
@@ -137,7 +413,6 @@ class CurrentProgramScreen extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Back Button (Node 76:2900)
           GestureDetector(
             key: const Key('current_program_back_button'),
             onTap: () {
@@ -164,8 +439,6 @@ class CurrentProgramScreen extends ConsumerWidget {
               ),
             ),
           ),
-
-          // TrueLern Logo Centered (Node 76:2903)
           Image.asset(
             'assets/images/truelern_logo.png',
             height: 38,
@@ -179,8 +452,6 @@ class CurrentProgramScreen extends ConsumerWidget {
               ),
             ),
           ),
-
-          // Notification Bell Button (Node 76:2904)
           Container(
             width: 36,
             height: 36,
@@ -202,12 +473,11 @@ class CurrentProgramScreen extends ConsumerWidget {
     );
   }
 
-  /// Section - Hero Header (Figma Node 76:2790)
-  Widget _buildHeroHeader() {
+  // ─────────────────────────── Hero Header ────────────────────────────────
+
+  Widget _buildHeroHeader({String? trackName}) {
     return Column(
       children: [
-        // 3D Illustration `image 5` (Node 76:2801, 131 x 126px)
-        // Figma asset: mic + speech bubble 3D illustration
         SizedBox(
           width: 131,
           height: 126,
@@ -222,7 +492,7 @@ class CurrentProgramScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
 
-        // ACTIVE TRACK Cyan Capsule Badge (Node 76:2792)
+        // ACTIVE TRACK badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           decoration: BoxDecoration(
@@ -241,7 +511,6 @@ class CurrentProgramScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              // ACTIVE TRACK badge text (Node 76:2795) — Figma: Regular 16px, #1A1B23, tracking 0.8, uppercase
               Text(
                 'ACTIVE TRACK',
                 style: GoogleFonts.hankenGrotesk(
@@ -256,9 +525,9 @@ class CurrentProgramScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
 
-        // Heading 2 (Node 76:2798) — Figma: Hanken Grotesk Bold, 16px, #1A1B23
+        // Track name from API
         Text(
-          'Communication & Public Speaking',
+          trackName?.isNotEmpty == true ? trackName! : 'Your Learning Track',
           textAlign: TextAlign.center,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 17,
@@ -269,9 +538,8 @@ class CurrentProgramScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 8),
 
-        // Subtitle (Node 76:2800) — Figma: Hanken Grotesk Regular, 16px, #434655
         Text(
-          'Master the art of expression and build confidence\nfor every stage.',
+          'Expand your knowledge and build skills\nfor every challenge ahead.',
           textAlign: TextAlign.center,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 17,
@@ -284,8 +552,24 @@ class CurrentProgramScreen extends ConsumerWidget {
     );
   }
 
-  /// Section - Progress Card (Figma Node 76:2802, 358 x 248px)
-  Widget _buildProgressCard() {
+  // ─────────────────────────── Progress Card ──────────────────────────────
+
+  Widget _buildProgressCard({
+    String? trackName,
+    dynamic batch,
+    double? progressPercentage,
+  }) {
+    final double progressRatio;
+    final String percentageText;
+    if (progressPercentage != null) {
+      final clamped = progressPercentage.clamp(0.0, 100.0);
+      progressRatio = clamped / 100.0;
+      percentageText = '${clamped.toInt()}%';
+    } else {
+      progressRatio = 0.0;
+      percentageText = '--';
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -301,7 +585,7 @@ class CurrentProgramScreen extends ConsumerWidget {
       ),
       child: Stack(
         children: [
-          // Left cyan accent vertical bar (Node 76:2838)
+          // Left cyan accent bar
           Positioned(
             left: 0,
             top: 0,
@@ -317,133 +601,125 @@ class CurrentProgramScreen extends ConsumerWidget {
               ),
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title and Percentage Row (Node 76:2803)
+                // Header row: Track Progress title & percentage
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Heading 3 (Node 76:2806) — Figma: Regular, 16px, #1A1B23
-                          Text(
-                            'Track Progress',
-                            style: GoogleFonts.hankenGrotesk(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xFF1A1B23),
-                              height: 24 / 16,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          // Node 76:2808 — Figma: Regular, 16px, #434655
-                          Text(
-                            '12 of 24 classes completed',
-                            style: GoogleFonts.hankenGrotesk(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xFF434655),
-                              height: 24 / 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Node 76:2810 — Figma: Bold, 16px, #22D3EE
                     Text(
-                      '50%',
+                      'Track Progress',
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 17,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF1A1B23),
+                        height: 24 / 16,
+                      ),
+                    ),
+                    Text(
+                      percentageText,
+                      key: const Key('current_program_progress_percentage'),
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF22D3EE),
+                        color: const Color(0xFF0037B1),
                         height: 24 / 16,
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 4),
+
+                // Enrolled batch / course name
+                Text(
+                  trackName?.isNotEmpty == true
+                      ? trackName!
+                      : 'Your enrolled program',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF434655),
+                    height: 24 / 16,
+                  ),
+                ),
                 const SizedBox(height: 16),
 
-                // Progress Bar (Node 76:2811 & 76:2812)
+                // Progress bar — dynamic visual fill corresponding to percentage
                 Container(
+                  key: const Key('current_program_progress_bar_container'),
                   height: 8,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8E7F3),
                     borderRadius: BorderRadius.circular(9999),
                   ),
-                  child: FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: 0.50, // 50%
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF22D3EE),
-                        borderRadius: BorderRadius.circular(9999),
-                      ),
-                    ),
-                  ),
+                  child: progressRatio > 0.0
+                      ? FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: progressRatio,
+                          child: Container(
+                            key: const Key('current_program_progress_bar_fill'),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF22D3EE),
+                              borderRadius: BorderRadius.circular(9999),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
-                // Horizontal Modules List (Node 76:2813)
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: Row(
+                // Instructor info if available
+                if (batch?.instructor != null) ...[
+                  Row(
                     children: [
-                      // Module 1: Basics (Completed / Passed) — bg #F3F2FE
-                      _buildModuleTile(
-                        title: 'Basics',
-                        iconData: Icons.check_rounded,
-                        iconColor: const Color(0xFF10B981),
-                        bgColor: const Color(0xFFF3F2FE),
-                        isActive: false,
-                        isLocked: false,
+                      const Icon(
+                        Icons.person_outline_rounded,
+                        size: 14,
+                        color: Color(0xFF434655),
                       ),
-                      const SizedBox(width: 12),
-
-                      // Module 2: Storytelling (Active) — bg rgba(34,211,238,0.1), border rgba(34,211,238,0.2)
-                      _buildModuleTile(
-                        title: 'Storytelling',
-                        iconData: Icons.play_arrow_rounded,
-                        iconColor: const Color(0xFF0037B1),
-                        bgColor: const Color(0xFF22D3EE).withValues(alpha: 0.10),
-                        borderColor: const Color(0xFF22D3EE).withValues(alpha: 0.20),
-                        isActive: true,
-                        isLocked: false,
-                      ),
-                      const SizedBox(width: 12),
-
-                      // Module 3: Debate (Upcoming) — opacity 70%, bg rgba(243,242,254,0.5)
-                      _buildModuleTile(
-                        title: 'Debate',
-                        iconData: Icons.book_outlined,
-                        iconColor: const Color(0xFF94A3B8),
-                        bgColor: const Color(0xFFF3F2FE).withValues(alpha: 0.50),
-                        isActive: false,
-                        isLocked: true,
-                      ),
-                      const SizedBox(width: 12),
-
-                      // Module 4: Final Pitch (Upcoming) — opacity 70%, bg rgba(243,242,254,0.5)
-                      _buildModuleTile(
-                        title: 'Final Pitch',
-                        iconData: Icons.mic_none_rounded,
-                        iconColor: const Color(0xFF94A3B8),
-                        bgColor: const Color(0xFFF3F2FE).withValues(alpha: 0.50),
-                        isActive: false,
-                        isLocked: true,
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          batch!.instructor!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: const Color(0xFF434655),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 8),
+                ],
+
+                // Batch code if available
+                if (batch?.batchCode != null) ...[
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.tag_rounded,
+                        size: 14,
+                        color: Color(0xFF434655),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        batch!.batchCode!,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF434655),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -452,85 +728,8 @@ class CurrentProgramScreen extends ConsumerWidget {
     );
   }
 
-  /// Single Module card in Progress Card (Node 76:2814 - 76:2837)
-  /// Figma: w128, p13, radius 12. Active: bg rgba(34,211,238,0.1) border rgba(34,211,238,0.2).
-  /// Locked: opacity 0.70, bg rgba(243,242,254,0.5).
-  Widget _buildModuleTile({
-    required String title,
-    required IconData iconData,
-    required Color iconColor,
-    required Color bgColor,
-    Color? borderColor,
-    required bool isActive,
-    bool isLocked = false,
-  }) {
-    Widget tile = Container(
-      width: 128,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: borderColor ?? Colors.transparent,
-          width: borderColor != null ? 1 : 0,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Icon circle — Figma: white bg, shadow 0px 1px 1px rgba(0,0,0,0.05), 32px
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: isLocked
-                  ? Colors.white.withValues(alpha: 0.50)
-                  : Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: isLocked
-                  ? null
-                  : const [
-                      BoxShadow(
-                        color: Color.fromRGBO(0, 0, 0, 0.05),
-                        blurRadius: 1,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
-            ),
-            child: Center(
-              child: Icon(
-                iconData,
-                size: 14,
-                color: iconColor,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Text — Figma: Basics Regular 16px, Storytelling SemiBold 16px, Debate/Final Regular 16px
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.hankenGrotesk(
-              fontSize: 17,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              color: isLocked
-                  ? const Color(0xFF434655)
-                  : const Color(0xFF1A1B23),
-              height: 24 / 16,
-            ),
-          ),
-        ],
-      ),
-    );
-    // Locked modules have 70% opacity per Figma (Overlay nodes 76:2826, 76:2832)
-    if (isLocked) {
-      return Opacity(opacity: 0.70, child: tile);
-    }
-    return tile;
-  }
+  // ──────────────────── Next Live Class Card ───────────────────────────────
 
-  /// Next Live Class Bento Card (Figma Node 76:2840, 358 x 234.5px)
   Widget _buildNextLiveClassCard(
     BuildContext context, {
     required String title,
@@ -542,14 +741,113 @@ class CurrentProgramScreen extends ConsumerWidget {
       child: InkWell(
         key: const Key('current_program_next_live_class_card'),
         borderRadius: BorderRadius.circular(24),
-        onTap: () {
-          context.pushNamed(AppRouteNames.topicDetail);
-        },
+        onTap: () => context.push(AppRoutePaths.topicDetail),
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
+            boxShadow: const [
+              BoxShadow(
+                color: Color.fromRGBO(0, 0, 0, 0.04),
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF22D3EE).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.videocam_rounded,
+                        color: Color(0xFF0037B1),
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                  if (badge.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F2FE),
+                        borderRadius: BorderRadius.circular(9999),
+                      ),
+                      child: Text(
+                        badge,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF434655),
+                          height: 24 / 16,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A1B23),
+                  height: 24 / 16,
+                ),
+              ),
+              if (time.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.access_time_rounded,
+                      size: 12,
+                      color: Color(0xFF434655),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        time,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF434655),
+                          height: 24 / 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ──────────────────── No Class / Empty State Card ────────────────────────
+
+  Widget _buildNoClassCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
         boxShadow: const [
           BoxShadow(
             color: Color.fromRGBO(0, 0, 0, 0.04),
@@ -559,97 +857,58 @@ class CurrentProgramScreen extends ConsumerWidget {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Icon and Tag Row (Node 76:2842)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Cyan video call badge icon (Node 76:2843)
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF22D3EE).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.videocam_rounded,
-                    color: Color(0xFF0037B1),
-                    size: 22,
-                  ),
-                ),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: const Color(0xFF22D3EE).withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.videocam_off_rounded,
+                color: Color(0xFF94A3B8),
+                size: 22,
               ),
-
-              // "Tomorrow" Pill Badge (Node 76:2845) — Figma: bg #F3F2FE, Regular 16px, #434655
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F2FE),
-                  borderRadius: BorderRadius.circular(9999),
-                ),
-                child: Text(
-                  badge,
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF434655),
-                    height: 24 / 16,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Title (Node 76:2848) — Figma: Bold, 16px, #1A1B23
-          Text(
-            title,
-            style: GoogleFonts.hankenGrotesk(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1A1B23),
-              height: 24 / 16,
             ),
           ),
-          const SizedBox(height: 6),
-
-          // Time Row (Node 76:2849) — Figma: Regular, 16px, #434655
-          Row(
-            children: [
-              const Icon(
-                Icons.access_time_rounded,
-                size: 12,
-                color: Color(0xFF434655),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                time,
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF434655),
-                  height: 24 / 16,
-                ),
-              ),
-            ],
+          const SizedBox(height: 12),
+          Text(
+            'No Upcoming Classes',
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1A1B23),
+            ),
           ),
-          // NOTE: No CTA button in Figma Next Live Class card (76:2840)
+          const SizedBox(height: 4),
+          Text(
+            'You\'re all caught up! Check back soon for your next live class.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFF94A3B8),
+            ),
+          ),
         ],
       ),
-    ),
-  ),
-);
+    );
   }
 
-  /// Recent Assignments Bento Card (Figma Node 76:2857, 358 x 280px)
+  // ─────────────────── Recent Assignments Card ─────────────────────────────
+
   Widget _buildRecentAssignmentsCard(
     BuildContext context, {
-    required String pendingText,
-    required String taskTitle,
-    required String taskDue,
+    required int pendingCount,
+    required AssignmentEntity? recentAssignment,
+    required bool hasAssignments,
   }) {
+    final pendingText = pendingCount > 0
+        ? '$pendingCount Pending'
+        : 'Up to date';
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -666,33 +925,39 @@ class CurrentProgramScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Icon and Red Badge Row (Node 76:2859)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Assignment badge icon (Node 76:2860) — Figma: red/danger assignment icon 38x47px
-              // Using red background with warning assignment icon matching Figma's imgOverlay1
               Container(
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFBA1A1A).withValues(alpha: 0.10),
+                  color: pendingCount > 0
+                      ? const Color(0xFFBA1A1A).withValues(alpha: 0.10)
+                      : const Color(0xFF10B981).withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Center(
+                child: Center(
                   child: Icon(
-                    Icons.assignment_outlined,
-                    color: Color(0xFFBA1A1A),
+                    pendingCount > 0
+                        ? Icons.assignment_outlined
+                        : Icons.assignment_turned_in_outlined,
+                    color: pendingCount > 0
+                        ? const Color(0xFFBA1A1A)
+                        : const Color(0xFF10B981),
                     size: 22,
                   ),
                 ),
               ),
-
-              // "2 Pending" Red Pill Badge (Node 76:2862) — Figma: bg rgba(255,218,214,0.3), Bold 16px, #BA1A1A
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFDAD6).withValues(alpha: 0.30),
+                  color: pendingCount > 0
+                      ? const Color(0xFFFFDAD6).withValues(alpha: 0.30)
+                      : const Color(0xFFD1FAE5).withValues(alpha: 0.50),
                   borderRadius: BorderRadius.circular(9999),
                 ),
                 child: Text(
@@ -700,7 +965,9 @@ class CurrentProgramScreen extends ConsumerWidget {
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFFBA1A1A),
+                    color: pendingCount > 0
+                        ? const Color(0xFFBA1A1A)
+                        : const Color(0xFF059669),
                     height: 24 / 16,
                   ),
                 ),
@@ -709,7 +976,6 @@ class CurrentProgramScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
 
-          // Title (Node 76:2865) — Figma: Bold, 16px, #1A1B23
           Text(
             'Recent Assignments',
             style: GoogleFonts.hankenGrotesk(
@@ -721,77 +987,30 @@ class CurrentProgramScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
 
-          // List Item Container (Node 76:2866)
-          Container(
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F2FE),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.insert_drive_file_outlined,
-                  size: 20,
-                  color: Color(0xFF0037B1),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Node 76:2872 — Figma: Regular, 16px, #1A1B23
-                      Text(
-                        taskTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w400,
-                          color: const Color(0xFF1A1B23),
-                          height: 24 / 16,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      // Node 76:2874 — Figma: Medium, 10px, #BA1A1A
-                      Text(
-                        taskDue,
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFFBA1A1A),
-                          height: 15 / 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 18,
-                  color: Color(0xFF434655),
-                ),
-              ],
-            ),
-          ),
+          if (!hasAssignments)
+            _buildNoAssignmentsTile()
+          else if (recentAssignment != null)
+            _buildAssignmentTile(recentAssignment)
+          else
+            _buildNoAssignmentsTile(),
+
           const SizedBox(height: 20),
 
-          // View All Tasks Outlined Button (Node 76:2877)
-          // Figma: border 2px #E2E1ED, radius 12px, text Regular 16px #1A1B23
           SizedBox(
             width: double.infinity,
             height: 52,
             child: OutlinedButton(
               key: const Key('view_all_tasks_button'),
-              onPressed: () {
-                context.go('/parent/assignments');
-              },
+              onPressed: () => context.go('/parent/assignments'),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFFE2E1ED), width: 2),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 2,
+                  vertical: 14,
+                ),
               ),
               child: Text(
                 'View All Tasks',
@@ -809,12 +1028,282 @@ class CurrentProgramScreen extends ConsumerWidget {
     );
   }
 
-  /// Section - Skills Acquired (Figma Node 76:2879 - 76:2898)
+  Widget _buildAssignmentTile(AssignmentEntity assignment) {
+    final isPending = assignment.status == AssignmentStatus.pending;
+    final isOverdue = assignment.status == AssignmentStatus.overdue;
+    final dueLabel = isOverdue
+        ? (assignment.overdueDate ?? assignment.dueDate ?? 'Overdue')
+        : (assignment.dueDate ?? '');
+
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F2FE),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.insert_drive_file_outlined,
+            size: 20,
+            color: isOverdue
+                ? const Color(0xFFBA1A1A)
+                : const Color(0xFF0037B1),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  assignment.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF1A1B23),
+                    height: 24 / 16,
+                  ),
+                ),
+                if (dueLabel.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    dueLabel,
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: isOverdue || isPending
+                          ? const Color(0xFFBA1A1A)
+                          : const Color(0xFF94A3B8),
+                      height: 15 / 10,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right_rounded,
+            size: 18,
+            color: Color(0xFF434655),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoAssignmentsTile() {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F2FE),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.check_circle_outline_rounded,
+            size: 20,
+            color: Color(0xFF10B981),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'No pending assignments',
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 17,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF434655),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────── Error / No-Child Banners ───────────────────────
+
+  Widget _buildErrorBanner({
+    required String message,
+    required VoidCallback onRetry,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF0F0),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFBA1A1A).withValues(alpha: 0.15),
+        ),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.cloud_off_rounded,
+            color: Color(0xFFBA1A1A),
+            size: 28,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message.isNotEmpty ? message : 'Failed to load data.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 14,
+              color: const Color(0xFFBA1A1A),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(
+              'Retry',
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF0037B1),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoChildBanner() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F2FE),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.person_off_outlined,
+            color: Color(0xFF434655),
+            size: 28,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'No child linked to your account.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 14,
+              color: const Color(0xFF434655),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────── Skeletons ──────────────────────────────────
+
+  Widget _buildHeroSkeleton() {
+    return Column(
+      children: [
+        _skeletonBox(width: 131, height: 126, radius: 16),
+        const SizedBox(height: 16),
+        _skeletonBox(width: 140, height: 32, radius: 9999),
+        const SizedBox(height: 12),
+        _skeletonBox(width: 220, height: 20, radius: 8),
+        const SizedBox(height: 8),
+        _skeletonBox(width: 180, height: 16, radius: 8),
+      ],
+    );
+  }
+
+  Widget _buildProgressSkeleton() {
+    return Container(
+      height: 150,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, 0.04),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _skeletonBox(width: 120, height: 18, radius: 8),
+            const SizedBox(height: 8),
+            _skeletonBox(width: 200, height: 14, radius: 8),
+            const SizedBox(height: 16),
+            _skeletonBox(width: double.infinity, height: 8, radius: 9999),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardSkeleton({required double height}) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, 0.04),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _skeletonBox(width: 42, height: 42, radius: 12),
+                _skeletonBox(width: 80, height: 28, radius: 9999),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _skeletonBox(width: 200, height: 18, radius: 8),
+            const SizedBox(height: 8),
+            _skeletonBox(width: 130, height: 14, radius: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _skeletonBox({
+    double? width,
+    required double height,
+    required double radius,
+  }) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8E7F3),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+
+  // ──────────────────────── Skills in Focus ───────────────────────────────
+
+  /// Section - Skills Acquired (Figma Node 76:2879 - 76:2898).
+  /// Static layout with contextual icons — no specific backend API for skills.
   Widget _buildSkillsAcquiredSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Heading 3 (Node 76:2882) — Figma: Bold, 16px, #1A1B23, px 8
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Text(
@@ -828,36 +1317,30 @@ class CurrentProgramScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
-
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Card 1: Confidence (Node 76:2884, Teal bg: rgba(20,184,166,0.1))
             Expanded(
               child: _buildSkillCard(
-                title: 'Confidence',
-                iconData: Icons.emoji_events_outlined,
-                tintColor: const Color(0xFF14B8A6), // Teal
+                title: 'Critical Thinking',
+                iconData: Icons.psychology_outlined,
+                tintColor: const Color(0xFF14B8A6),
               ),
             ),
             const SizedBox(width: 12),
-
-            // Card 2: Expression (Node 76:2889, Blue bg: rgba(59,130,246,0.1))
             Expanded(
               child: _buildSkillCard(
                 title: 'Expression',
                 iconData: Icons.record_voice_over_outlined,
-                tintColor: const Color(0xFF3B82F6), // Blue
+                tintColor: const Color(0xFF3B82F6),
               ),
             ),
             const SizedBox(width: 12),
-
-            // Card 3: Dialogue (Node 76:2894, Purple bg: rgba(147,51,234,0.1))
             Expanded(
               child: _buildSkillCard(
                 title: 'Dialogue',
                 iconData: Icons.chat_bubble_outline_rounded,
-                tintColor: const Color(0xFF9333EA), // Purple
+                tintColor: const Color(0xFF9333EA),
               ),
             ),
           ],
@@ -866,8 +1349,6 @@ class CurrentProgramScreen extends ConsumerWidget {
     );
   }
 
-  /// Single Skill Card (Node 76:2884 - 76:2898)
-  /// Figma: white bg, shadow 0px 1px 1px rgba(0,0,0,0.05), radius 16, p16, w111.33, h108
   Widget _buildSkillCard({
     required String title,
     required IconData iconData,
@@ -890,7 +1371,6 @@ class CurrentProgramScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Icon circle (Node 76:2885-2897) — 48px diameter
           Container(
             width: 48,
             height: 48,
@@ -898,16 +1378,9 @@ class CurrentProgramScreen extends ConsumerWidget {
               color: tintColor.withValues(alpha: 0.10),
               shape: BoxShape.circle,
             ),
-            child: Center(
-              child: Icon(
-                iconData,
-                color: tintColor,
-                size: 20,
-              ),
-            ),
+            child: Center(child: Icon(iconData, color: tintColor, size: 20)),
           ),
           const SizedBox(height: 8),
-          // Text (Node 76:2888/2893/2898) — Figma: Regular, 16px, #1A1B23, lh 20
           Text(
             title,
             maxLines: 1,

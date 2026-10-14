@@ -1,11 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../data/repositories/notification_preferences_repository_impl.dart';
 import '../../domain/repositories/notification_preferences_repository.dart';
 import 'notification_preferences_state.dart';
 
-class NotificationPreferencesController extends Notifier<NotificationPreferencesState> {
+class NotificationPreferencesController
+    extends Notifier<NotificationPreferencesState> {
   @override
-  NotificationPreferencesState build() => const NotificationPreferencesInitial();
+  NotificationPreferencesState build() =>
+      const NotificationPreferencesInitial();
 
   NotificationPreferencesRepository get _repository =>
       ref.read(notificationPreferencesRepositoryProvider);
@@ -101,5 +104,8 @@ class NotificationPreferencesController extends Notifier<NotificationPreferences
   }
 }
 
-final notificationPreferencesControllerProvider = NotifierProvider<
-    NotificationPreferencesController, NotificationPreferencesState>(NotificationPreferencesController.new);
+final notificationPreferencesControllerProvider =
+    NotifierProvider<
+      NotificationPreferencesController,
+      NotificationPreferencesState
+    >(NotificationPreferencesController.new);

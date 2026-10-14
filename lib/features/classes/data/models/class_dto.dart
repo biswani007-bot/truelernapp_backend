@@ -19,6 +19,7 @@ class ClassDto {
     this.scheduledEndTime,
     this.duration,
     this.status,
+    this.effectiveStatus,
     this.teacherName,
     this.teacherAvatar,
     this.meetingUrl,
@@ -33,6 +34,7 @@ class ClassDto {
   final DateTime? scheduledEndTime;
   final int? duration;
   final String? status;
+  final String? effectiveStatus;
   final String? teacherName;
   final String? teacherAvatar;
   final String? meetingUrl;
@@ -44,18 +46,26 @@ class ClassDto {
     final id = (json['_id'] ?? json['id'] ?? '').toString();
 
     // Resolve title / topic
-    final title = (json['classTitle'] ?? json['title'] ?? json['topic'] ?? json['name'] ?? '').toString();
+    final title =
+        (json['classTitle'] ??
+                json['title'] ??
+                json['topic'] ??
+                json['name'] ??
+                '')
+            .toString();
 
     // Resolve subject / course
     String? subject;
-    final rawSubject = json['subject'] ?? json['courseName'] ?? json['classCode'];
+    final rawSubject =
+        json['subject'] ?? json['courseName'] ?? json['classCode'];
     if (rawSubject is String) {
       subject = rawSubject;
     } else if (rawSubject is Map<String, dynamic>) {
-      subject = rawSubject['name']?.toString() ?? rawSubject['title']?.toString();
+      subject =
+          rawSubject['name']?.toString() ?? rawSubject['title']?.toString();
     }
 
-    // Resolve start / end times
+    // Resolve start / end times defensively
     DateTime? parseDateTime(dynamic value) {
       if (value == null) return null;
       if (value is DateTime) return value;
@@ -65,30 +75,47 @@ class ClassDto {
       return null;
     }
 
-    final startTime = parseDateTime(json['scheduledStartTime'] ?? json['startTime'] ?? json['startDate']);
-    final endTime = parseDateTime(json['scheduledEndTime'] ?? json['endTime'] ?? json['endDate']);
+    final startTime = parseDateTime(
+      json['scheduledStartTime'] ??
+          json['startTime'] ??
+          json['startDate'] ??
+          json['startAt'],
+    );
+    final endTime = parseDateTime(
+      json['scheduledEndTime'] ??
+          json['endTime'] ??
+          json['endDate'] ??
+          json['endAt'],
+    );
 
-    // Resolve status (prioritize effectiveStatus from live API with status fallback)
-    final status = (json['effectiveStatus'] ?? json['status'])?.toString();
+    // Resolve status and effectiveStatus
+    final rawStatus = json['status']?.toString();
+    final rawEffectiveStatus = json['effectiveStatus']?.toString();
+    final status = rawStatus ?? rawEffectiveStatus;
+    final effectiveStatus = rawEffectiveStatus;
 
     // Resolve teacher (can be nested map, string, or null)
     String? teacherName;
     String? teacherAvatar;
     final rawTeacher = json['teacher'] ?? json['instructor'];
     if (rawTeacher is Map<String, dynamic>) {
-      final resolvedName = rawTeacher['name']?.toString() ??
+      final resolvedName =
+          rawTeacher['name']?.toString() ??
           ([rawTeacher['firstName'], rawTeacher['lastName']]
               .where((s) => s != null && s.toString().trim().isNotEmpty)
               .join(' '));
       teacherName = resolvedName.isNotEmpty ? resolvedName : null;
-      teacherAvatar = rawTeacher['avatar']?.toString() ?? rawTeacher['profilePicture']?.toString();
+      teacherAvatar =
+          rawTeacher['avatar']?.toString() ??
+          rawTeacher['profilePicture']?.toString();
     } else if (rawTeacher is String && rawTeacher.isNotEmpty) {
       // If it's a raw teacher ID or plain name
       teacherName = rawTeacher;
     }
 
     // Resolve meeting info
-    final meetingUrl = json['meetingUrl']?.toString() ?? json['url']?.toString();
+    final meetingUrl =
+        json['meetingUrl']?.toString() ?? json['url']?.toString();
     final roomName = json['roomName']?.toString() ?? json['room']?.toString();
 
     // Resolve classCode and duration
@@ -106,6 +133,7 @@ class ClassDto {
       scheduledEndTime: endTime,
       duration: duration,
       status: status,
+      effectiveStatus: effectiveStatus,
       teacherName: teacherName,
       teacherAvatar: teacherAvatar,
       meetingUrl: meetingUrl,
@@ -115,17 +143,18 @@ class ClassDto {
 
   /// Maps DTO to domain entity.
   ClassEntity toEntity() => ClassEntity(
-        id: id,
-        classCode: classCode,
-        title: title,
-        subject: subject,
-        scheduledStartTime: scheduledStartTime,
-        scheduledEndTime: scheduledEndTime,
-        duration: duration,
-        status: status,
-        teacherName: teacherName,
-        teacherAvatar: teacherAvatar,
-        meetingUrl: meetingUrl,
-        roomName: roomName,
-      );
+    id: id,
+    classCode: classCode,
+    title: title,
+    subject: subject,
+    scheduledStartTime: scheduledStartTime,
+    scheduledEndTime: scheduledEndTime,
+    duration: duration,
+    status: status,
+    effectiveStatus: effectiveStatus,
+    teacherName: teacherName,
+    teacherAvatar: teacherAvatar,
+    meetingUrl: meetingUrl,
+    roomName: roomName,
+  );
 }

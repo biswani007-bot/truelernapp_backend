@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 import '../constants/storage_keys.dart';
 
 /// Contract for secure key-value token persistence.
@@ -25,11 +26,12 @@ abstract interface class SecureStorageService {
 /// Standard production implementation backed by [FlutterSecureStorage].
 class FlutterSecureStorageServiceImpl implements SecureStorageService {
   FlutterSecureStorageServiceImpl({FlutterSecureStorage? storage})
-      : _storage = storage ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(),
-              wOptions: WindowsOptions(),
-            );
+    : _storage =
+          storage ??
+          const FlutterSecureStorage(
+            aOptions: AndroidOptions(),
+            wOptions: WindowsOptions(),
+          );
 
   final FlutterSecureStorage _storage;
 

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../../assignments/data/repositories/assignments_repository_impl.dart';
 import '../../../assignments/domain/repositories/assignments_repository.dart';
@@ -56,7 +57,8 @@ class ClassSummaryRepositoryImpl implements ClassSummaryRepository {
               if (id == classId) {
                 targetClassJson = item;
               } else {
-                final rawStart = item['startDate'] ?? item['scheduledStartTime'];
+                final rawStart =
+                    item['startDate'] ?? item['scheduledStartTime'];
                 if (rawStart != null) {
                   final dt = DateTime.tryParse(rawStart.toString());
                   if (dt != null && dt.isAfter(now)) {
@@ -69,8 +71,16 @@ class ClassSummaryRepositoryImpl implements ClassSummaryRepository {
 
           if (upcoming.isNotEmpty) {
             upcoming.sort((a, b) {
-              final da = DateTime.tryParse((a['startDate'] ?? a['scheduledStartTime']).toString()) ?? now;
-              final db = DateTime.tryParse((b['startDate'] ?? b['scheduledStartTime']).toString()) ?? now;
+              final da =
+                  DateTime.tryParse(
+                    (a['startDate'] ?? a['scheduledStartTime']).toString(),
+                  ) ??
+                  now;
+              final db =
+                  DateTime.tryParse(
+                    (b['startDate'] ?? b['scheduledStartTime']).toString(),
+                  ) ??
+                  now;
               return da.compareTo(db);
             });
             nextClassJson = upcoming.first;
@@ -94,11 +104,12 @@ class ClassSummaryRepositoryImpl implements ClassSummaryRepository {
       };
     }
 
-    final targetTitle = (targetClassJson?['classTitle'] ??
-            targetClassJson?['title'] ??
-            session?.title ??
-            '')
-        .toString();
+    final targetTitle =
+        (targetClassJson?['classTitle'] ??
+                targetClassJson?['title'] ??
+                session?.title ??
+                '')
+            .toString();
 
     // 2. Fetch attendance: GET /api/parent/children/{childStudentId}/attendance
     try {
@@ -149,7 +160,8 @@ class ClassSummaryRepositoryImpl implements ClassSummaryRepository {
         if (assignData is List && assignData.isNotEmpty) {
           for (final a in assignData) {
             if (a is Map<String, dynamic>) {
-              final canSubmit = a['canSubmit'] == true || a['status'] == 'published';
+              final canSubmit =
+                  a['canSubmit'] == true || a['status'] == 'published';
               if (canSubmit) {
                 assignmentJson = a;
                 break;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -12,10 +13,7 @@ import '../../../../core/theme/app_typography.dart';
 /// The "View Invoices" CTA is a visual placeholder — the Invoices feature
 /// is not implemented in this action.
 class FinanceAlertCard extends StatelessWidget {
-  const FinanceAlertCard({
-    super.key,
-    required this.totalBalanceDue,
-  });
+  const FinanceAlertCard({super.key, required this.totalBalanceDue});
 
   /// Outstanding balance from API. Null means not available from API.
   final double? totalBalanceDue;
@@ -32,7 +30,9 @@ class FinanceAlertCard extends StatelessWidget {
         color: hasBalance ? AppColors.errorBg : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: hasBalance ? AppColors.error.withValues(alpha: 0.3) : AppColors.border,
+          color: hasBalance
+              ? AppColors.error.withValues(alpha: 0.3)
+              : AppColors.border,
         ),
         boxShadow: [
           BoxShadow(
@@ -75,10 +75,12 @@ class FinanceAlertCard extends StatelessWidget {
                   hasBalance
                       ? '₹${totalBalanceDue!.toStringAsFixed(2)} outstanding'
                       : hasData
-                          ? 'No outstanding balance'
-                          : 'Balance not available',
+                      ? 'No outstanding balance'
+                      : 'Balance not available',
                   style: AppTypography.titleSmall.copyWith(
-                    color: hasBalance ? AppColors.errorDark : AppColors.textPrimary,
+                    color: hasBalance
+                        ? AppColors.errorDark
+                        : AppColors.textPrimary,
                   ),
                 ),
               ],

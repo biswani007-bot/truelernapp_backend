@@ -16,6 +16,10 @@ class ChildDto {
     this.relationshipType,
     this.status,
     this.dateOfBirth,
+    this.isCustodial,
+    this.isEmergencyContact,
+    this.canAccessPortal,
+    this.age,
   });
 
   final String studentId;
@@ -28,6 +32,10 @@ class ChildDto {
   final String? relationshipType;
   final String? status;
   final String? dateOfBirth;
+  final bool? isCustodial;
+  final bool? isEmergencyContact;
+  final bool? canAccessPortal;
+  final int? age;
 
   /// Parses a single child object from the API response.
   ///
@@ -35,7 +43,8 @@ class ChildDto {
   /// firstName / lastName may also come as a combined `name` field.
   factory ChildDto.fromJson(Map<String, dynamic> json) {
     // Resolve student ID from possible key variants
-    final id = (json['studentId'] ?? json['_id'] ?? json['id'] ?? '').toString();
+    final id = (json['studentId'] ?? json['_id'] ?? json['id'] ?? '')
+        .toString();
 
     // Resolve first / last name — API may use `firstName`/`lastName` or combined `name`
     String? first = json['firstName'] as String?;
@@ -56,21 +65,29 @@ class ChildDto {
       gender: json['gender'] as String?,
       relationshipType: json['relationshipType'] as String?,
       status: json['status'] as String?,
-      dateOfBirth: json['dateOfBirth'] as String?,
+      dateOfBirth: (json['dateOfBirth'] ?? json['dob']) as String?,
+      isCustodial: json['isCustodial'] as bool?,
+      isEmergencyContact: json['isEmergencyContact'] as bool?,
+      canAccessPortal: json['canAccessPortal'] as bool?,
+      age: (json['age'] as num?)?.toInt(),
     );
   }
 
   /// Converts DTO to domain entity.
   ChildEntity toEntity() => ChildEntity(
-        studentId: studentId,
-        firstName: firstName ?? '',
-        lastName: lastName,
-        avatar: avatar,
-        grade: grade,
-        studentCode: studentCode,
-        gender: gender,
-        relationshipType: relationshipType,
-        status: status,
-        dateOfBirth: dateOfBirth,
-      );
+    studentId: studentId,
+    firstName: firstName ?? '',
+    lastName: lastName,
+    avatar: avatar,
+    grade: grade,
+    studentCode: studentCode,
+    gender: gender,
+    relationshipType: relationshipType,
+    status: status,
+    dateOfBirth: dateOfBirth,
+    isCustodial: isCustodial,
+    isEmergencyContact: isEmergencyContact,
+    canAccessPortal: canAccessPortal,
+    explicitAge: age,
+  );
 }

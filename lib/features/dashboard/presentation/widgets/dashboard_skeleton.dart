@@ -58,16 +58,22 @@ class _ChildSelectorSkeletonState extends State<ChildSelectorSkeleton>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     );
-    final isTesting = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding') ||
-        WidgetsBinding.instance.runtimeType.toString().contains('AutomatedTestWidgetsFlutterBinding');
+    final isTesting =
+        WidgetsBinding.instance.runtimeType.toString().contains(
+          'TestWidgetsFlutterBinding',
+        ) ||
+        WidgetsBinding.instance.runtimeType.toString().contains(
+          'AutomatedTestWidgetsFlutterBinding',
+        );
     if (!isTesting) {
       _controller.repeat(reverse: true);
     } else {
       _controller.value = 0.5;
     }
-    _animation = Tween<double>(begin: 0.35, end: 0.85).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0.35,
+      end: 0.85,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -94,7 +100,10 @@ class _ChildSelectorSkeletonState extends State<ChildSelectorSkeleton>
             separatorBuilder: (_, _) => const SizedBox(width: 16),
             itemBuilder: (_, index) {
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: index == 0
                       ? Colors.white.withValues(alpha: 0.9)
@@ -159,7 +168,8 @@ class ParentDashboardSkeleton extends StatefulWidget {
   const ParentDashboardSkeleton({super.key});
 
   @override
-  State<ParentDashboardSkeleton> createState() => _ParentDashboardSkeletonState();
+  State<ParentDashboardSkeleton> createState() =>
+      _ParentDashboardSkeletonState();
 }
 
 class _ParentDashboardSkeletonState extends State<ParentDashboardSkeleton>
@@ -174,16 +184,22 @@ class _ParentDashboardSkeletonState extends State<ParentDashboardSkeleton>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     );
-    final isTesting = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding') ||
-        WidgetsBinding.instance.runtimeType.toString().contains('AutomatedTestWidgetsFlutterBinding');
+    final isTesting =
+        WidgetsBinding.instance.runtimeType.toString().contains(
+          'TestWidgetsFlutterBinding',
+        ) ||
+        WidgetsBinding.instance.runtimeType.toString().contains(
+          'AutomatedTestWidgetsFlutterBinding',
+        );
     if (!isTesting) {
       _controller.repeat(reverse: true);
     } else {
       _controller.value = 0.5;
     }
-    _animation = Tween<double>(begin: 0.35, end: 0.85).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0.35,
+      end: 0.85,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override

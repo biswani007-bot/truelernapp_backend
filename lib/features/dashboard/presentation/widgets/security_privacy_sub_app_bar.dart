@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/router/route_paths.dart';
 
 /// Reusable top navigation header for TrueLern Parent Security & Privacy sub-screens.
@@ -40,7 +41,9 @@ class SecurityPrivacySubAppBar extends StatelessWidget {
         children: [
           // Back button
           InkWell(
-            onTap: onBackPressed ??
+            key: const Key('btn_back_sub_app_bar'),
+            onTap:
+                onBackPressed ??
                 () {
                   if (context.canPop()) {
                     context.pop();

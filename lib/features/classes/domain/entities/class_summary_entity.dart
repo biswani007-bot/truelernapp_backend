@@ -64,7 +64,8 @@ class ClassSummaryEntity {
   }) : scheduledDurationMinutes = scheduledDurationMinutes ?? durationMinutes;
 
   /// Helper getter for total/scheduled duration in minutes
-  int? get durationMinutes => scheduledDurationMinutes ?? attendedDurationMinutes;
+  int? get durationMinutes =>
+      scheduledDurationMinutes ?? attendedDurationMinutes;
 
   @override
   bool operator ==(Object other) =>

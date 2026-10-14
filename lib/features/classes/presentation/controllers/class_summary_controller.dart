@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../dashboard/data/repositories/dashboard_repository_impl.dart';
 import '../../../dashboard/presentation/controllers/children_controller.dart';
@@ -10,7 +11,8 @@ import 'class_summary_state.dart';
 
 /// Controller managing data for [ClassSummaryScreen] (Figma Node 76:2253).
 class ClassSummaryController extends Notifier<ClassSummaryState> {
-  ClassSummaryRepository get _repository => ref.read(classSummaryRepositoryProvider);
+  ClassSummaryRepository get _repository =>
+      ref.read(classSummaryRepositoryProvider);
 
   @override
   ClassSummaryState build() => const ClassSummaryInitial();
@@ -25,7 +27,8 @@ class ClassSummaryController extends Notifier<ClassSummaryState> {
       String resolvedChildId = childStudentId ?? '';
       if (resolvedChildId.isEmpty) {
         final childrenState = ref.read(childrenControllerProvider);
-        if (childrenState is ChildrenLoaded && childrenState.activeChildId != null) {
+        if (childrenState is ChildrenLoaded &&
+            childrenState.activeChildId != null) {
           resolvedChildId = childrenState.activeChildId!;
         }
       }
@@ -66,5 +69,5 @@ class ClassSummaryController extends Notifier<ClassSummaryState> {
 /// Global provider for [ClassSummaryController].
 final classSummaryControllerProvider =
     NotifierProvider<ClassSummaryController, ClassSummaryState>(
-  ClassSummaryController.new,
-);
+      ClassSummaryController.new,
+    );

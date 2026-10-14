@@ -14,7 +14,8 @@ class LiveVerificationStorage implements SecureStorageService {
   Future<String?> getAccessToken() async => _data['access_token'];
 
   @override
-  Future<void> saveAccessToken(String token) async => _data['access_token'] = token;
+  Future<void> saveAccessToken(String token) async =>
+      _data['access_token'] = token;
 
   @override
   Future<void> deleteAccessToken() async => _data.remove('access_token');
@@ -23,7 +24,8 @@ class LiveVerificationStorage implements SecureStorageService {
   Future<String?> getRefreshToken() async => _data['refresh_token'];
 
   @override
-  Future<void> saveRefreshToken(String token) async => _data['refresh_token'] = token;
+  Future<void> saveRefreshToken(String token) async =>
+      _data['refresh_token'] = token;
 
   @override
   Future<void> deleteRefreshToken() async => _data.remove('refresh_token');
@@ -35,7 +37,8 @@ class LiveVerificationStorage implements SecureStorageService {
   Future<void> saveUserId(String id) async => _data['user_id'] = id;
 
   @override
-  Future<void> saveActiveChildId(String childId) async => _data['active_child_id'] = childId;
+  Future<void> saveActiveChildId(String childId) async =>
+      _data['active_child_id'] = childId;
 
   @override
   Future<String?> getActiveChildId() async => _data['active_child_id'];
@@ -46,58 +49,58 @@ class LiveVerificationStorage implements SecureStorageService {
   @override
   Future<void> clearAuthSession() async => _data.clear();
 
-  bool hasAccessToken() => _data.containsKey('access_token') && _data['access_token']!.isNotEmpty;
+  bool hasAccessToken() =>
+      _data.containsKey('access_token') && _data['access_token']!.isNotEmpty;
 }
 
 void main() {
   group('Real Student Dashboard Runtime Verification', () {
-    test(
-      'authenticates as student and fetches real student dashboard data',
-      () async {
-        final storage = LiveVerificationStorage();
-        final container = ProviderContainer(
-          overrides: [
-            secureStorageProvider.overrideWithValue(storage),
-          ],
-        );
+    test('authenticates as student and fetches real student dashboard data', () async {
+      final storage = LiveVerificationStorage();
+      final container = ProviderContainer(
+        overrides: [secureStorageProvider.overrideWithValue(storage)],
+      );
 
-        addTearDown(container.dispose);
+      addTearDown(container.dispose);
 
-        final authNotifier = container.read(authControllerProvider.notifier);
+      final authNotifier = container.read(authControllerProvider.notifier);
 
-        // 1. Authenticate with real Student credentials
-        print('Logging in as Student (student@truelern.com)...');
-        await authNotifier.login(
-          email: 'student@truelern.com',
-          password: 'password123',
-        );
+      // 1. Authenticate with real Student credentials
+      print('Logging in as Student (student@truelern.com)...');
+      await authNotifier.login(
+        email: 'student@truelern.com',
+        password: 'password123',
+      );
 
-        final authState = container.read(authControllerProvider);
-        expect(authState, isA<Authenticated>());
-        final user = (authState as Authenticated).user;
-        print('Authenticated successfully as Student: ${user?.name}, role: ${user?.role}');
-        expect(user?.role?.toLowerCase(), 'student');
-        expect(storage.hasAccessToken(), isTrue);
+      final authState = container.read(authControllerProvider);
+      expect(authState, isA<Authenticated>());
+      final user = (authState as Authenticated).user;
+      print(
+        'Authenticated successfully as Student: ${user?.name}, role: ${user?.role}',
+      );
+      expect(user?.role?.toLowerCase(), 'student');
+      expect(storage.hasAccessToken(), isTrue);
 
-        // 2. Query Student Dashboard repository
-        final studentRepo = container.read(studentDashboardRepositoryProvider);
-        final dashboard = await studentRepo.getStudentDashboard();
+      // 2. Query Student Dashboard repository
+      final studentRepo = container.read(studentDashboardRepositoryProvider);
+      final dashboard = await studentRepo.getStudentDashboard();
 
-        print('============================================================');
-        print('STUDENT DASHBOARD REAL RUNTIME DATA:');
-        print('  studentName: ${dashboard.studentName}');
-        print('  attendanceRate: ${dashboard.attendanceRate}%');
-        print('  upcomingClassesCount: ${dashboard.upcomingClassesCount}');
-        print('  featuredClass: ${dashboard.featuredClass?.title}');
-        print('  featuredTeacher: ${dashboard.featuredClass?.teacherName}');
-        print('  enrolledBatches: ${dashboard.enrolledBatches.map((b) => b.batchName).toList()}');
-        print('  pendingAssignmentsCount: ${dashboard.pendingAssignmentsCount}');
-        print('============================================================');
+      print('============================================================');
+      print('STUDENT DASHBOARD REAL RUNTIME DATA:');
+      print('  studentName: ${dashboard.studentName}');
+      print('  attendanceRate: ${dashboard.attendanceRate}%');
+      print('  upcomingClassesCount: ${dashboard.upcomingClassesCount}');
+      print('  featuredClass: ${dashboard.featuredClass?.title}');
+      print('  featuredTeacher: ${dashboard.featuredClass?.teacherName}');
+      print(
+        '  enrolledBatches: ${dashboard.enrolledBatches.map((b) => b.batchName).toList()}',
+      );
+      print('  pendingAssignmentsCount: ${dashboard.pendingAssignmentsCount}');
+      print('============================================================');
 
-        expect(dashboard.studentName, isNotNull);
-        expect(dashboard.featuredClass, isNotNull);
-        expect(dashboard.attendanceRate, greaterThan(0));
-      },
-    );
+      expect(dashboard.studentName, isNotNull);
+      expect(dashboard.featuredClass, isNotNull);
+      expect(dashboard.attendanceRate, greaterThan(0));
+    });
   });
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../../../core/widgets/app_refresh_indicator.dart';
 import '../../../../core/router/route_paths.dart';
 import '../widgets/parent_hamburger_drawer.dart';
 
@@ -67,31 +69,40 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
 
               // Main Content ScrollView (Node 104:107)
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 448),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 16),
+                child: AppRefreshIndicator(
+                  onRefresh: () async {
+                    await Future<void>.delayed(
+                      const Duration(milliseconds: 600),
+                    );
+                    if (mounted) setState(() {});
+                  },
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 448),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 16),
 
-                          // Top Summary Card (Node 104:108)
-                          _buildTopSummaryCard(),
+                            // Top Summary Card (Node 104:108)
+                            _buildTopSummaryCard(),
 
-                          const SizedBox(height: 24),
+                            const SizedBox(height: 24),
 
-                          // Child Filter Section (Node 104:126)
-                          _buildChildFilterSection(),
+                            // Child Filter Section (Node 104:126)
+                            _buildChildFilterSection(),
 
-                          const SizedBox(height: 24),
+                            const SizedBox(height: 24),
 
-                          // Invoice List Section (Node 104:134)
-                          _buildInvoiceListSection(context),
+                            // Invoice List Section (Node 104:134)
+                            _buildInvoiceListSection(context),
 
-                          const SizedBox(height: 48),
-                        ],
+                            const SizedBox(height: 48),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -133,11 +144,7 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
             },
             child: Container(
               padding: const EdgeInsets.all(8),
-              child: SvgPicture.asset(
-                _svgBackArrow,
-                width: 16,
-                height: 16,
-              ),
+              child: SvgPicture.asset(_svgBackArrow, width: 16, height: 16),
             ),
           ),
 
@@ -324,7 +331,9 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
         children: List.generate(filters.length, (index) {
           final isSelected = _selectedFilterIndex == index;
           return Padding(
-            padding: EdgeInsets.only(right: index < filters.length - 1 ? 12 : 0),
+            padding: EdgeInsets.only(
+              right: index < filters.length - 1 ? 12 : 0,
+            ),
             child: InkWell(
               borderRadius: BorderRadius.circular(9999),
               onTap: () {
@@ -333,16 +342,18 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
                 });
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 11),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 11,
+                ),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF0037B1) : const Color(0xFFFAF8FF),
+                  color: isSelected
+                      ? const Color(0xFF0037B1)
+                      : const Color(0xFFFAF8FF),
                   borderRadius: BorderRadius.circular(9999),
                   border: isSelected
                       ? null
-                      : Border.all(
-                          color: const Color(0xFFC4C5D7),
-                          width: 1,
-                        ),
+                      : Border.all(color: const Color(0xFFC4C5D7), width: 1),
                   boxShadow: isSelected
                       ? const [
                           BoxShadow(
@@ -403,10 +414,7 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
       decoration: BoxDecoration(
         color: const Color(0xE6FFFFFF), // rgba(255, 255, 255, 0.9)
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0x80FFFFFF),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0x80FFFFFF), width: 1),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0A000000), // rgba(0, 0, 0, 0.04)
@@ -460,7 +468,10 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
 
                         // DUE badge (Node 104:145)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFDAD6),
                             borderRadius: BorderRadius.circular(4),
@@ -558,7 +569,12 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
                 InkWell(
                   borderRadius: BorderRadius.circular(8),
                   onTap: () {
-                    context.push(AppRoutePaths.invoiceDetails.replaceAll(':invoiceId', 'TL-2026-0018'));
+                    context.push(
+                      AppRoutePaths.invoiceDetails.replaceAll(
+                        ':invoiceId',
+                        'TL-2026-0018',
+                      ),
+                    );
                   },
                   child: Container(
                     width: double.infinity,
@@ -607,10 +623,7 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
       decoration: BoxDecoration(
         color: const Color(0xE6FFFFFF), // rgba(255, 255, 255, 0.9)
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0x80FFFFFF),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0x80FFFFFF), width: 1),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0A000000), // rgba(0, 0, 0, 0.04)
@@ -664,9 +677,14 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
 
                         // PAID badge (Node 104:173)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0x3310B981), // rgba(16, 185, 129, 0.2)
+                            color: const Color(
+                              0x3310B981,
+                            ), // rgba(16, 185, 129, 0.2)
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -762,7 +780,12 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
                 InkWell(
                   borderRadius: BorderRadius.circular(8),
                   onTap: () {
-                    context.push(AppRoutePaths.invoiceDetails.replaceAll(':invoiceId', 'TL-2026-0012'));
+                    context.push(
+                      AppRoutePaths.invoiceDetails.replaceAll(
+                        ':invoiceId',
+                        'TL-2026-0012',
+                      ),
+                    );
                   },
                   child: Container(
                     width: double.infinity,

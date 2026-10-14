@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/router/route_paths.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../auth/presentation/controllers/auth_state.dart';
@@ -25,8 +26,8 @@ import '../controllers/parent_profile_state.dart';
 ///   - Subtitle: "Parent" (12px Medium #434655)
 /// - Menu Groups (Node 76:1277):
 ///   - LEARNING: My Classes, Assignments, My Programs, Learning Progress (ACTIVE #1E4ED8)
-///   - MY GROWTH: Achievements, Certificates
-///   - COMMUNICATION: Messages, Notifications, Teacher Updates
+///   - MY GROWTH: Assessments, Certificates
+///   - COMMUNICATION: Messages, Notifications
 ///   - ACCOUNT: My Profile, Account Settings, Security & Privacy
 /// - Footer Section (Node 76:1366):
 ///   - Divider top: #EDEDF9
@@ -54,14 +55,15 @@ class ParentHamburgerDrawer extends ConsumerWidget {
   static const String _svgClasses = 'assets/icons/drawer_classes.svg';
   static const String _svgAssignments = 'assets/icons/drawer_assignments.svg';
   static const String _svgPrograms = 'assets/icons/drawer_programs.svg';
-  static const String _svgLearningProgress = 'assets/icons/drawer_learning_progress.svg';
+  static const String _svgLearningProgress =
+      'assets/icons/drawer_learning_progress.svg';
 
-  static const String _svgAchievements = 'assets/icons/drawer_achievements.svg';
+  static const String _svgAssessments = 'assets/icons/drawer_assessments.svg';
   static const String _svgCertificates = 'assets/icons/drawer_certificates.svg';
 
   static const String _svgMessages = 'assets/icons/drawer_messages.svg';
-  static const String _svgNotifications = 'assets/icons/drawer_notifications.svg';
-  static const String _svgTeacherUpdates = 'assets/icons/drawer_teacher_updates.svg';
+  static const String _svgNotifications =
+      'assets/icons/drawer_notifications.svg';
 
   static const String _svgProfile = 'assets/icons/drawer_profile.svg';
   static const String _svgSettings = 'assets/icons/drawer_settings.svg';
@@ -103,9 +105,14 @@ class ParentHamburgerDrawer extends ConsumerWidget {
     if (path.startsWith(AppRoutePaths.learningProgress)) {
       return 'Learning Progress';
     }
-    // 5. Achievements: /parent/achievements
-    if (path.startsWith(AppRoutePaths.achievements)) {
-      return 'Achievements';
+    // 5. Assessments: /parent/assessments
+    if (path.startsWith(AppRoutePaths.assessments) ||
+        path.startsWith(AppRoutePaths.achievements)) {
+      return 'Assessments';
+    }
+    // 5b. Certificates: /parent/certificates
+    if (path.startsWith(AppRoutePaths.parentCertificates)) {
+      return 'Certificates';
     }
     // 6. Messages: /parent/messages
     if (path.startsWith(AppRoutePaths.parentMessages)) {
@@ -114,10 +121,6 @@ class ParentHamburgerDrawer extends ConsumerWidget {
     // 7. Notifications: /parent/notifications
     if (path.startsWith(AppRoutePaths.notifications)) {
       return 'Notifications';
-    }
-    // 8. Teacher Updates: /parent/teacher-feedback
-    if (path.startsWith(AppRoutePaths.teacherFeedback)) {
-      return 'Teacher Updates';
     }
     // 9. Account Settings: /parent/settings
     if (path.startsWith(AppRoutePaths.accountSettings)) {
@@ -179,7 +182,8 @@ class ParentHamburgerDrawer extends ConsumerWidget {
       displayName = profileState.profile.fullName;
       displayEmail = profileState.profile.email;
     } else if (authState is Authenticated && authState.user != null) {
-      displayName = (authState.user!.name != null && authState.user!.name!.isNotEmpty)
+      displayName =
+          (authState.user!.name != null && authState.user!.name!.isNotEmpty)
           ? authState.user!.name!
           : 'Parent';
       displayEmail = authState.user!.email ?? '';
@@ -334,7 +338,9 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                       iconSvg: _svgAssignments,
                       iconWidth: 18,
                       iconHeight: 20,
-                      isActive: effectiveActiveItem == 'Assignments' || effectiveActiveItem == 'Assignment',
+                      isActive:
+                          effectiveActiveItem == 'Assignments' ||
+                          effectiveActiveItem == 'Assignment',
                       onTap: () => _navigate(
                         context,
                         AppRoutePaths.parentAssignments,
@@ -380,15 +386,15 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                     _buildSectionHeader('MY GROWTH'),
                     _buildMenuItem(
                       context: context,
-                      label: 'Achievements',
-                      iconSvg: _svgAchievements,
+                      label: 'Assessments',
+                      iconSvg: _svgAssessments,
                       iconWidth: 18,
                       iconHeight: 18,
-                      isActive: effectiveActiveItem == 'Achievements',
+                      isActive: effectiveActiveItem == 'Assessments',
                       onTap: () => _navigate(
                         context,
-                        AppRoutePaths.achievements,
-                        'Achievements',
+                        AppRoutePaths.assessments,
+                        'Assessments',
                         currentPath,
                         effectiveActiveItem,
                       ),
@@ -402,7 +408,7 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                       isActive: effectiveActiveItem == 'Certificates',
                       onTap: () => _navigate(
                         context,
-                        AppRoutePaths.achievements,
+                        AppRoutePaths.parentCertificates,
                         'Certificates',
                         currentPath,
                         effectiveActiveItem,
@@ -443,21 +449,6 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                         effectiveActiveItem,
                       ),
                     ),
-                    _buildMenuItem(
-                      context: context,
-                      label: 'Teacher Updates',
-                      iconSvg: _svgTeacherUpdates,
-                      iconWidth: 22,
-                      iconHeight: 19,
-                      isActive: effectiveActiveItem == 'Teacher Updates',
-                      onTap: () => _navigate(
-                        context,
-                        AppRoutePaths.teacherFeedback,
-                        'Teacher Updates',
-                        currentPath,
-                        effectiveActiveItem,
-                      ),
-                    ),
 
                     const SizedBox(height: 24),
 
@@ -469,7 +460,9 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                       iconSvg: _svgProfile,
                       iconWidth: 16,
                       iconHeight: 16,
-                      isActive: effectiveActiveItem == 'My Profile' || effectiveActiveItem == 'Profile',
+                      isActive:
+                          effectiveActiveItem == 'My Profile' ||
+                          effectiveActiveItem == 'Profile',
                       onTap: () => _navigate(
                         context,
                         AppRoutePaths.parentProfile,
@@ -520,10 +513,7 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(24, 17, 24, 24),
                 decoration: const BoxDecoration(
                   border: Border(
-                    top: BorderSide(
-                      color: Color(0xFFEDEDF9),
-                      width: 1,
-                    ),
+                    top: BorderSide(color: Color(0xFFEDEDF9), width: 1),
                   ),
                 ),
                 child: Column(
@@ -533,7 +523,9 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(17),
                       decoration: BoxDecoration(
-                        color: const Color(0x80EADDFF), // rgba(234, 221, 255, 0.5)
+                        color: const Color(
+                          0x80EADDFF,
+                        ), // rgba(234, 221, 255, 0.5)
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: const Color(0xFFD2BBFF),
@@ -577,7 +569,10 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                               // Static frontend feedback
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF712AE2),
                                 borderRadius: BorderRadius.circular(8),
@@ -615,8 +610,12 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                         if (onLogout != null) {
                           onLogout?.call();
                         } else {
-                          await ref.read(authControllerProvider.notifier).logout();
-                          ref.read(parentProfileControllerProvider.notifier).reset();
+                          await ref
+                              .read(authControllerProvider.notifier)
+                              .logout();
+                          ref
+                              .read(parentProfileControllerProvider.notifier)
+                              .reset();
                           if (context.mounted) {
                             context.go(AppRoutePaths.login);
                           }
@@ -624,7 +623,10 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                       },
                       child: Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -716,7 +718,10 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                     fit: BoxFit.contain,
                     colorFilter: isActive
                         ? const ColorFilter.mode(Colors.white, BlendMode.srcIn)
-                        : const ColorFilter.mode(Color(0xFF434655), BlendMode.srcIn),
+                        : const ColorFilter.mode(
+                            Color(0xFF434655),
+                            BlendMode.srcIn,
+                          ),
                   ),
                 ),
               ),
@@ -728,7 +733,9 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                     height: 20 / 14,
-                    color: isActive ? const Color(0xFFFBFAFF) : const Color(0xFF434655),
+                    color: isActive
+                        ? const Color(0xFFFBFAFF)
+                        : const Color(0xFF434655),
                   ),
                 ),
               ),

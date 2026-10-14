@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../widgets/security_privacy_sub_app_bar.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
 
 /// Screen 5 — Data & Privacy.
 ///
@@ -23,11 +25,7 @@ class ParentDataPrivacyScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF3E8FF),
-              Color(0xFFE0F2FE),
-              Color(0xFFFFFFFF),
-            ],
+            colors: [Color(0xFFF3E8FF), Color(0xFFE0F2FE), Color(0xFFFFFFFF)],
             stops: [0.0, 0.45, 1.0],
           ),
         ),
@@ -36,35 +34,44 @@ class ParentDataPrivacyScreen extends StatelessWidget {
             children: [
               const SecurityPrivacySubAppBar(title: 'Data & Privacy'),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 540),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'You can download your data or delete your account at any time.',
-                            style: AppTypography.bodyMedium.copyWith(
-                              color: const Color(0xFF64748B),
-                              fontSize: 14,
+                child: AppRefreshIndicator(
+                  onRefresh: () async {
+                    await Future.delayed(const Duration(milliseconds: 300));
+                  },
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 20,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 540),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'You can download your data or delete your account at any time.',
+                              style: AppTypography.bodyMedium.copyWith(
+                                color: const Color(0xFF64748B),
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 20),
+                            const SizedBox(height: 20),
 
-                          // Section 1: Download Your Data Card
-                          _buildDownloadCard(context),
-                          const SizedBox(height: 20),
+                            // Section 1: Download Your Data Card
+                            _buildDownloadCard(context),
+                            const SizedBox(height: 20),
 
-                          // Section 2: Delete Account Card (Destructive)
-                          _buildDeleteAccountCard(context),
-                          const SizedBox(height: 24),
+                            // Section 2: Delete Account Card (Destructive)
+                            _buildDeleteAccountCard(context),
+                            const SizedBox(height: 24),
 
-                          // Section 3: What data is included?
-                          _buildWhatDataIncludedCard(),
-                          const SizedBox(height: 32),
-                        ],
+                            // Section 3: What data is included?
+                            _buildWhatDataIncludedCard(),
+                            const SizedBox(height: 32),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -277,7 +284,10 @@ class ParentDataPrivacyScreen extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('• ', style: TextStyle(color: Color(0xFF3B82F6), fontSize: 16)),
+                  const Text(
+                    '• ',
+                    style: TextStyle(color: Color(0xFF3B82F6), fontSize: 16),
+                  ),
                   Expanded(
                     child: Text(
                       item,
@@ -308,7 +318,11 @@ class ParentDataPrivacyScreen extends StatelessWidget {
         ),
         content: Text(
           'Self-service automated exports are currently being finalized. In accordance with data privacy regulations, our data protection officer can deliver your data archive within 48 hours.\n\nPlease contact support@truelern.com with subject "Data Export Request".',
-          style: GoogleFonts.hankenGrotesk(fontSize: 13.5, height: 1.45, color: const Color(0xFF334155)),
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 13.5,
+            height: 1.45,
+            color: const Color(0xFF334155),
+          ),
         ),
         actions: [
           TextButton(
@@ -327,11 +341,18 @@ class ParentDataPrivacyScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Delete TrueLern Account?',
-          style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w700, color: const Color(0xFFDC2626)),
+          style: GoogleFonts.hankenGrotesk(
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFFDC2626),
+          ),
         ),
         content: Text(
           'This action is irreversible. Because your account is linked to active enrolled students, deletion requires verified authorization from your school administrator to ensure academic records are preserved.\n\nPlease reach out to your institution\'s coordinator or submit a closure request to administration.',
-          style: GoogleFonts.hankenGrotesk(fontSize: 13.5, height: 1.45, color: const Color(0xFF334155)),
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 13.5,
+            height: 1.45,
+            color: const Color(0xFF334155),
+          ),
         ),
         actions: [
           TextButton(
@@ -343,7 +364,9 @@ class ParentDataPrivacyScreen extends StatelessWidget {
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Account closure request logged. Support will contact you.'),
+                  content: Text(
+                    'Account closure request logged. Support will contact you.',
+                  ),
                   backgroundColor: Color(0xFF334155),
                   behavior: SnackBarBehavior.floating,
                 ),

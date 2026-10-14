@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../widgets/demo_booking_confirmation_popup.dart';
 import '../widgets/parent_hamburger_drawer.dart';
 
@@ -465,9 +466,7 @@ class _DemoBookingDashboardScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12.0),
-        border: Border.all(
-          color: const Color.fromRGBO(196, 197, 215, 0.1),
-        ),
+        border: Border.all(color: const Color.fromRGBO(196, 197, 215, 0.1)),
         boxShadow: const [
           BoxShadow(
             color: Color.fromRGBO(0, 0, 0, 0.05),

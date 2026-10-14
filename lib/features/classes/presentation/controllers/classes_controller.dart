@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../dashboard/presentation/controllers/children_controller.dart';
 import '../../../dashboard/presentation/controllers/children_state.dart';
 import '../../data/repositories/classes_repository_impl.dart';
@@ -18,21 +19,58 @@ class ClassesController extends Notifier<ClassesState> {
 
   ClassesRepository get _repository => ref.read(classesRepositoryProvider);
 
+  int _requestToken = 0;
+  String? _currentlyLoadingChildId;
+
   /// Loads live class schedule for the given [childStudentId].
   ///
   /// If [childStudentId] is null or empty, transitions to [ClassesNoChild].
-  Future<void> loadClasses({required String? childStudentId}) async {
+  Future<void> loadClasses({
+    required String? childStudentId,
+    bool isRefresh = false,
+  }) async {
     if (childStudentId == null || childStudentId.isEmpty) {
       state = const ClassesNoChild();
       return;
     }
 
-    state = const ClassesLoading();
+    final current = state;
+    // Skip redundant fetch if already loaded for the same child and not a refresh
+    if (!isRefresh &&
+        current is ClassesLoaded &&
+        current.childStudentId == childStudentId) {
+      return;
+    }
+
+    final token = ++_requestToken;
+    _currentlyLoadingChildId = childStudentId;
+
+    if (!isRefresh ||
+        current is! ClassesLoaded ||
+        current.childStudentId != childStudentId) {
+      state = const ClassesLoading();
+    }
     try {
       final list = await _repository.getLiveClasses(childStudentId);
-      state = ClassesLoaded(classes: list);
+
+      // Race condition check: ensure response is still for the active child context
+      if (token != _requestToken ||
+          _currentlyLoadingChildId != childStudentId) {
+        return;
+      }
+
+      state = ClassesLoaded(classes: list, childStudentId: childStudentId);
     } catch (error) {
-      state = ClassesError(message: _messageFrom(error));
+      if (token != _requestToken ||
+          _currentlyLoadingChildId != childStudentId) {
+        return;
+      }
+      if (!isRefresh || state is! ClassesLoaded) {
+        state = ClassesError(
+          message: _messageFrom(error),
+          childStudentId: childStudentId,
+        );
+      }
     }
   }
 
@@ -42,13 +80,14 @@ class ClassesController extends Notifier<ClassesState> {
     final childId = childrenState is ChildrenLoaded
         ? childrenState.activeChildId
         : null;
-    await loadClasses(childStudentId: childId);
+    await loadClasses(childStudentId: childId, isRefresh: true);
   }
 
   String _messageFrom(Object error) {
     final s = error.toString();
     final match = RegExp(r'message: (.+?)(,|$)').firstMatch(s);
-    return match?.group(1) ?? 'Unable to load classes schedule. Please try again.';
+    return match?.group(1) ??
+        'Unable to load classes schedule. Please try again.';
   }
 }
 

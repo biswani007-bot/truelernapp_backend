@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/dashboard_entity.dart';
@@ -30,32 +31,43 @@ class BentoSnapshotGrid extends StatelessWidget {
     final attendancePercentage = dashboard.attendanceRate != null
         ? '${dashboard.attendanceRate!.round()}%'
         : '0%';
-    final attendanceProgress = (dashboard.attendanceRate ?? 0) / 100.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            // Card 1: Progress (76:3647) - White bg, border #E2E1ED, 16px radius, purple bar
+            // Card 1: Counselor - White bg, border #E2E1ED, 16px radius
             Expanded(
               child: _BentoCard(
-                key: const Key('bento_progress_card'),
+                key: const Key('bento_counselor_card'),
                 backgroundColor: Colors.white,
                 borderColor: const Color(0xFFE2E1ED),
-                icon: Icons.trending_up_rounded,
+                icon: Icons.support_agent_rounded,
                 iconColor: const Color(0xFF434655),
-                label: 'Progress',
-                value: attendancePercentage,
-                onTap: () => context.go(AppRoutePaths.learningProgress),
-                footer: ClipRRect(
-                  borderRadius: BorderRadius.circular(9999),
-                  child: LinearProgressIndicator(
-                    value: attendanceProgress,
-                    backgroundColor: const Color(0xFFE2E1ED),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFA855F7)),
-                    minHeight: 6,
-                  ),
+                label: 'Counselor',
+                value: 'Guidance',
+                onTap: () => context.push(AppRoutePaths.parentCounselor),
+                footer: Row(
+                  children: [
+                    const Icon(
+                      Icons.verified_user_outlined,
+                      size: 13,
+                      color: Color(0xFF0037B1),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Academic Support',
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.labelSmall.copyWith(
+                          color: const Color(0xFF6B7280),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -123,6 +135,10 @@ class BentoSnapshotGrid extends StatelessWidget {
                 value: activeTopic,
                 isTopicText: true,
                 footer: const SizedBox.shrink(),
+                onTap: () => context.push(
+                  AppRoutePaths.topicDetail,
+                  extra: activeTopic,
+                ),
               ),
             ),
           ],
@@ -166,71 +182,68 @@ class _BentoCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-          height: 118,
-          padding: const EdgeInsets.all(17),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: borderColor,
-              width: 1,
+        height: 118,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: 1),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0D000000), // rgba(0,0,0,0.05)
+              blurRadius: 2,
+              offset: Offset(0, 1),
             ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0D000000), // rgba(0,0,0,0.05)
-                blurRadius: 2,
-                offset: Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: iconColor),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  style: AppTypography.labelSmall.copyWith(
-                    color: labelColor ?? const Color(0xFF434655),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 17,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 16, color: iconColor),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: AppTypography.labelSmall.copyWith(
+                      color: labelColor ?? const Color(0xFF434655),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+            if (isTopicText)
+              Text(
+                value,
+                style: AppTypography.titleSmall.copyWith(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: valueColor ?? const Color(0xFF1A1B23),
+                  height: 1.2,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              )
+            else
+              Text(
+                value,
+                style: AppTypography.displayMedium.copyWith(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: valueColor ?? const Color(0xFF1A1B23),
+                  height: 1.0,
                 ),
               ),
-            ],
-          ),
-          if (isTopicText)
-            Text(
-              value,
-              style: AppTypography.titleSmall.copyWith(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: valueColor ?? const Color(0xFF1A1B23),
-                height: 1.2,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            )
-          else
-            Text(
-              value,
-              style: AppTypography.displayMedium.copyWith(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: valueColor ?? const Color(0xFF1A1B23),
-                height: 1.0,
-              ),
-            ),
-          footer,
-        ],
+            footer,
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

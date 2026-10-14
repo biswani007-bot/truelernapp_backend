@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../dashboard/domain/entities/child_entity.dart';
@@ -79,7 +80,10 @@ class ChildContextBanner extends StatelessWidget {
                     if (children.length > 1) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(6),
@@ -131,15 +135,21 @@ class ChildContextBanner extends StatelessWidget {
                               ? Icons.radio_button_checked_rounded
                               : Icons.radio_button_off_rounded,
                           size: 18,
-                          color: isCurrent ? AppColors.primary : AppColors.textMuted,
+                          color: isCurrent
+                              ? AppColors.primary
+                              : AppColors.textMuted,
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             c.displayName,
                             style: AppTypography.bodyMedium.copyWith(
-                              fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
-                              color: isCurrent ? AppColors.primary : AppColors.textPrimary,
+                              fontWeight: isCurrent
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: isCurrent
+                                  ? AppColors.primary
+                                  : AppColors.textPrimary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

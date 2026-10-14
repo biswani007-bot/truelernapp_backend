@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../classes/domain/entities/class_entity.dart';
@@ -76,9 +77,14 @@ class FeaturedClassCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0x1A22D3EE), // rgba(34, 211, 238, 0.1)
+                            color: const Color(
+                              0x1A22D3EE,
+                            ), // rgba(34, 211, 238, 0.1)
                             borderRadius: BorderRadius.circular(9999),
                           ),
                           child: Text(
@@ -108,9 +114,10 @@ class FeaturedClassCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           upcomingClass != null
-                              ? (upcomingClass!.teacherName != null && upcomingClass!.teacherName!.isNotEmpty
-                                  ? 'Instructor: ${upcomingClass!.teacherName} • ${_formatTimeShort(upcomingClass!)}'
-                                  : _formatTimeShort(upcomingClass!))
+                              ? (upcomingClass!.teacherName != null &&
+                                        upcomingClass!.teacherName!.isNotEmpty
+                                    ? 'Instructor: ${upcomingClass!.teacherName} • ${_formatTimeShort(upcomingClass!)}'
+                                    : _formatTimeShort(upcomingClass!))
                               : 'Check upcoming classes in schedule',
                           style: AppTypography.bodySmall.copyWith(
                             color: const Color(0xFF434655),
@@ -139,7 +146,10 @@ class FeaturedClassCard extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
                   ),
                   child: Text(
                     upcomingClass != null ? 'Join Class' : 'View Classes',

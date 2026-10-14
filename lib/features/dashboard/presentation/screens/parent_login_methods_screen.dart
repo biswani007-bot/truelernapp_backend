@@ -1,27 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/router/route_paths.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
+import '../controllers/login_methods_controller.dart';
+import '../controllers/login_methods_state.dart';
 import '../widgets/parent_hamburger_drawer.dart';
 
-/// Parent Login Methods Screen — PURE FRONTEND ONLY.
+/// Parent Login Methods Screen connected to real TrueLern Backend API.
 ///
 /// Figma Source of Truth: `Parent(full app)_TreLern`, Frame: `Login Methods` (Node 104:462).
-/// Displays the exact Figma design:
+/// Displays:
 /// - Header with Back button and centered Title "Login Methods"
 /// - Gradient background (Lavender -> Sky Blue -> White)
-/// - Method 1: WhatsApp (+1 555-0123) with green accent border & "Verified" badge
-/// - Method 2: Email (sarah.j@example.com) with green accent border & "Verified" badge
-/// - Method 3: Biometrics (Face ID / Fingerprint) with blue accent border & "Enabled" badge
+/// - Method 1: WhatsApp (real parent phone from API) with green accent border & "Verified" badge
+/// - Method 2: Email (real parent email from API) with green accent border & "Verified" badge
+/// - Method 3: PIN (Security PIN) with neutral accent border & "Unavailable" badge (No server PIN API)
+/// - Method 4: Biometrics (Face ID / Fingerprint) with blue accent border & "Device Only" badge
 /// - Footer Note: Lock icon & "TrueLern uses secure verification. No passwords required."
-///
-/// STRICT RULES:
-/// - Zero backend calls / Zero API calls / Pure static frontend
-/// - No bottom navigation bar (matching Figma Node 104:462)
-class ParentLoginMethodsScreen extends StatelessWidget {
+class ParentLoginMethodsScreen extends ConsumerStatefulWidget {
   const ParentLoginMethodsScreen({super.key});
 
+  @override
+  ConsumerState<ParentLoginMethodsScreen> createState() =>
+      _ParentLoginMethodsScreenState();
+}
+
+class _ParentLoginMethodsScreenState
+    extends ConsumerState<ParentLoginMethodsScreen> {
   static const _svgBackArrow = 'assets/icons/login_back_arrow.svg';
   static const _svgWhatsApp = 'assets/icons/login_whatsapp.svg';
   static const _svgEmail = 'assets/icons/login_email.svg';
@@ -29,102 +38,234 @@ class ParentLoginMethodsScreen extends StatelessWidget {
   static const _svgLock = 'assets/icons/login_lock.svg';
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(loginMethodsControllerProvider.notifier).loadLoginMethods();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: const Key('parent_login_methods_screen'),
-      drawer: const ParentHamburgerDrawer(),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF3E8FF), // rgb(243, 232, 255)
-              Color(0xFFE0F2FE), // rgb(224, 242, 254)
-              Color(0xFFFFFFFF), // rgb(255, 255, 255)
-            ],
-            stops: [0.0, 0.5, 1.0],
+    final state = ref.watch(loginMethodsControllerProvider);
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(AppRoutePaths.parentSecurityPrivacy);
+        }
+      },
+      child: Scaffold(
+        key: const Key('parent_login_methods_screen'),
+        drawer: const ParentHamburgerDrawer(),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFF3E8FF), // rgb(243, 232, 255)
+                Color(0xFFE0F2FE), // rgb(224, 242, 254)
+                Color(0xFFFFFFFF), // rgb(255, 255, 255)
+              ],
+              stops: [0.0, 0.5, 1.0],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header (Transactional - No Shell Nav) (Node 104:523)
-              _buildTopHeader(context),
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Header (Transactional - No Shell Nav) (Node 104:523)
+                _buildTopHeader(context),
 
-              // Main Content ScrollView (Node 104:463)
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 448),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const SizedBox(height: 24),
+                // Main Content ScrollView (Node 104:463)
+                Expanded(
+                  child: AppRefreshIndicator(
+                    onRefresh: () async {
+                      await ref
+                          .read(loginMethodsControllerProvider.notifier)
+                          .loadLoginMethods(isRefresh: true);
+                    },
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 448),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const SizedBox(height: 24),
 
-                          // Method 1: WhatsApp (Node 104:465)
-                          _buildMethodCard(
-                            iconPath: _svgWhatsApp,
-                            iconWidth: 20,
-                            iconHeight: 20,
-                            title: 'WhatsApp',
-                            subtitle: '+1 555-0123',
-                            accentColor: const Color(0xFF10B981),
-                            badgeText: 'Verified',
-                            badgeTextColor: const Color(0xFF10B981),
-                            badgeBgColor: const Color(0x1A10B981),
-                            badgeBorderColor: const Color(0x3310B981),
+                              if (state is LoginMethodsLoading) ...[
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                  child: CircularProgressIndicator(
+                                    color: Color(0xFF1E4ED8),
+                                  ),
+                                ),
+                              ] else if (state is LoginMethodsError) ...[
+                                _buildErrorCard(state.message),
+                                const SizedBox(height: 16),
+                              ],
+
+                              // Method 1: WhatsApp (Node 104:465)
+                              _buildMethodCard(
+                                iconPath: _svgWhatsApp,
+                                iconWidth: 20,
+                                iconHeight: 20,
+                                title: 'WhatsApp',
+                                subtitle: state is LoginMethodsLoaded
+                                    ? (state.methods.phone.isNotEmpty
+                                          ? state.methods.phone
+                                          : 'Not configured')
+                                    : (state is LoginMethodsLoading
+                                          ? 'Loading...'
+                                          : 'Not configured'),
+                                accentColor: const Color(0xFF10B981),
+                                badgeText:
+                                    state is LoginMethodsLoaded &&
+                                        state.methods.phone.isNotEmpty
+                                    ? 'Verified'
+                                    : 'Active',
+                                badgeTextColor: const Color(0xFF10B981),
+                                badgeBgColor: const Color(0x1A10B981),
+                                badgeBorderColor: const Color(0x3310B981),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Method 2: Email (Node 104:478)
+                              _buildMethodCard(
+                                iconPath: _svgEmail,
+                                iconWidth: 20,
+                                iconHeight: 16,
+                                title: 'Email',
+                                subtitle: state is LoginMethodsLoaded
+                                    ? (state.methods.email.isNotEmpty
+                                          ? state.methods.email
+                                          : 'Not configured')
+                                    : (state is LoginMethodsLoading
+                                          ? 'Loading...'
+                                          : 'Not configured'),
+                                accentColor: const Color(0xFF10B981),
+                                badgeText:
+                                    state is LoginMethodsLoaded &&
+                                        state.methods.email.isNotEmpty
+                                    ? 'Verified'
+                                    : 'Active',
+                                badgeTextColor: const Color(0xFF10B981),
+                                badgeBgColor: const Color(0x1A10B981),
+                                badgeBorderColor: const Color(0x3310B981),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Method 3: PIN
+                              _buildMethodCard(
+                                iconPath: _svgLock,
+                                iconWidth: 16,
+                                iconHeight: 20,
+                                title: 'PIN',
+                                subtitle: 'Security PIN (No server API)',
+                                accentColor: const Color(0xFF9CA3AF),
+                                badgeText: 'Unavailable',
+                                badgeTextColor: const Color(0xFF6B7280),
+                                badgeBgColor: const Color(0x1A9CA3AF),
+                                badgeBorderColor: const Color(0x339CA3AF),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Method 4: Biometrics (Node 104:504)
+                              _buildMethodCard(
+                                iconPath: _svgBiometric,
+                                iconWidth: 18,
+                                iconHeight: 20,
+                                title: 'Biometrics',
+                                subtitle:
+                                    'Face ID / Fingerprint (Local Device)',
+                                accentColor: const Color(0xFF3B82F6),
+                                badgeText: 'Device Only',
+                                badgeTextColor: const Color(0xFF3B82F6),
+                                badgeBgColor: const Color(0x1A3B82F6),
+                                badgeBorderColor: const Color(0x333B82F6),
+                              ),
+
+                              const SizedBox(height: 32),
+
+                              // Footer Note (Node 104:518)
+                              _buildFooterNote(),
+
+                              const SizedBox(height: 32),
+                            ],
                           ),
-
-                          const SizedBox(height: 12),
-
-                          // Method 2: Email (Node 104:478)
-                          _buildMethodCard(
-                            iconPath: _svgEmail,
-                            iconWidth: 20,
-                            iconHeight: 16,
-                            title: 'Email',
-                            subtitle: 'sarah.j@example.com',
-                            accentColor: const Color(0xFF10B981),
-                            badgeText: 'Verified',
-                            badgeTextColor: const Color(0xFF10B981),
-                            badgeBgColor: const Color(0x1A10B981),
-                            badgeBorderColor: const Color(0x3310B981),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          // Method 3: Biometrics (Node 104:504)
-                          _buildMethodCard(
-                            iconPath: _svgBiometric,
-                            iconWidth: 18,
-                            iconHeight: 20,
-                            title: 'Biometrics',
-                            subtitle: 'Face ID / Fingerprint',
-                            accentColor: const Color(0xFF3B82F6),
-                            badgeText: 'Enabled',
-                            badgeTextColor: const Color(0xFF3B82F6),
-                            badgeBgColor: const Color(0x1A3B82F6),
-                            badgeBorderColor: const Color(0x333B82F6),
-                          ),
-
-                          const SizedBox(height: 32),
-
-                          // Footer Note (Node 104:518)
-                          _buildFooterNote(),
-
-                          const SizedBox(height: 32),
-                        ],
+                        ),
                       ),
                     ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Error banner with retry button
+  Widget _buildErrorCard(String error) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFCA5A5)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.error_outline, color: Color(0xFFDC2626)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Failed to load login methods',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF991B1B),
                   ),
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 8),
+          Text(
+            error,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 12,
+              color: const Color(0xFFB91C1C),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: () => ref
+                .read(loginMethodsControllerProvider.notifier)
+                .loadLoginMethods(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }
@@ -208,10 +349,7 @@ class ParentLoginMethodsScreen extends StatelessWidget {
         color: const Color(0xFFFAF8FF),
         borderRadius: BorderRadius.circular(12),
         border: Border(
-          left: BorderSide(
-            color: accentColor.withValues(alpha: 0.8),
-            width: 4,
-          ),
+          left: BorderSide(color: accentColor.withValues(alpha: 0.8), width: 4),
         ),
         boxShadow: const [
           BoxShadow(
@@ -233,10 +371,7 @@ class ParentLoginMethodsScreen extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFFFFFFF),
-                  Color(0xFFE6E6E6),
-                ],
+                colors: [Color(0xFFFFFFFF), Color(0xFFE6E6E6)],
               ),
               boxShadow: const [
                 BoxShadow(
@@ -256,10 +391,7 @@ class ParentLoginMethodsScreen extends StatelessWidget {
                 iconPath,
                 width: iconWidth,
                 height: iconHeight,
-                colorFilter: ColorFilter.mode(
-                  accentColor,
-                  BlendMode.srcIn,
-                ),
+                colorFilter: ColorFilter.mode(accentColor, BlendMode.srcIn),
               ),
             ),
           ),
@@ -300,10 +432,7 @@ class ParentLoginMethodsScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: badgeBgColor,
               borderRadius: BorderRadius.circular(9999),
-              border: Border.all(
-                color: badgeBorderColor,
-                width: 1,
-              ),
+              border: Border.all(color: badgeBorderColor, width: 1),
             ),
             child: Text(
               badgeText,

@@ -135,7 +135,10 @@ class CompetitionsBanner extends StatelessWidget {
                         borderRadius: BorderRadius.circular(9999),
                         onTap: onRegisterTap,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
                           child: Text(
                             'Register Now',
                             style: GoogleFonts.hankenGrotesk(

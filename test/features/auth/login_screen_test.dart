@@ -78,7 +78,7 @@ void main() {
 
       // Social Auth buttons
       expect(find.text('Sign in with Google'), findsOneWidget);
-      expect(find.text('Sign in with Microsoft'), findsOneWidget);
+      expect(find.text('Sign in with Microsoft'), findsNothing);
       expect(find.text('Create Account'), findsNothing);
     });
 
@@ -197,7 +197,7 @@ void main() {
       );
     });
 
-    testWidgets('tapping Google button shows informative success notification',
+    testWidgets('tapping Google button shows informative unavailable notification',
         (WidgetTester tester) async {
       await tester.pumpWidget(createLoginApp());
       await tester.pump();
@@ -206,22 +206,9 @@ void main() {
       await tester.pump();
 
       expect(
-        find.text('Sign in successful'),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('tapping Microsoft button shows informative success notification',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(createLoginApp());
-      await tester.pump();
-
-      await tester.ensureVisible(find.text('Sign in with Microsoft'));
-      await tester.tap(find.text('Sign in with Microsoft'));
-      await tester.pump();
-
-      expect(
-        find.text('Sign in successful'),
+        find.text(
+          'Google Sign-In is currently unavailable. Please sign in with your email and password.',
+        ),
         findsOneWidget,
       );
     });

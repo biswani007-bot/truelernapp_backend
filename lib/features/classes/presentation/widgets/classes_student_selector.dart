@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_typography.dart';
 import '../../../dashboard/domain/entities/child_entity.dart';
 
@@ -61,20 +62,24 @@ class ClassesStudentSelector extends StatelessWidget {
                       ? Image.network(
                           activeChild.avatar!,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => _buildInitialAvatar(),
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildInitialAvatar(),
                         )
                       : (activeChild.firstName.toLowerCase() == 'alex'
-                          ? Image.asset(
-                              'assets/images/avatar_mia.png',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => _buildInitialAvatar(),
-                            )
-                          : _buildInitialAvatar()),
+                            ? Image.asset(
+                                'assets/images/avatar_mia.png',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    _buildInitialAvatar(),
+                              )
+                            : _buildInitialAvatar()),
                 ),
                 const SizedBox(width: 8),
                 // Child name (Node 76:1836)
                 Text(
-                  activeChild.firstName.isNotEmpty ? activeChild.firstName : 'Student',
+                  activeChild.firstName.isNotEmpty
+                      ? activeChild.firstName
+                      : 'Student',
                   style: AppTypography.labelLarge.copyWith(
                     color: Colors.white,
                     fontSize: 15,
@@ -128,7 +133,10 @@ class ClassesStudentSelector extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
                   child: Text(
                     'Select Student',
                     style: AppTypography.titleMedium.copyWith(
@@ -143,9 +151,12 @@ class ClassesStudentSelector extends StatelessWidget {
                   return ListTile(
                     leading: CircleAvatar(
                       radius: 16,
-                      backgroundColor: const Color(0xFF0037B1).withValues(alpha: 0.1),
+                      backgroundColor: const Color(0xFF0037B1)
+                          .withValues(alpha: 0.1),
                       child: Text(
-                        c.firstName.isNotEmpty ? c.firstName[0].toUpperCase() : 'S',
+                        c.firstName.isNotEmpty
+                            ? c.firstName[0].toUpperCase()
+                            : 'S',
                         style: const TextStyle(
                           color: Color(0xFF0037B1),
                           fontWeight: FontWeight.w700,
@@ -155,13 +166,20 @@ class ClassesStudentSelector extends StatelessWidget {
                     title: Text(
                       c.displayName,
                       style: AppTypography.bodyMedium.copyWith(
-                        fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-                        color: isCurrent ? const Color(0xFF0037B1) : const Color(0xFF0F172A),
+                        fontWeight: isCurrent
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: isCurrent
+                            ? const Color(0xFF0037B1)
+                            : const Color(0xFF0F172A),
                       ),
                     ),
                     subtitle: c.grade != null ? Text(c.grade!) : null,
                     trailing: isCurrent
-                        ? const Icon(Icons.check_circle_rounded, color: Color(0xFF0037B1))
+                        ? const Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF0037B1),
+                          )
                         : null,
                     onTap: () {
                       Navigator.of(ctx).pop();
