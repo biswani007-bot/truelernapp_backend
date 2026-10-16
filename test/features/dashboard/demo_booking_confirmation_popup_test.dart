@@ -1,7 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:truelearn/features/dashboard/domain/entities/demo_slot_entity.dart';
+import 'package:truelearn/features/dashboard/presentation/controllers/demo_slots_controller.dart';
 import 'package:truelearn/features/dashboard/presentation/screens/demo_booking_dashboard_screen.dart';
 import 'package:truelearn/features/dashboard/presentation/widgets/demo_booking_confirmation_popup.dart';
+
+class _FakeDemoSlotsWithSlotController extends DemoSlotsController {
+  @override
+  DemoSlotsState build() => DemoSlotsLoaded(
+    slots: [
+      DemoSlotEntity(
+        id: 'slot-today-1',
+        courseId: 'course-1',
+        startDateTime: DateTime.now().add(const Duration(hours: 3)),
+        endDateTime: DateTime.now().add(const Duration(hours: 4)),
+        instructorName: 'Ms. Sarah',
+        dayLabel: 'TODAY',
+      ),
+    ],
+  );
+
+  @override
+  Future<bool> bookSlot({
+    required DemoSlotEntity slot,
+    required String studentId,
+    required String courseId,
+    String? courseName,
+    String? studentName,
+  }) async {
+    return true;
+  }
+}
 
 void main() {
   group('DemoBookingConfirmationPopup Tests', () {
@@ -50,7 +80,14 @@ void main() {
       'clicking Book this demo on dashboard opens confirmation popup and close button dismisses it',
       (WidgetTester tester) async {
         await tester.pumpWidget(
-          const MaterialApp(home: DemoBookingDashboardScreen()),
+          ProviderScope(
+            overrides: [
+              demoSlotsControllerProvider.overrideWith(
+                () => _FakeDemoSlotsWithSlotController(),
+              ),
+            ],
+            child: const MaterialApp(home: DemoBookingDashboardScreen()),
+          ),
         );
         await tester.pump();
 
@@ -78,8 +115,22 @@ void main() {
     testWidgets(
       'confirm booking button dismisses confirmation popup and opens confirmed popup',
       (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 1200);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
         await tester.pumpWidget(
-          const MaterialApp(home: DemoBookingDashboardScreen()),
+          ProviderScope(
+            overrides: [
+              demoSlotsControllerProvider.overrideWith(
+                () => _FakeDemoSlotsWithSlotController(),
+              ),
+            ],
+            child: const MaterialApp(home: DemoBookingDashboardScreen()),
+          ),
         );
         await tester.pump();
 

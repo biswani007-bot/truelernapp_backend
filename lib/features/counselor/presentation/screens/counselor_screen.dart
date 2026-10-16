@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,8 +37,9 @@ class _ParentCounselorScreenState extends ConsumerState<ParentCounselorScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final childrenState = ref.read(childrenControllerProvider);
-      final activeChildId =
-          childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+      final activeChildId = childrenState is ChildrenLoaded
+          ? childrenState.activeChildId
+          : null;
       ref
           .read(counselorControllerProvider.notifier)
           .loadCounselor(childStudentId: activeChildId);
@@ -46,13 +48,16 @@ class _ParentCounselorScreenState extends ConsumerState<ParentCounselorScreen> {
 
   Future<void> _onRefresh() async {
     final childrenState = ref.read(childrenControllerProvider);
-    final activeChildId =
-        childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+    final activeChildId = childrenState is ChildrenLoaded
+        ? childrenState.activeChildId
+        : null;
     await Future.wait([
       ref
           .read(counselorControllerProvider.notifier)
           .loadCounselor(childStudentId: activeChildId, isRefresh: true),
-      ref.read(childrenControllerProvider.notifier).loadChildren(isRefresh: true),
+      ref
+          .read(childrenControllerProvider.notifier)
+          .loadChildren(isRefresh: true),
     ]);
   }
 
@@ -61,16 +66,20 @@ class _ParentCounselorScreenState extends ConsumerState<ParentCounselorScreen> {
     final childrenState = ref.watch(childrenControllerProvider);
     final counselorState = ref.watch(counselorControllerProvider);
 
-    final List<ChildEntity> children =
-        childrenState is ChildrenLoaded ? childrenState.children : const [];
-    final ChildEntity? activeChild =
-        childrenState is ChildrenLoaded ? childrenState.activeChild : null;
+    final List<ChildEntity> children = childrenState is ChildrenLoaded
+        ? childrenState.children
+        : const [];
+    final ChildEntity? activeChild = childrenState is ChildrenLoaded
+        ? childrenState.activeChild
+        : null;
     final String? activeChildId = activeChild?.studentId;
 
     // Listen for child switches
     ref.listen<ChildrenState>(childrenControllerProvider, (previous, next) {
       if (next is ChildrenLoaded) {
-        final prevId = previous is ChildrenLoaded ? previous.activeChildId : null;
+        final prevId = previous is ChildrenLoaded
+            ? previous.activeChildId
+            : null;
         if (prevId != next.activeChildId && next.activeChildId != null) {
           ref
               .read(counselorControllerProvider.notifier)
@@ -356,9 +365,14 @@ class _ParentCounselorScreenState extends ConsumerState<ParentCounselorScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFF6FF),
                         shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFFDBEAFE), width: 1.5),
+                        border: Border.all(
+                          color: const Color(0xFFDBEAFE),
+                          width: 1.5,
+                        ),
                       ),
-                      child: counselor.avatar != null && counselor.avatar!.isNotEmpty
+                      child:
+                          counselor.avatar != null &&
+                              counselor.avatar!.isNotEmpty
                           ? ClipOval(
                               child: Image.network(
                                 counselor.avatar!,
@@ -486,7 +500,11 @@ class _ParentCounselorScreenState extends ConsumerState<ParentCounselorScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Row(
                         children: [
-                          const Icon(Icons.email_outlined, size: 16, color: Color(0xFF64748B)),
+                          const Icon(
+                            Icons.email_outlined,
+                            size: 16,
+                            color: Color(0xFF64748B),
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -505,7 +523,11 @@ class _ParentCounselorScreenState extends ConsumerState<ParentCounselorScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Row(
                         children: [
-                          const Icon(Icons.phone_outlined, size: 16, color: Color(0xFF64748B)),
+                          const Icon(
+                            Icons.phone_outlined,
+                            size: 16,
+                            color: Color(0xFF64748B),
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -573,7 +595,11 @@ class _ParentCounselorScreenState extends ConsumerState<ParentCounselorScreen> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.schedule_rounded, size: 14, color: Color(0xFF64748B)),
+                const Icon(
+                  Icons.schedule_rounded,
+                  size: 14,
+                  color: Color(0xFF64748B),
+                ),
                 const SizedBox(width: 6),
                 Text(
                   '${req.proposedStart!.day}/${req.proposedStart!.month}/${req.proposedStart!.year}',

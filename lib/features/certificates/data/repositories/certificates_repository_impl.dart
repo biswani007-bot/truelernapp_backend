@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/certificate_entity.dart';
 import '../../domain/repositories/certificates_repository.dart';
@@ -12,7 +13,9 @@ class CertificatesRepositoryImpl implements CertificatesRepository {
   const CertificatesRepositoryImpl({required this.apiClient});
 
   @override
-  Future<List<CertificateEntity>> getCertificates({required String childStudentId}) async {
+  Future<List<CertificateEntity>> getCertificates({
+    required String childStudentId,
+  }) async {
     final response = await apiClient.get<Map<String, dynamic>>(
       '/parent/children/$childStudentId/certificates',
     );
@@ -21,7 +24,11 @@ class CertificatesRepositoryImpl implements CertificatesRepository {
     if (body != null && body['data'] is List) {
       return (body['data'] as List)
           .whereType<Map<String, dynamic>>()
-          .map((json) => CertificateDto.fromJson(json).toEntity(childStudentId: childStudentId))
+          .map(
+            (json) =>
+                CertificateDto.fromJson(json)
+                    .toEntity(childStudentId: childStudentId),
+          )
           .toList();
     }
 
@@ -31,7 +38,5 @@ class CertificatesRepositoryImpl implements CertificatesRepository {
 
 /// Global provider for [CertificatesRepository].
 final certificatesRepositoryProvider = Provider<CertificatesRepository>((ref) {
-  return CertificatesRepositoryImpl(
-    apiClient: ref.watch(apiClientProvider),
-  );
+  return CertificatesRepositoryImpl(apiClient: ref.watch(apiClientProvider));
 });

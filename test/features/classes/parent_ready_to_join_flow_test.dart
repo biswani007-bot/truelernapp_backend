@@ -100,6 +100,9 @@ class _StaticChildrenController extends Notifier<ChildrenState>
 
   @override
   void setActiveChild(String studentId) {}
+
+  @override
+  void reset() {}
 }
 
 void main() {

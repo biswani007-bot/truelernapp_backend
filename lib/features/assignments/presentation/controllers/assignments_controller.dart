@@ -9,6 +9,12 @@ import 'assignments_state.dart';
 class AssignmentsController extends Notifier<AssignmentsState> {
   int _requestToken = 0;
 
+  /// Resets state on logout or account switching.
+  void reset() {
+    _requestToken++;
+    state = const AssignmentsInitial();
+  }
+
   @override
   AssignmentsState build() {
     // Listen to ChildrenController to handle active child switches globally

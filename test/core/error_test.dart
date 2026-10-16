@@ -55,7 +55,10 @@ void main() {
       final failure = ErrorHandler.fromDioException(dioException);
       expect(failure, isA<ValidationFailure>());
       expect(failure.statusCode, 422);
-      expect((failure as ValidationFailure).errors?['email'], 'Invalid email format');
+      expect(
+        (failure as ValidationFailure).errors?['email'],
+        'Invalid email format',
+      );
     });
 
     test('maps HTTP 500 to ServerFailure', () {

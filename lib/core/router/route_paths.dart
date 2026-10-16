@@ -58,4 +58,5 @@ abstract final class AppRoutePaths {
   static const String parentCertificates = '/parent/certificates';
   static const String parentCounselor = '/parent/counselor';
   static const String progressClasses = '/parent/progress/classes';
+  static const String demoSessionBooked = '/parent/demo-booked';
 }

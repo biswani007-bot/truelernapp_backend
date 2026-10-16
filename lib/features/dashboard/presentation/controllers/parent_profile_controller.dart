@@ -12,14 +12,19 @@ class ParentProfileController extends Notifier<ParentProfileState> {
   ParentProfileRepository get _repository =>
       ref.read(parentProfileRepositoryProvider);
 
+  int _requestToken = 0;
+
   Future<void> loadProfile({bool refresh = false}) async {
     final current = state;
     if (current is ParentProfileLoading) return;
     if (!refresh && current is ParentProfileLoaded) return;
 
+    final token = ++_requestToken;
     state = const ParentProfileLoading();
     try {
       final profile = await _repository.getParentProfile();
+      if (token != _requestToken) return;
+
       state = ParentProfileLoaded(profile: profile);
 
       // Synchronize authoritative Parent profile into shared Auth state
@@ -27,6 +32,7 @@ class ParentProfileController extends Notifier<ParentProfileState> {
           .read(authControllerProvider.notifier)
           .updateUserProfile(name: profile.fullName, email: profile.email);
     } catch (e) {
+      if (token != _requestToken) return;
       state = ParentProfileError(message: e.toString());
     }
   }
@@ -96,6 +102,7 @@ class ParentProfileController extends Notifier<ParentProfileState> {
 
   /// Resets state on logout or session invalidation.
   void reset() {
+    _requestToken++;
     state = const ParentProfileInitial();
   }
 }

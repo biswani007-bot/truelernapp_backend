@@ -12,9 +12,7 @@ class UserDevicesRepositoryImpl implements UserDevicesRepository {
 
   @override
   Future<List<UserDeviceEntity>> getDevices() async {
-    final response = await apiClient.get<Map<String, dynamic>>(
-      '/auth/devices',
-    );
+    final response = await apiClient.get<Map<String, dynamic>>('/auth/devices');
     final data = response.data;
     if (data == null) {
       throw Exception('Empty response from /auth/devices');

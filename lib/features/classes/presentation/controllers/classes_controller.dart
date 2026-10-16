@@ -22,6 +22,13 @@ class ClassesController extends Notifier<ClassesState> {
   int _requestToken = 0;
   String? _currentlyLoadingChildId;
 
+  /// Resets state on logout or account switching.
+  void reset() {
+    _requestToken++;
+    _currentlyLoadingChildId = null;
+    state = const ClassesInitial();
+  }
+
   /// Loads live class schedule for the given [childStudentId].
   ///
   /// If [childStudentId] is null or empty, transitions to [ClassesNoChild].

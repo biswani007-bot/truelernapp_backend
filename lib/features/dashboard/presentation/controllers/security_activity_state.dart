@@ -28,24 +28,30 @@ class SecurityActivityLoaded extends SecurityActivityState {
     switch (selectedFilter.toLowerCase()) {
       case 'logins':
         return activities
-            .where((a) =>
-                a.action.toUpperCase().contains('LOGIN') ||
-                a.action.toUpperCase().contains('AUTH'))
+            .where(
+              (a) =>
+                  a.action.toUpperCase().contains('LOGIN') ||
+                  a.action.toUpperCase().contains('AUTH'),
+            )
             .toList();
       case 'devices':
         return activities
-            .where((a) =>
-                a.action.toUpperCase().contains('DEVICE') ||
-                a.action.toUpperCase().contains('SESSION') ||
-                a.action.toUpperCase().contains('REVOKE'))
+            .where(
+              (a) =>
+                  a.action.toUpperCase().contains('DEVICE') ||
+                  a.action.toUpperCase().contains('SESSION') ||
+                  a.action.toUpperCase().contains('REVOKE'),
+            )
             .toList();
       case 'security':
         return activities
-            .where((a) =>
-                a.action.toUpperCase().contains('PASSWORD') ||
-                a.action.toUpperCase().contains('TOKEN') ||
-                a.action.toUpperCase().contains('KEY') ||
-                a.action.toUpperCase().contains('SECURITY'))
+            .where(
+              (a) =>
+                  a.action.toUpperCase().contains('PASSWORD') ||
+                  a.action.toUpperCase().contains('TOKEN') ||
+                  a.action.toUpperCase().contains('KEY') ||
+                  a.action.toUpperCase().contains('SECURITY'),
+            )
             .toList();
       case 'all':
       default:

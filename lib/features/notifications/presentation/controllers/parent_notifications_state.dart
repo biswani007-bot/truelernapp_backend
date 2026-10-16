@@ -74,10 +74,7 @@ class ParentNotificationsLoaded extends ParentNotificationsState {
 }
 
 class ParentNotificationsError extends ParentNotificationsState {
-  const ParentNotificationsError({
-    required this.message,
-    this.childStudentId,
-  });
+  const ParentNotificationsError({required this.message, this.childStudentId});
 
   final String message;
   final String? childStudentId;

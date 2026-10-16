@@ -31,6 +31,9 @@ class FakeChildrenController extends Notifier<ChildrenState>
 
   @override
   void setActiveChild(String studentId) {}
+
+  @override
+  void reset() {}
 }
 
 class FakeDashboardController extends Notifier<DashboardState>
@@ -52,6 +55,9 @@ class FakeDashboardController extends Notifier<DashboardState>
 
   @override
   Future<void> retry() async {}
+
+  @override
+  void reset() {}
 }
 
 class FakeClassesController extends Notifier<ClassesState>
@@ -70,6 +76,9 @@ class FakeClassesController extends Notifier<ClassesState>
 
   @override
   Future<void> retry() async {}
+
+  @override
+  void reset() {}
 }
 
 class FakeAssignmentsController extends Notifier<AssignmentsState>
@@ -88,6 +97,9 @@ class FakeAssignmentsController extends Notifier<AssignmentsState>
 
   @override
   void setFilter(String filter) {}
+
+  @override
+  void reset() {}
 }
 
 void main() {

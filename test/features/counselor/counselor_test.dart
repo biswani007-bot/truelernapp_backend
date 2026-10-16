@@ -118,27 +118,27 @@ void main() {
       expect(dto.toEntity().displayDesignation, 'Counselor');
     });
 
-    test('parses CounselingRequestDto from GET /api/counselling/my-requests', () {
-      final json = {
-        'requestId': 'req_100',
-        'counsellor': {
-          'id': 'c_1',
-          'name': 'Dr. Marcus',
-        },
-        'status': 'scheduled',
-        'proposedStart': '2026-10-15T10:00:00.000Z',
-        'proposedEnd': '2026-10-15T11:00:00.000Z',
-        'reason': 'Academic guidance for grade transition',
-      };
+    test(
+      'parses CounselingRequestDto from GET /api/counselling/my-requests',
+      () {
+        final json = {
+          'requestId': 'req_100',
+          'counsellor': {'id': 'c_1', 'name': 'Dr. Marcus'},
+          'status': 'scheduled',
+          'proposedStart': '2026-10-15T10:00:00.000Z',
+          'proposedEnd': '2026-10-15T11:00:00.000Z',
+          'reason': 'Academic guidance for grade transition',
+        };
 
-      final dto = CounselingRequestDto.fromJson(json);
-      expect(dto.requestId, 'req_100');
-      expect(dto.counsellorId, 'c_1');
-      expect(dto.counsellorName, 'Dr. Marcus');
-      expect(dto.status, 'scheduled');
-      expect(dto.reason, 'Academic guidance for grade transition');
-      expect(dto.toEntity().statusLabel, 'SCHEDULED');
-    });
+        final dto = CounselingRequestDto.fromJson(json);
+        expect(dto.requestId, 'req_100');
+        expect(dto.counsellorId, 'c_1');
+        expect(dto.counsellorName, 'Dr. Marcus');
+        expect(dto.status, 'scheduled');
+        expect(dto.reason, 'Academic guidance for grade transition');
+        expect(dto.toEntity().statusLabel, 'SCHEDULED');
+      },
+    );
   });
 
   group('2. Counselor Repository', () {
@@ -150,37 +150,43 @@ void main() {
       repository = CounselorRepositoryImpl(apiClient: mockApiClient);
     });
 
-    test('getCounselors fetches and parses response from /counselling', () async {
-      mockApiClient.responseData = {
-        'success': true,
-        'message': 'Active counsellors fetched',
-        'data': [
-          {
-            'id': 'c_test',
-            'name': 'Sarah Jenkins',
-            'designation': 'Lead Counselor',
-          }
-        ],
-        'meta': {}
-      };
+    test(
+      'getCounselors fetches and parses response from /counselling',
+      () async {
+        mockApiClient.responseData = {
+          'success': true,
+          'message': 'Active counsellors fetched',
+          'data': [
+            {
+              'id': 'c_test',
+              'name': 'Sarah Jenkins',
+              'designation': 'Lead Counselor',
+            },
+          ],
+          'meta': {},
+        };
 
-      final list = await repository.getCounselors();
-      expect(mockApiClient.lastPath, '/counselling');
-      expect(list.length, 1);
-      expect(list.first.name, 'Sarah Jenkins');
-    });
+        final list = await repository.getCounselors();
+        expect(mockApiClient.lastPath, '/counselling');
+        expect(list.length, 1);
+        expect(list.first.name, 'Sarah Jenkins');
+      },
+    );
 
-    test('getCounselors returns empty list when backend data is empty array', () async {
-      mockApiClient.responseData = {
-        'success': true,
-        'message': 'Active counsellors fetched',
-        'data': [],
-        'meta': {}
-      };
+    test(
+      'getCounselors returns empty list when backend data is empty array',
+      () async {
+        mockApiClient.responseData = {
+          'success': true,
+          'message': 'Active counsellors fetched',
+          'data': [],
+          'meta': {},
+        };
 
-      final list = await repository.getCounselors();
-      expect(list, isEmpty);
-    });
+        final list = await repository.getCounselors();
+        expect(list, isEmpty);
+      },
+    );
 
     test('throws exception when network fails', () async {
       mockApiClient.shouldThrow = true;
@@ -197,9 +203,7 @@ void main() {
 
     test('3. initial state is CounselorInitial', () {
       final container = ProviderContainer(
-        overrides: [
-          counselorRepositoryProvider.overrideWithValue(mockRepo),
-        ],
+        overrides: [counselorRepositoryProvider.overrideWithValue(mockRepo)],
       );
       addTearDown(container.dispose);
 
@@ -217,9 +221,7 @@ void main() {
       ];
 
       final container = ProviderContainer(
-        overrides: [
-          counselorRepositoryProvider.overrideWithValue(mockRepo),
-        ],
+        overrides: [counselorRepositoryProvider.overrideWithValue(mockRepo)],
       );
       addTearDown(container.dispose);
 
@@ -234,34 +236,33 @@ void main() {
       expect(loaded.activeChildId, 'child_alex');
     });
 
-    test('6. empty state produces CounselorLoaded with empty counselors list', () async {
-      mockRepo.mockCounselors = [];
+    test(
+      '6. empty state produces CounselorLoaded with empty counselors list',
+      () async {
+        mockRepo.mockCounselors = [];
 
-      final container = ProviderContainer(
-        overrides: [
-          counselorRepositoryProvider.overrideWithValue(mockRepo),
-        ],
-      );
-      addTearDown(container.dispose);
+        final container = ProviderContainer(
+          overrides: [counselorRepositoryProvider.overrideWithValue(mockRepo)],
+        );
+        addTearDown(container.dispose);
 
-      final controller = container.read(counselorControllerProvider.notifier);
-      await controller.loadCounselor(childStudentId: 'child_sarah');
+        final controller = container.read(counselorControllerProvider.notifier);
+        await controller.loadCounselor(childStudentId: 'child_sarah');
 
-      final state = container.read(counselorControllerProvider);
-      expect(state, isA<CounselorLoaded>());
-      final loaded = state as CounselorLoaded;
-      expect(loaded.hasCounselor, isFalse);
-      expect(loaded.counselors, isEmpty);
-      expect(loaded.activeChildId, 'child_sarah');
-    });
+        final state = container.read(counselorControllerProvider);
+        expect(state, isA<CounselorLoaded>());
+        final loaded = state as CounselorLoaded;
+        expect(loaded.hasCounselor, isFalse);
+        expect(loaded.counselors, isEmpty);
+        expect(loaded.activeChildId, 'child_sarah');
+      },
+    );
 
     test('7. error state produces CounselorError on exception', () async {
       mockRepo.shouldThrow = true;
 
       final container = ProviderContainer(
-        overrides: [
-          counselorRepositoryProvider.overrideWithValue(mockRepo),
-        ],
+        overrides: [counselorRepositoryProvider.overrideWithValue(mockRepo)],
       );
       addTearDown(container.dispose);
 
@@ -275,48 +276,53 @@ void main() {
       expect(err.activeChildId, 'child_err');
     });
 
-    test('8. child switching triggers reload with new active child ID', () async {
-      final container = ProviderContainer(
-        overrides: [
-          counselorRepositoryProvider.overrideWithValue(mockRepo),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      '8. child switching triggers reload with new active child ID',
+      () async {
+        final container = ProviderContainer(
+          overrides: [counselorRepositoryProvider.overrideWithValue(mockRepo)],
+        );
+        addTearDown(container.dispose);
 
-      final controller = container.read(counselorControllerProvider.notifier);
+        final controller = container.read(counselorControllerProvider.notifier);
 
-      // Child 1: Sarah
-      await controller.loadCounselor(childStudentId: 'child_sarah');
-      var state = container.read(counselorControllerProvider) as CounselorLoaded;
-      expect(state.activeChildId, 'child_sarah');
+        // Child 1: Sarah
+        await controller.loadCounselor(childStudentId: 'child_sarah');
+        var state =
+            container.read(counselorControllerProvider) as CounselorLoaded;
+        expect(state.activeChildId, 'child_sarah');
 
-      // Child 2: Ram
-      await controller.loadCounselor(childStudentId: 'child_ram');
-      state = container.read(counselorControllerProvider) as CounselorLoaded;
-      expect(state.activeChildId, 'child_ram');
-    });
+        // Child 2: Ram
+        await controller.loadCounselor(childStudentId: 'child_ram');
+        state = container.read(counselorControllerProvider) as CounselorLoaded;
+        expect(state.activeChildId, 'child_ram');
+      },
+    );
   });
 
   group('9. Dashboard Counselor Tile Navigation', () {
-    testWidgets('Dashboard BentoSnapshotGrid renders Counselor tile and responds to tap', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: BentoSnapshotGrid(
-              dashboard: const DashboardEntity(
-                attendanceRate: 92.0,
-                pendingAssignmentsCount: 2,
+    testWidgets(
+      'Dashboard BentoSnapshotGrid renders Counselor tile and responds to tap',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: BentoSnapshotGrid(
+                dashboard: const DashboardEntity(
+                  attendanceRate: 92.0,
+                  pendingAssignmentsCount: 2,
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(find.byKey(const Key('bento_counselor_card')), findsOneWidget);
-      expect(find.text('Counselor'), findsOneWidget);
-      expect(find.text('Guidance'), findsOneWidget);
-      expect(find.text('Academic Support'), findsOneWidget);
-    });
+        expect(find.byKey(const Key('bento_counselor_card')), findsOneWidget);
+        expect(find.text('Counselor'), findsOneWidget);
+        expect(find.text('Guidance'), findsOneWidget);
+        expect(find.text('Academic Support'), findsOneWidget);
+      },
+    );
   });
 
   group('10. Counselor Screen Widget & Pull to Refresh Tests', () {
@@ -327,7 +333,9 @@ void main() {
       grade: 'Grade 5',
     );
 
-    testWidgets('renders counselor card when counselor data is present', (tester) async {
+    testWidgets('renders counselor card when counselor data is present', (
+      tester,
+    ) async {
       final mockRepo = MockCounselorRepository();
       mockRepo.mockCounselors = [
         const CounselorEntity(
@@ -344,16 +352,16 @@ void main() {
         ProviderScope(
           overrides: [
             counselorRepositoryProvider.overrideWithValue(mockRepo),
-            childrenControllerProvider.overrideWith(() => MockChildrenController(
-                  ChildrenLoaded(
-                    children: const [testChild],
-                    activeChildId: 'child_alex',
-                  ),
-                )),
+            childrenControllerProvider.overrideWith(
+              () => MockChildrenController(
+                ChildrenLoaded(
+                  children: const [testChild],
+                  activeChildId: 'child_alex',
+                ),
+              ),
+            ),
           ],
-          child: const MaterialApp(
-            home: ParentCounselorScreen(),
-          ),
+          child: const MaterialApp(home: ParentCounselorScreen()),
         ),
       );
 
@@ -370,7 +378,9 @@ void main() {
       expect(find.text('Specialization: STEM Pathways'), findsOneWidget);
     });
 
-    testWidgets('renders empty state when no counselor is assigned', (tester) async {
+    testWidgets('renders empty state when no counselor is assigned', (
+      tester,
+    ) async {
       final mockRepo = MockCounselorRepository();
       mockRepo.mockCounselors = [];
 
@@ -378,16 +388,16 @@ void main() {
         ProviderScope(
           overrides: [
             counselorRepositoryProvider.overrideWithValue(mockRepo),
-            childrenControllerProvider.overrideWith(() => MockChildrenController(
-                  ChildrenLoaded(
-                    children: const [testChild],
-                    activeChildId: 'child_alex',
-                  ),
-                )),
+            childrenControllerProvider.overrideWith(
+              () => MockChildrenController(
+                ChildrenLoaded(
+                  children: const [testChild],
+                  activeChildId: 'child_alex',
+                ),
+              ),
+            ),
           ],
-          child: const MaterialApp(
-            home: ParentCounselorScreen(),
-          ),
+          child: const MaterialApp(home: ParentCounselorScreen()),
         ),
       );
 
@@ -396,10 +406,15 @@ void main() {
 
       expect(find.byKey(const Key('counselor_empty_state')), findsOneWidget);
       expect(find.text('No Counselor Assigned'), findsOneWidget);
-      expect(find.textContaining('Official academic counselor guidance for Alex'), findsOneWidget);
+      expect(
+        find.textContaining('Official academic counselor guidance for Alex'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('renders error card with retry button when error occurs', (tester) async {
+    testWidgets('renders error card with retry button when error occurs', (
+      tester,
+    ) async {
       final mockRepo = MockCounselorRepository();
       mockRepo.shouldThrow = true;
 
@@ -407,16 +422,16 @@ void main() {
         ProviderScope(
           overrides: [
             counselorRepositoryProvider.overrideWithValue(mockRepo),
-            childrenControllerProvider.overrideWith(() => MockChildrenController(
-                  ChildrenLoaded(
-                    children: const [testChild],
-                    activeChildId: 'child_alex',
-                  ),
-                )),
+            childrenControllerProvider.overrideWith(
+              () => MockChildrenController(
+                ChildrenLoaded(
+                  children: const [testChild],
+                  activeChildId: 'child_alex',
+                ),
+              ),
+            ),
           ],
-          child: const MaterialApp(
-            home: ParentCounselorScreen(),
-          ),
+          child: const MaterialApp(home: ParentCounselorScreen()),
         ),
       );
 

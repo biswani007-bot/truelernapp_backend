@@ -1329,6 +1329,9 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
       await ref
           .read(childrenControllerProvider.notifier)
           .loadChildren(isRefresh: true);
+      ref
+          .read(childrenControllerProvider.notifier)
+          .setActiveChild(newChild.studentId);
 
       if (mounted) {
         Navigator.of(context).pop();

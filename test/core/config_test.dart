@@ -4,7 +4,10 @@ import 'package:truelearn/core/config/app_config.dart';
 void main() {
   group('AppConfig Tests', () {
     test('production config exposes authoritative API base URL', () {
-      expect(AppConfig.production.apiBaseUrl, 'https://truelern.visital.in/api');
+      expect(
+        AppConfig.production.apiBaseUrl,
+        'https://truelern.visital.in/api',
+      );
     });
 
     test('production config defines safe timeouts', () {

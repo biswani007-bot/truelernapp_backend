@@ -40,6 +40,9 @@ class FakeChildrenController extends Notifier<ChildrenState>
       );
     }
   }
+
+  @override
+  void reset() {}
 }
 
 class FakeClassesController extends Notifier<ClassesState>
@@ -58,6 +61,9 @@ class FakeClassesController extends Notifier<ClassesState>
 
   @override
   Future<void> retry() async {}
+
+  @override
+  void reset() {}
 }
 
 void main() {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'app_colors.dart';
 import 'app_dimensions.dart';
 import 'app_typography.dart';
@@ -60,7 +61,9 @@ abstract final class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
           side: const BorderSide(color: AppColors.primary, width: 1.5),
-          textStyle: AppTypography.buttonText.copyWith(color: AppColors.primary),
+          textStyle: AppTypography.buttonText.copyWith(
+            color: AppColors.primary,
+          ),
           minimumSize: const Size(double.infinity, 48.0),
           shape: RoundedRectangleBorder(
             borderRadius: AppDimensions.borderRadius12,

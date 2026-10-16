@@ -130,6 +130,11 @@ class AssignmentSubmissionController
     state = {...state, assignmentId: newState};
   }
 
+  /// Resets all in-memory assignment submission states on logout or account switching.
+  void reset() {
+    state = {};
+  }
+
   /// Initializes the controller with passed entity or loads it fresh.
   Future<void> init({
     required String assignmentId,

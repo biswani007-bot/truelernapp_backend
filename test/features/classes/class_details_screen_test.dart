@@ -24,6 +24,9 @@ class _StaticClassesController extends Notifier<ClassesState>
 
   @override
   Future<void> retry() async {}
+
+  @override
+  void reset() {}
 }
 
 class _StaticChildrenController extends Notifier<ChildrenState>
@@ -42,6 +45,9 @@ class _StaticChildrenController extends Notifier<ChildrenState>
 
   @override
   void setActiveChild(String studentId) {}
+
+  @override
+  void reset() {}
 }
 
 void main() {

@@ -34,10 +34,15 @@ class SecurityActivityEntity {
     }
     if (act.contains('TOKEN')) return 'Security Token Refresh';
     if (act.contains('AUTH')) return 'Authentication Event';
-    return action.replaceAll('_', ' ').toLowerCase().split(' ').map((word) {
-      if (word.isEmpty) return word;
-      return word[0].toUpperCase() + word.substring(1);
-    }).join(' ');
+    return action
+        .replaceAll('_', ' ')
+        .toLowerCase()
+        .split(' ')
+        .map((word) {
+          if (word.isEmpty) return word;
+          return word[0].toUpperCase() + word.substring(1);
+        })
+        .join(' ');
   }
 
   /// User-friendly description combining entity, IP, and client info.

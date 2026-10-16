@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+
 import '../constants/api_constants.dart';
 import '../storage/secure_storage_service.dart';
 
@@ -10,10 +11,7 @@ import '../storage/secure_storage_service.dart';
 /// - NEVER bypasses authentication.
 /// - If no token exists in secure storage, request proceeds unauthenticated.
 class AuthInterceptor extends QueuedInterceptor {
-  AuthInterceptor({
-    required this.storageService,
-    required this.dio,
-  });
+  AuthInterceptor({required this.storageService, required this.dio});
 
   final SecureStorageService storageService;
   final Dio dio;
@@ -37,13 +35,20 @@ class AuthInterceptor extends QueuedInterceptor {
   }
 
   @override
-  Future<void> onError(DioException err, ErrorInterceptorHandler handler) async {
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
     final response = err.response;
     final requestPath = err.requestOptions.path;
 
     // Do not attempt token refresh for authentication requests to avoid loops
-    final isAuthEndpoint = requestPath.contains('/auth/login') ||
+    final isAuthEndpoint =
+        requestPath.contains('/auth/login') ||
         requestPath.contains('/auth/refresh') ||
+        requestPath.contains('/auth/mobile/google') ||
+        requestPath.contains('/auth/mobile/refresh') ||
+        requestPath.contains('/auth/mobile/logout') ||
         requestPath.contains('/auth/forgot-password');
 
     if (response?.statusCode == 401 && !isAuthEndpoint) {
@@ -75,7 +80,8 @@ class AuthInterceptor extends QueuedInterceptor {
             final payload = responseData['data'] is Map<String, dynamic>
                 ? responseData['data'] as Map<String, dynamic>
                 : responseData;
-            newAccessToken = (payload['accessToken'] ?? payload['token'])?.toString();
+            newAccessToken = (payload['accessToken'] ?? payload['token'])
+                ?.toString();
             newRefreshToken = payload['refreshToken']?.toString();
           }
 

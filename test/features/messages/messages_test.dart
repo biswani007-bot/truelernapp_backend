@@ -136,14 +136,18 @@ class FakeMessagesRepository implements MessagesRepository {
   }
 
   @override
-  Future<bool> markAsRead({required String studentId, required String messageId}) async {
+  Future<bool> markAsRead({
+    required String studentId,
+    required String messageId,
+  }) async {
     markAsReadCalls++;
     if (shouldThrow) throw Exception('Mark read failed');
     return true;
   }
 }
 
-class FakeChildrenController extends Notifier<ChildrenState> implements ChildrenController {
+class FakeChildrenController extends Notifier<ChildrenState>
+    implements ChildrenController {
   FakeChildrenController(this.initialState);
   final ChildrenState initialState;
 
@@ -158,6 +162,9 @@ class FakeChildrenController extends Notifier<ChildrenState> implements Children
 
   @override
   Future<void> retry() async {}
+
+  @override
+  void reset() {}
 }
 
 void main() {
@@ -200,11 +207,7 @@ void main() {
           'department': 'Software Engineering',
         },
         'teachers': [
-          {
-            '_id': 'teacher_liz',
-            'firstName': 'Elizabeth',
-            'lastName': 'Vance',
-          }
+          {'_id': 'teacher_liz', 'firstName': 'Elizabeth', 'lastName': 'Vance'},
         ],
         'messages': [
           {
@@ -220,8 +223,8 @@ void main() {
             'subject': 'Reply',
             'message': 'Thank you',
             'isRead': true,
-          }
-        ]
+          },
+        ],
       };
 
       final dto = MessagesDataDto.fromJson(json);
@@ -238,33 +241,36 @@ void main() {
   });
 
   group('MessagesRepositoryImpl tests', () {
-    test('getMessages makes GET request to correct path and maps data', () async {
-      final mockApi = MockApiClient();
-      mockApi.responseData = {
-        'success': true,
-        'message': 'Messages retrieved successfully',
-        'data': {
-          'student': {'_id': 'stud_1', 'firstName': 'Sarah'},
-          'messages': [
-            {
-              '_id': 'm_001',
-              'senderRole': 'teacher',
-              'subject': 'Update',
-              'message': 'Hello Sarah',
-              'isRead': true,
-            }
-          ]
-        }
-      };
+    test(
+      'getMessages makes GET request to correct path and maps data',
+      () async {
+        final mockApi = MockApiClient();
+        mockApi.responseData = {
+          'success': true,
+          'message': 'Messages retrieved successfully',
+          'data': {
+            'student': {'_id': 'stud_1', 'firstName': 'Sarah'},
+            'messages': [
+              {
+                '_id': 'm_001',
+                'senderRole': 'teacher',
+                'subject': 'Update',
+                'message': 'Hello Sarah',
+                'isRead': true,
+              },
+            ],
+          },
+        };
 
-      final repo = MessagesRepositoryImpl(apiClient: mockApi);
-      final result = await repo.getMessages(studentId: 'stud_1');
+        final repo = MessagesRepositoryImpl(apiClient: mockApi);
+        final result = await repo.getMessages(studentId: 'stud_1');
 
-      expect(mockApi.lastPath, '/parent/children/stud_1/messages');
-      expect(result.studentId, 'stud_1');
-      expect(result.messages.length, 1);
-      expect(result.messages.first.message, 'Hello Sarah');
-    });
+        expect(mockApi.lastPath, '/parent/children/stud_1/messages');
+        expect(result.studentId, 'stud_1');
+        expect(result.messages.length, 1);
+        expect(result.messages.first.message, 'Hello Sarah');
+      },
+    );
 
     test('sendMessage makes POST request with payload', () async {
       final mockApi = MockApiClient();
@@ -277,7 +283,7 @@ void main() {
           'message': 'Can we discuss grades?',
           'isRead': false,
           'status': 'sent',
-        }
+        },
       };
 
       final repo = MessagesRepositoryImpl(apiClient: mockApi);
@@ -288,7 +294,10 @@ void main() {
       );
 
       expect(mockApi.lastPath, '/parent/children/stud_1/messages');
-      expect(mockApi.lastPayload, {'message': 'Can we discuss grades?', 'subject': 'Inquiry'});
+      expect(mockApi.lastPayload, {
+        'message': 'Can we discuss grades?',
+        'subject': 'Inquiry',
+      });
       expect(sent.id, 'm_new');
     });
 
@@ -297,7 +306,10 @@ void main() {
       mockApi.responseData = {'success': true};
 
       final repo = MessagesRepositoryImpl(apiClient: mockApi);
-      final success = await repo.markAsRead(studentId: 'stud_1', messageId: 'm_123');
+      final success = await repo.markAsRead(
+        studentId: 'stud_1',
+        messageId: 'm_123',
+      );
 
       expect(mockApi.lastPath, '/parent/children/stud_1/messages/m_123/read');
       expect(success, true);
@@ -318,18 +330,19 @@ void main() {
             message: 'Class notes attached',
             isRead: false,
             status: 'sent',
-          )
+          ),
         ],
       );
 
       final container = ProviderContainer(
-        overrides: [
-          messagesRepositoryProvider.overrideWithValue(fakeRepo),
-        ],
+        overrides: [messagesRepositoryProvider.overrideWithValue(fakeRepo)],
       );
 
       final controller = container.read(messagesControllerProvider.notifier);
-      expect(container.read(messagesControllerProvider), isA<MessagesInitial>());
+      expect(
+        container.read(messagesControllerProvider),
+        isA<MessagesInitial>(),
+      );
 
       await controller.loadMessages(studentId: 'stud_1');
 
@@ -345,9 +358,7 @@ void main() {
       final fakeRepo = FakeMessagesRepository()..shouldThrow = true;
 
       final container = ProviderContainer(
-        overrides: [
-          messagesRepositoryProvider.overrideWithValue(fakeRepo),
-        ],
+        overrides: [messagesRepositoryProvider.overrideWithValue(fakeRepo)],
       );
 
       final controller = container.read(messagesControllerProvider.notifier);
@@ -371,14 +382,12 @@ void main() {
             message: 'Class notes',
             isRead: false,
             status: 'sent',
-          )
+          ),
         ],
       );
 
       final container = ProviderContainer(
-        overrides: [
-          messagesRepositoryProvider.overrideWithValue(fakeRepo),
-        ],
+        overrides: [messagesRepositoryProvider.overrideWithValue(fakeRepo)],
       );
 
       final controller = container.read(messagesControllerProvider.notifier);
@@ -386,72 +395,71 @@ void main() {
 
       await controller.markAllAsRead();
 
-      final state = container.read(messagesControllerProvider) as MessagesLoaded;
+      final state =
+          container.read(messagesControllerProvider) as MessagesLoaded;
       expect(state.data.unreadCount, 0);
       expect(state.data.messages.first.isRead, true);
     });
   });
 
   group('ParentMessagesScreen Widget tests', () {
-    testWidgets('renders Messages screen and displays messages with real data', (tester) async {
-      final fakeRepo = FakeMessagesRepository();
-      fakeRepo.mockData = MessagesDataEntity(
-        studentId: 'child_1',
-        studentName: 'Ram Pearson',
-        activeTeacher: const TeacherContactEntity(
-          id: 'teacher_1',
-          firstName: 'Elizabeth',
-          lastName: 'Vance',
-          department: 'Software Engineering',
-        ),
-        messages: [
-          MessageItemEntity(
-            id: 'msg_1',
-            senderRole: 'teacher',
-            subject: 'Inquiry',
-            message: 'Welcome to Junior Foundation!',
-            isRead: false,
-            status: 'sent',
-            createdAt: DateTime.now(),
-            senderName: 'Elizabeth Vance',
+    testWidgets(
+      'renders Messages screen and displays messages with real data',
+      (tester) async {
+        final fakeRepo = FakeMessagesRepository();
+        fakeRepo.mockData = MessagesDataEntity(
+          studentId: 'child_1',
+          studentName: 'Ram Pearson',
+          activeTeacher: const TeacherContactEntity(
+            id: 'teacher_1',
+            firstName: 'Elizabeth',
+            lastName: 'Vance',
+            department: 'Software Engineering',
           ),
-        ],
-      );
-
-      final child = ChildEntity(
-        studentId: 'child_1',
-        firstName: 'Ram',
-        lastName: 'Pearson',
-        grade: '5',
-      );
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            messagesRepositoryProvider.overrideWithValue(fakeRepo),
-            childrenControllerProvider.overrideWith(
-              () => FakeChildrenController(
-                ChildrenLoaded(
-                  children: [child],
-                  activeChildId: 'child_1',
-                ),
-              ),
+          messages: [
+            MessageItemEntity(
+              id: 'msg_1',
+              senderRole: 'teacher',
+              subject: 'Inquiry',
+              message: 'Welcome to Junior Foundation!',
+              isRead: false,
+              status: 'sent',
+              createdAt: DateTime.now(),
+              senderName: 'Elizabeth Vance',
             ),
           ],
-          child: const MaterialApp(
-            home: ParentMessagesScreen(),
+        );
+
+        final child = ChildEntity(
+          studentId: 'child_1',
+          firstName: 'Ram',
+          lastName: 'Pearson',
+          grade: '5',
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              messagesRepositoryProvider.overrideWithValue(fakeRepo),
+              childrenControllerProvider.overrideWith(
+                () => FakeChildrenController(
+                  ChildrenLoaded(children: [child], activeChildId: 'child_1'),
+                ),
+              ),
+            ],
+            child: const MaterialApp(home: ParentMessagesScreen()),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      expect(find.text('Messages'), findsOneWidget);
-      expect(find.text('Showing messages for Ram'), findsOneWidget);
-      expect(find.text('Elizabeth Vance'), findsOneWidget);
-      expect(find.text('Welcome to Junior Foundation!'), findsOneWidget);
-      expect(find.text("You're all caught up!"), findsOneWidget);
-    });
+        expect(find.text('Messages'), findsOneWidget);
+        expect(find.text('Showing messages for Ram'), findsOneWidget);
+        expect(find.text('Elizabeth Vance'), findsOneWidget);
+        expect(find.text('Welcome to Junior Foundation!'), findsOneWidget);
+        expect(find.text("You're all caught up!"), findsOneWidget);
+      },
+    );
 
     testWidgets('shows empty state when message list is empty', (tester) async {
       final fakeRepo = FakeMessagesRepository();
@@ -474,16 +482,11 @@ void main() {
             messagesRepositoryProvider.overrideWithValue(fakeRepo),
             childrenControllerProvider.overrideWith(
               () => FakeChildrenController(
-                ChildrenLoaded(
-                  children: [child],
-                  activeChildId: 'child_1',
-                ),
+                ChildrenLoaded(children: [child], activeChildId: 'child_1'),
               ),
             ),
           ],
-          child: const MaterialApp(
-            home: ParentMessagesScreen(),
-          ),
+          child: const MaterialApp(home: ParentMessagesScreen()),
         ),
       );
 

@@ -11,6 +11,11 @@ class UserDevicesController extends Notifier<UserDevicesState> {
   UserDevicesRepository get _repository =>
       ref.read(userDevicesRepositoryProvider);
 
+  /// Resets state on logout or account switching.
+  void reset() {
+    state = const UserDevicesInitial();
+  }
+
   Future<void> loadDevices({bool forceRefresh = false}) async {
     final current = state;
     if (!forceRefresh && current is UserDevicesLoaded) return;
@@ -32,8 +37,9 @@ class UserDevicesController extends Notifier<UserDevicesState> {
     state = current.copyWith(revokingSessionId: sessionId);
     try {
       await _repository.revokeDevice(sessionId);
-      final updatedList =
-          current.devices.where((d) => d.sessionId != sessionId).toList();
+      final updatedList = current.devices
+          .where((d) => d.sessionId != sessionId)
+          .toList();
       state = UserDevicesLoaded(
         devices: updatedList,
         revokingSessionId: null,
@@ -61,5 +67,5 @@ class UserDevicesController extends Notifier<UserDevicesState> {
 
 final userDevicesControllerProvider =
     NotifierProvider<UserDevicesController, UserDevicesState>(
-  UserDevicesController.new,
-);
+      UserDevicesController.new,
+    );

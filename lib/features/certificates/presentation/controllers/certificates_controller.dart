@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../data/repositories/certificates_repository_impl.dart';
 import '../../domain/repositories/certificates_repository.dart';
 import 'certificates_state.dart';
@@ -11,6 +12,11 @@ class CertificatesController extends Notifier<CertificatesState> {
   CertificatesState build() {
     _repository = ref.watch(certificatesRepositoryProvider);
     return const CertificatesInitial();
+  }
+
+  /// Resets state on logout or account switching.
+  void reset() {
+    state = const CertificatesInitial();
   }
 
   /// Loads certificates for the specified [childStudentId].
@@ -32,7 +38,9 @@ class CertificatesController extends Notifier<CertificatesState> {
     }
 
     try {
-      final certs = await _repository.getCertificates(childStudentId: childStudentId);
+      final certs = await _repository.getCertificates(
+        childStudentId: childStudentId,
+      );
       state = CertificatesLoaded(
         certificates: certs,
         activeChildId: childStudentId,
@@ -57,5 +65,5 @@ class CertificatesController extends Notifier<CertificatesState> {
 /// Global Riverpod provider for [CertificatesController].
 final certificatesControllerProvider =
     NotifierProvider<CertificatesController, CertificatesState>(
-  CertificatesController.new,
-);
+      CertificatesController.new,
+    );

@@ -111,8 +111,18 @@ class MockSecurityActivityRepository implements SecurityActivityRepository {
 class MockParentPreferencesRepository implements ParentPreferencesRepository {
   ParentPreferencesEntity preferences = const ParentPreferencesEntity(
     id: 'pref-67890',
-    channelPreferences: {'email': true, 'push': true, 'whatsapp': true, 'sms': false},
-    eventPreferences: {'attendance': true, 'reports': true, 'assignment': true, 'admissions': true},
+    channelPreferences: {
+      'email': true,
+      'push': true,
+      'whatsapp': true,
+      'sms': false,
+    },
+    eventPreferences: {
+      'attendance': true,
+      'reports': true,
+      'assignment': true,
+      'admissions': true,
+    },
     muteAll: false,
     digestEnabled: false,
     language: 'en',

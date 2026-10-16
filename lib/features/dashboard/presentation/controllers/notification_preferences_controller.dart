@@ -13,6 +13,11 @@ class NotificationPreferencesController
   NotificationPreferencesRepository get _repository =>
       ref.read(notificationPreferencesRepositoryProvider);
 
+  /// Resets state on logout or account switching.
+  void reset() {
+    state = const NotificationPreferencesInitial();
+  }
+
   Future<void> loadPreferences({bool refresh = false}) async {
     final current = state;
     if (current is NotificationPreferencesLoading) return;

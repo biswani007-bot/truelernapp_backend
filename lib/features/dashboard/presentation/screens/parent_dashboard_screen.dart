@@ -39,6 +39,8 @@ class ParentDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
+  bool _isRefreshing = false;
+
   @override
   void initState() {
     super.initState();
@@ -63,36 +65,59 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
   }
 
   Future<void> _onRefresh() async {
-    final authState = ref.read(authControllerProvider);
-    String? role = authState is Authenticated ? authState.user?.role : null;
-    if (role == null) {
-      final token = await ref.read(secureStorageProvider).getAccessToken();
-      if (token != null) {
-        role = AuthController.decodeJwt(token)?['role'] as String?;
-      }
-    }
-    final isStudent = (role ?? '').toLowerCase() == 'student';
+    if (_isRefreshing) return;
+    _isRefreshing = true;
 
-    if (isStudent) {
-      await ref
-          .read(dashboardControllerProvider.notifier)
-          .loadStudentDashboard(isRefresh: true);
-    } else {
-      await ref
-          .read(childrenControllerProvider.notifier)
-          .loadChildren(isRefresh: true);
-      ref
-          .read(parentProfileControllerProvider.notifier)
-          .loadProfile(refresh: true);
-      final childrenState = ref.read(childrenControllerProvider);
-      final activeId = childrenState is ChildrenLoaded
-          ? childrenState.activeChildId
-          : null;
-      if (activeId != null) {
+    try {
+      final authState = ref.read(authControllerProvider);
+      String? role = authState is Authenticated ? authState.user?.role : null;
+      if (role == null) {
+        final token = await ref.read(secureStorageProvider).getAccessToken();
+        if (token != null) {
+          role = AuthController.decodeJwt(token)?['role'] as String?;
+        }
+      }
+      final isStudent = (role ?? '').toLowerCase() == 'student';
+
+      if (isStudent) {
         await ref
             .read(dashboardControllerProvider.notifier)
-            .loadDashboard(childStudentId: activeId, isRefresh: true);
+            .loadStudentDashboard(isRefresh: true);
+      } else {
+        // Concurrently refresh linked children and parent profile
+        await Future.wait([
+          ref
+              .read(childrenControllerProvider.notifier)
+              .loadChildren(isRefresh: true),
+          ref
+              .read(parentProfileControllerProvider.notifier)
+              .loadProfile(refresh: true),
+        ]);
+
+        final childrenState = ref.read(childrenControllerProvider);
+        final activeId = childrenState is ChildrenLoaded
+            ? childrenState.activeChildId
+            : null;
+        if (activeId != null) {
+          await ref
+              .read(dashboardControllerProvider.notifier)
+              .loadDashboard(childStudentId: activeId, isRefresh: true);
+        }
       }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Unable to refresh dashboard. Please check your connection.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      _isRefreshing = false;
     }
   }
 
@@ -105,15 +130,26 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
     // Only listen for children state updates in Parent mode
     if (!isStudent) {
       ref.listen<ChildrenState>(childrenControllerProvider, (prev, next) {
-        if (next is ChildrenLoaded && next.activeChildId != null) {
-          final prevChildId = prev is ChildrenLoaded
-              ? prev.activeChildId
-              : null;
-          if (prevChildId != next.activeChildId) {
+        if (next is ChildrenLoaded) {
+          if (next.activeChildId != null) {
+            final prevChildId = prev is ChildrenLoaded
+                ? prev.activeChildId
+                : null;
+            if (prevChildId != next.activeChildId) {
+              ref
+                  .read(dashboardControllerProvider.notifier)
+                  .loadDashboard(childStudentId: next.activeChildId);
+            }
+          } else {
+            // No active child (e.g. Account has 0 children) -> clear dashboard
             ref
                 .read(dashboardControllerProvider.notifier)
-                .loadDashboard(childStudentId: next.activeChildId);
+                .loadDashboard(childStudentId: null);
           }
+        } else if (next is ChildrenInitial || next is ChildrenLoading) {
+          // If children are resetting or loading fresh (e.g. account switch),
+          // ensure dashboard does not show stale data from previous account
+          ref.read(dashboardControllerProvider.notifier).reset();
         }
       });
     }

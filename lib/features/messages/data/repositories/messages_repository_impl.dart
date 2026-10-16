@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/message_entity.dart';
 import '../../domain/repositories/messages_repository.dart';
@@ -17,7 +18,9 @@ class MessagesRepositoryImpl implements MessagesRepository {
 
     final body = response.data;
     if (body == null) {
-      throw Exception('Empty response received from /parent/children/$studentId/messages');
+      throw Exception(
+        'Empty response received from /parent/children/$studentId/messages',
+      );
     }
 
     final data = body['data'];
@@ -36,7 +39,8 @@ class MessagesRepositoryImpl implements MessagesRepository {
   }) async {
     final payload = <String, dynamic>{
       'message': message,
-      if (subject != null && subject.trim().isNotEmpty) 'subject': subject.trim(),
+      if (subject != null && subject.trim().isNotEmpty)
+        'subject': subject.trim(),
     };
 
     final response = await apiClient.post<Map<String, dynamic>>(
@@ -46,7 +50,9 @@ class MessagesRepositoryImpl implements MessagesRepository {
 
     final body = response.data;
     if (body == null) {
-      throw Exception('Empty response received from POST /parent/children/$studentId/messages');
+      throw Exception(
+        'Empty response received from POST /parent/children/$studentId/messages',
+      );
     }
 
     final data = body['data'];

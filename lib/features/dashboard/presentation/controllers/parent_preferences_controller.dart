@@ -11,6 +11,11 @@ class ParentPreferencesController extends Notifier<ParentPreferencesState> {
   ParentPreferencesRepository get _repository =>
       ref.read(parentPreferencesRepositoryProvider);
 
+  /// Resets state on logout or account switching.
+  void reset() {
+    state = const ParentPreferencesInitial();
+  }
+
   Future<void> loadPreferences({bool refresh = false}) async {
     final current = state;
     if (current is ParentPreferencesLoading) return;
@@ -36,16 +41,14 @@ class ParentPreferencesController extends Notifier<ParentPreferencesState> {
     if (currentState is! ParentPreferencesLoaded) return;
 
     final oldPrefs = currentState.preferences;
-    final updatedChannels =
-        Map<String, bool>.from(oldPrefs.channelPreferences);
+    final updatedChannels = Map<String, bool>.from(oldPrefs.channelPreferences);
     if (email != null) updatedChannels['email'] = email;
     if (sms != null) updatedChannels['sms'] = sms;
     if (whatsapp != null) updatedChannels['whatsapp'] = whatsapp;
     if (push != null) updatedChannels['push'] = push;
     if (inApp != null) updatedChannels['in-app'] = inApp;
 
-    final updatedPrefs =
-        oldPrefs.copyWith(channelPreferences: updatedChannels);
+    final updatedPrefs = oldPrefs.copyWith(channelPreferences: updatedChannels);
 
     // Optimistic update
     state = currentState.copyWith(preferences: updatedPrefs, isUpdating: true);
@@ -122,7 +125,9 @@ class ParentPreferencesController extends Notifier<ParentPreferencesState> {
       state = ParentPreferencesLoaded(
         preferences: saved,
         isUpdating: false,
-        feedbackMessage: muteAll ? 'All notifications muted' : 'Notifications unmuted',
+        feedbackMessage: muteAll
+            ? 'All notifications muted'
+            : 'Notifications unmuted',
       );
     } catch (e) {
       state = ParentPreferencesLoaded(

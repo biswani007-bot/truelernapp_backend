@@ -1,8 +1,10 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/router/route_paths.dart';
 
 /// Data model representing each exact Figma Onboarding frame:
@@ -35,7 +37,8 @@ const List<OnboardingStepData> _kOnboardingSteps = [
   OnboardingStepData(
     figmaNodeId: '71:150',
     title: 'Learn with Fun',
-    description: 'Interactive games and activities\nthat make learning exciting.',
+    description:
+        'Interactive games and activities\nthat make learning exciting.',
     illustrationPath: 'assets/images/onboarding_fun.png',
     stepIndex: 0,
     titleTracking: -0.65,
@@ -172,7 +175,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           onTap: _onSkip,
                           behavior: HitTestBehavior.opaque,
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4.0,
+                              vertical: 8.0,
+                            ),
                             child: Text(
                               'Skip',
                               style: GoogleFonts.beVietnamPro(
@@ -254,7 +260,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       // Decorative background glow blob matching Figma nodes
                       if (step.stepIndex == 0)
                         ImageFiltered(
-                          imageFilter: ImageFilter.blur(sigmaX: 32.0, sigmaY: 32.0),
+                          imageFilter: ImageFilter.blur(
+                            sigmaX: 32.0,
+                            sigmaY: 32.0,
+                          ),
                           child: Container(
                             width: illustrationSize * 0.85,
                             height: illustrationSize * 0.85,
@@ -264,8 +273,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 begin: Alignment.bottomLeft,
                                 end: Alignment.topRight,
                                 colors: [
-                                  const Color(0xFF818CF8).withValues(alpha: 0.20),
-                                  const Color(0xFF1E4ED8).withValues(alpha: 0.20),
+                                  const Color(0xFF818CF8)
+                                      .withValues(alpha: 0.20),
+                                  const Color(0xFF1E4ED8)
+                                      .withValues(alpha: 0.20),
                                 ],
                               ),
                             ),
@@ -273,7 +284,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         )
                       else if (step.stepIndex == 1)
                         ImageFiltered(
-                          imageFilter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
+                          imageFilter: ImageFilter.blur(
+                            sigmaX: 16.0,
+                            sigmaY: 16.0,
+                          ),
                           child: Container(
                             width: illustrationSize * 0.85,
                             height: illustrationSize * 0.85,
@@ -283,8 +297,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 begin: Alignment.bottomLeft,
                                 end: Alignment.topRight,
                                 colors: [
-                                  const Color(0xFFDCE1FF).withValues(alpha: 0.20),
-                                  const Color(0xFFFFDF9F).withValues(alpha: 0.20),
+                                  const Color(0xFFDCE1FF)
+                                      .withValues(alpha: 0.20),
+                                  const Color(0xFFFFDF9F)
+                                      .withValues(alpha: 0.20),
                                 ],
                               ),
                             ),
@@ -292,13 +308,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         )
                       else
                         ImageFiltered(
-                          imageFilter: ImageFilter.blur(sigmaX: 32.0, sigmaY: 32.0),
+                          imageFilter: ImageFilter.blur(
+                            sigmaX: 32.0,
+                            sigmaY: 32.0,
+                          ),
                           child: Container(
                             width: illustrationSize * 0.80,
                             height: illustrationSize * 0.80,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFFB7C4FF).withValues(alpha: 0.30),
+                              color: const Color(0xFFB7C4FF)
+                                  .withValues(alpha: 0.30),
                             ),
                           ),
                         ),
@@ -491,7 +511,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E4ED8).withValues(alpha: isLast ? 0.30 : 0.24),
+            color: const Color(0xFF1E4ED8)
+                .withValues(alpha: isLast ? 0.30 : 0.24),
             blurRadius: isLast ? 14.0 : 12.0,
             offset: const Offset(0, 4),
           ),

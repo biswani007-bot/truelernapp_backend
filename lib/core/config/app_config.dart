@@ -1,9 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Supported application execution environments.
-enum AppEnvironment {
-  production,
-}
+enum AppEnvironment { production }
 
 /// Centralized configuration for TrueLern mobile application.
 ///

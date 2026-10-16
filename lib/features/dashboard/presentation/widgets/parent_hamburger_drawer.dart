@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../auth/presentation/controllers/auth_state.dart';
@@ -606,18 +607,17 @@ class ParentHamburgerDrawer extends ConsumerWidget {
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () async {
+                        final authController = ref.read(
+                          authControllerProvider.notifier,
+                        );
                         Navigator.of(context).pop();
                         if (onLogout != null) {
                           onLogout?.call();
                         } else {
-                          await ref
-                              .read(authControllerProvider.notifier)
-                              .logout();
-                          ref
-                              .read(parentProfileControllerProvider.notifier)
-                              .reset();
-                          if (context.mounted) {
-                            context.go(AppRoutePaths.login);
+                          await authController.logout();
+                          final rootContext = rootNavigatorKey.currentContext;
+                          if (rootContext != null && rootContext.mounted) {
+                            rootContext.go(AppRoutePaths.login);
                           }
                         }
                       },

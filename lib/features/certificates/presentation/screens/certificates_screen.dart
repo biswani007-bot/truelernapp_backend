@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,8 +38,9 @@ class _ParentCertificatesScreenState
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final childrenState = ref.read(childrenControllerProvider);
-      final activeChildId =
-          childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+      final activeChildId = childrenState is ChildrenLoaded
+          ? childrenState.activeChildId
+          : null;
       ref
           .read(certificatesControllerProvider.notifier)
           .loadCertificates(childStudentId: activeChildId);
@@ -47,13 +49,16 @@ class _ParentCertificatesScreenState
 
   Future<void> _onRefresh() async {
     final childrenState = ref.read(childrenControllerProvider);
-    final activeChildId =
-        childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+    final activeChildId = childrenState is ChildrenLoaded
+        ? childrenState.activeChildId
+        : null;
     await Future.wait([
       ref
           .read(certificatesControllerProvider.notifier)
           .loadCertificates(childStudentId: activeChildId, isRefresh: true),
-      ref.read(childrenControllerProvider.notifier).loadChildren(isRefresh: true),
+      ref
+          .read(childrenControllerProvider.notifier)
+          .loadChildren(isRefresh: true),
     ]);
   }
 
@@ -62,16 +67,20 @@ class _ParentCertificatesScreenState
     final childrenState = ref.watch(childrenControllerProvider);
     final certificatesState = ref.watch(certificatesControllerProvider);
 
-    final List<ChildEntity> children =
-        childrenState is ChildrenLoaded ? childrenState.children : const [];
-    final ChildEntity? activeChild =
-        childrenState is ChildrenLoaded ? childrenState.activeChild : null;
+    final List<ChildEntity> children = childrenState is ChildrenLoaded
+        ? childrenState.children
+        : const [];
+    final ChildEntity? activeChild = childrenState is ChildrenLoaded
+        ? childrenState.activeChild
+        : null;
     final String? activeChildId = activeChild?.studentId;
 
     // Synchronize active child changes
     ref.listen<ChildrenState>(childrenControllerProvider, (previous, next) {
       if (next is ChildrenLoaded) {
-        final prevId = previous is ChildrenLoaded ? previous.activeChildId : null;
+        final prevId = previous is ChildrenLoaded
+            ? previous.activeChildId
+            : null;
         if (prevId != next.activeChildId && next.activeChildId != null) {
           ref
               .read(certificatesControllerProvider.notifier)
@@ -514,7 +523,9 @@ class _ParentCertificatesScreenState
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Downloading ${cert.certificateNumber}...'),
+                                content: Text(
+                                  'Downloading ${cert.certificateNumber}...',
+                                ),
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
@@ -646,7 +657,9 @@ class _ParentCertificatesScreenState
               _buildModalRow('Certificate Number', cert.certificateNumber),
               _buildModalRow(
                 'Student Recipient',
-                child != null ? '${child.firstName} ${child.lastName}' : 'Student',
+                child != null
+                    ? '${child.firstName} ${child.lastName}'
+                    : 'Student',
               ),
               _buildModalRow('Title', cert.displayTitle),
               _buildModalRow('Date Issued', formattedDate),
@@ -705,7 +718,9 @@ class _ParentCertificatesScreenState
                         );
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Certificate number copied to clipboard!'),
+                            content: Text(
+                              'Certificate number copied to clipboard!',
+                            ),
                             behavior: SnackBarBehavior.floating,
                             duration: Duration(seconds: 2),
                           ),
@@ -985,8 +1000,18 @@ class _ParentCertificatesScreenState
 
   String _monthName(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     if (month >= 1 && month <= 12) {
       return months[month - 1];

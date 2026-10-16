@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../data/repositories/progress_repository_impl.dart';
 import '../../domain/entities/progress_entity.dart';
 import '../../domain/repositories/progress_repository.dart';
@@ -19,6 +20,15 @@ class ProgressController extends Notifier<ProgressState> {
   String? _currentlyLoadingChildId;
   String? _currentStudentName;
   String? _currentActiveTrack;
+
+  /// Resets state on logout or account switching.
+  void reset() {
+    _requestToken++;
+    _currentlyLoadingChildId = null;
+    _currentStudentName = null;
+    _currentActiveTrack = null;
+    state = const ProgressInitial();
+  }
 
   /// Loads academic progress for a specific student.
   Future<void> loadProgress({
@@ -59,20 +69,21 @@ class ProgressController extends Notifier<ProgressState> {
       );
 
       // Race condition check: ensure response matches latest request
-      if (token != _requestToken || _currentlyLoadingChildId != childStudentId) {
+      if (token != _requestToken ||
+          _currentlyLoadingChildId != childStudentId) {
         return;
       }
 
-      state = ProgressLoaded(
-        progress: entity,
-        activeChildId: childStudentId,
-      );
+      state = ProgressLoaded(progress: entity, activeChildId: childStudentId);
     } catch (e) {
-      if (token != _requestToken || _currentlyLoadingChildId != childStudentId) {
+      if (token != _requestToken ||
+          _currentlyLoadingChildId != childStudentId) {
         return;
       }
       // If refresh failed but we had loaded progress, keep existing loaded state
-      if (isRefresh && current is ProgressLoaded && current.activeChildId == childStudentId) {
+      if (isRefresh &&
+          current is ProgressLoaded &&
+          current.activeChildId == childStudentId) {
         return;
       }
       state = ProgressError(

@@ -23,13 +23,11 @@ class CertificateDto {
 
   factory CertificateDto.fromJson(Map<String, dynamic> json) {
     // 1. Resolve ID
-    final id = json['certificateId'] ??
-        json['id'] ??
-        json['_id'] ??
-        '';
+    final id = json['certificateId'] ?? json['id'] ?? json['_id'] ?? '';
 
     // 2. Resolve Certificate Number
-    final number = json['certificateNumber'] ??
+    final number =
+        json['certificateNumber'] ??
         json['number'] ??
         json['code'] ??
         json['certificateCode'] ??
@@ -37,7 +35,8 @@ class CertificateDto {
 
     // 3. Resolve Issue Date
     DateTime? parsedDate;
-    final rawDate = json['issueDate'] ??
+    final rawDate =
+        json['issueDate'] ??
         json['issuedDate'] ??
         json['createdAt'] ??
         json['date'];
@@ -53,23 +52,27 @@ class CertificateDto {
     final statusStr = json['status']?.toString() ?? 'issued';
 
     // 5. Resolve Download URL
-    final rawUrl = json['downloadUrl'] ??
+    final rawUrl =
+        json['downloadUrl'] ??
         json['fileUrl'] ??
         json['pdfUrl'] ??
         json['url'] ??
         json['certificateUrl'];
-    final url = (rawUrl != null && rawUrl != 'null' && rawUrl.toString().trim().isNotEmpty)
+    final url =
+        (rawUrl != null &&
+            rawUrl != 'null' &&
+            rawUrl.toString().trim().isNotEmpty)
         ? rawUrl.toString().trim()
         : null;
 
     // 6. Resolve Title / Program
-    final titleStr = json['title'] ??
+    final titleStr =
+        json['title'] ??
         json['name'] ??
         json['courseTitle'] ??
         json['courseName'];
-    final programStr = json['programName'] ??
-        json['batchName'] ??
-        json['program'];
+    final programStr =
+        json['programName'] ?? json['batchName'] ?? json['program'];
 
     return CertificateDto(
       certificateId: id.toString(),
@@ -87,7 +90,9 @@ class CertificateDto {
       certificateId: certificateId,
       certificateNumber: certificateNumber.isNotEmpty
           ? certificateNumber
-          : (certificateId.isNotEmpty ? '#${certificateId.substring(0, 8.clamp(0, certificateId.length))}' : 'Certificate'),
+          : (certificateId.isNotEmpty
+                ? '#${certificateId.substring(0, 8.clamp(0, certificateId.length))}'
+                : 'Certificate'),
       issueDate: issueDate,
       status: status,
       downloadUrl: downloadUrl,

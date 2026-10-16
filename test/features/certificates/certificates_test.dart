@@ -102,7 +102,10 @@ void main() {
       final entity = dto.toEntity();
       expect(entity.displayTitle, 'Advanced Robotics Master');
       expect(entity.hasDownloadUrl, isTrue);
-      expect(entity.downloadUrl, 'https://truelern.visital.in/certificates/cert_123.pdf');
+      expect(
+        entity.downloadUrl,
+        'https://truelern.visital.in/certificates/cert_123.pdf',
+      );
     });
 
     test('handles fallback when fields are missing or null safely', () {
@@ -124,35 +127,38 @@ void main() {
       repository = CertificatesRepositoryImpl(apiClient: mockApiClient);
     });
 
-    test('fetches certificates for child using the verified parent API path', () async {
-      mockApiClient.responseData = {
-        'success': true,
-        'data': [
-          {
-            'certificateId': 'cert_abc',
-            'certificateNumber': 'CRT-000042',
-            'issueDate': '2026-10-01T12:00:00.000Z',
-            'status': 'issued',
-            'downloadUrl': null,
-          }
-        ]
-      };
+    test(
+      'fetches certificates for child using the verified parent API path',
+      () async {
+        mockApiClient.responseData = {
+          'success': true,
+          'data': [
+            {
+              'certificateId': 'cert_abc',
+              'certificateNumber': 'CRT-000042',
+              'issueDate': '2026-10-01T12:00:00.000Z',
+              'status': 'issued',
+              'downloadUrl': null,
+            },
+          ],
+        };
 
-      final certificates = await repository.getCertificates(
-        childStudentId: 'child_student_123',
-      );
+        final certificates = await repository.getCertificates(
+          childStudentId: 'child_student_123',
+        );
 
-      expect(mockApiClient.lastPath, '/parent/children/child_student_123/certificates');
-      expect(certificates.length, 1);
-      expect(certificates.first.certificateNumber, 'CRT-000042');
-      expect(certificates.first.childStudentId, 'child_student_123');
-    });
+        expect(
+          mockApiClient.lastPath,
+          '/parent/children/child_student_123/certificates',
+        );
+        expect(certificates.length, 1);
+        expect(certificates.first.certificateNumber, 'CRT-000042');
+        expect(certificates.first.childStudentId, 'child_student_123');
+      },
+    );
 
     test('returns empty list when data is empty array', () async {
-      mockApiClient.responseData = {
-        'success': true,
-        'data': [],
-      };
+      mockApiClient.responseData = {'success': true, 'data': []};
 
       final certificates = await repository.getCertificates(
         childStudentId: 'child_empty',
@@ -180,9 +186,7 @@ void main() {
 
     test('initial state is CertificatesInitial', () {
       final container = ProviderContainer(
-        overrides: [
-          certificatesRepositoryProvider.overrideWithValue(mockRepo),
-        ],
+        overrides: [certificatesRepositoryProvider.overrideWithValue(mockRepo)],
       );
       addTearDown(container.dispose);
 
@@ -201,13 +205,13 @@ void main() {
       ];
 
       final container = ProviderContainer(
-        overrides: [
-          certificatesRepositoryProvider.overrideWithValue(mockRepo),
-        ],
+        overrides: [certificatesRepositoryProvider.overrideWithValue(mockRepo)],
       );
       addTearDown(container.dispose);
 
-      final controller = container.read(certificatesControllerProvider.notifier);
+      final controller = container.read(
+        certificatesControllerProvider.notifier,
+      );
       await controller.loadCertificates(childStudentId: 'child_1');
 
       final state = container.read(certificatesControllerProvider);
@@ -218,37 +222,42 @@ void main() {
       expect(loaded.activeChildId, 'child_1');
     });
 
-    test('empty certificate state produces CertificatesLoaded with empty list', () async {
-      mockRepo.certificatesByChild['child_empty'] = [];
+    test(
+      'empty certificate state produces CertificatesLoaded with empty list',
+      () async {
+        mockRepo.certificatesByChild['child_empty'] = [];
 
-      final container = ProviderContainer(
-        overrides: [
-          certificatesRepositoryProvider.overrideWithValue(mockRepo),
-        ],
-      );
-      addTearDown(container.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            certificatesRepositoryProvider.overrideWithValue(mockRepo),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final controller = container.read(certificatesControllerProvider.notifier);
-      await controller.loadCertificates(childStudentId: 'child_empty');
+        final controller = container.read(
+          certificatesControllerProvider.notifier,
+        );
+        await controller.loadCertificates(childStudentId: 'child_empty');
 
-      final state = container.read(certificatesControllerProvider);
-      expect(state, isA<CertificatesLoaded>());
-      final loaded = state as CertificatesLoaded;
-      expect(loaded.certificates, isEmpty);
-      expect(loaded.activeChildId, 'child_empty');
-    });
+        final state = container.read(certificatesControllerProvider);
+        expect(state, isA<CertificatesLoaded>());
+        final loaded = state as CertificatesLoaded;
+        expect(loaded.certificates, isEmpty);
+        expect(loaded.activeChildId, 'child_empty');
+      },
+    );
 
     test('error state produces CertificatesError with message', () async {
       mockRepo.shouldThrow = true;
 
       final container = ProviderContainer(
-        overrides: [
-          certificatesRepositoryProvider.overrideWithValue(mockRepo),
-        ],
+        overrides: [certificatesRepositoryProvider.overrideWithValue(mockRepo)],
       );
       addTearDown(container.dispose);
 
-      final controller = container.read(certificatesControllerProvider.notifier);
+      final controller = container.read(
+        certificatesControllerProvider.notifier,
+      );
       await controller.loadCertificates(childStudentId: 'child_error');
 
       final state = container.read(certificatesControllerProvider);
@@ -270,23 +279,25 @@ void main() {
       ];
 
       final container = ProviderContainer(
-        overrides: [
-          certificatesRepositoryProvider.overrideWithValue(mockRepo),
-        ],
+        overrides: [certificatesRepositoryProvider.overrideWithValue(mockRepo)],
       );
       addTearDown(container.dispose);
 
-      final controller = container.read(certificatesControllerProvider.notifier);
+      final controller = container.read(
+        certificatesControllerProvider.notifier,
+      );
 
       // 1. Fetch for Sarah -> Empty
       await controller.loadCertificates(childStudentId: 'child_sarah');
-      var state = container.read(certificatesControllerProvider) as CertificatesLoaded;
+      var state =
+          container.read(certificatesControllerProvider) as CertificatesLoaded;
       expect(state.certificates, isEmpty);
       expect(state.activeChildId, 'child_sarah');
 
       // 2. Switch to Alex -> Loaded 1 certificate
       await controller.loadCertificates(childStudentId: 'child_alex');
-      state = container.read(certificatesControllerProvider) as CertificatesLoaded;
+      state =
+          container.read(certificatesControllerProvider) as CertificatesLoaded;
       expect(state.certificates.length, 1);
       expect(state.certificates.first.certificateNumber, 'CRT-000001');
       expect(state.activeChildId, 'child_alex');
@@ -301,47 +312,52 @@ void main() {
       grade: 'Grade 5',
     );
 
-    testWidgets('renders certificate card with certificate number and status badge', (tester) async {
-      final mockRepo = MockCertificatesRepository();
-      mockRepo.certificatesByChild['child_1'] = [
-        CertificateEntity(
-          certificateId: 'c_test_1',
-          certificateNumber: 'CRT-000001',
-          issueDate: DateTime(2026, 8, 20),
-          status: 'issued',
-          childStudentId: 'child_1',
-        ),
-      ];
+    testWidgets(
+      'renders certificate card with certificate number and status badge',
+      (tester) async {
+        final mockRepo = MockCertificatesRepository();
+        mockRepo.certificatesByChild['child_1'] = [
+          CertificateEntity(
+            certificateId: 'c_test_1',
+            certificateNumber: 'CRT-000001',
+            issueDate: DateTime(2026, 8, 20),
+            status: 'issued',
+            childStudentId: 'child_1',
+          ),
+        ];
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            certificatesRepositoryProvider.overrideWithValue(mockRepo),
-            childrenControllerProvider.overrideWith(() => MockChildrenController(
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              certificatesRepositoryProvider.overrideWithValue(mockRepo),
+              childrenControllerProvider.overrideWith(
+                () => MockChildrenController(
                   ChildrenLoaded(
                     children: const [testChild],
                     activeChildId: 'child_1',
                   ),
-                )),
-          ],
-          child: const MaterialApp(
-            home: ParentCertificatesScreen(),
+                ),
+              ),
+            ],
+            child: const MaterialApp(home: ParentCertificatesScreen()),
           ),
-        ),
-      );
+        );
 
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Certificates'), findsOneWidget);
-      expect(find.text('Official Credentials'), findsOneWidget);
-      expect(find.text('CRT-000001'), findsOneWidget);
-      expect(find.text('ISSUED'), findsOneWidget);
-      expect(find.text('Course Completion Certificate'), findsOneWidget);
-      expect(find.text('View Certificate Details'), findsOneWidget);
-    });
+        expect(find.text('Certificates'), findsOneWidget);
+        expect(find.text('Official Credentials'), findsOneWidget);
+        expect(find.text('CRT-000001'), findsOneWidget);
+        expect(find.text('ISSUED'), findsOneWidget);
+        expect(find.text('Course Completion Certificate'), findsOneWidget);
+        expect(find.text('View Certificate Details'), findsOneWidget);
+      },
+    );
 
-    testWidgets('renders empty state when no certificates found for student', (tester) async {
+    testWidgets('renders empty state when no certificates found for student', (
+      tester,
+    ) async {
       final mockRepo = MockCertificatesRepository();
       mockRepo.certificatesByChild['child_1'] = [];
 
@@ -349,16 +365,16 @@ void main() {
         ProviderScope(
           overrides: [
             certificatesRepositoryProvider.overrideWithValue(mockRepo),
-            childrenControllerProvider.overrideWith(() => MockChildrenController(
-                  ChildrenLoaded(
-                    children: const [testChild],
-                    activeChildId: 'child_1',
-                  ),
-                )),
+            childrenControllerProvider.overrideWith(
+              () => MockChildrenController(
+                ChildrenLoaded(
+                  children: const [testChild],
+                  activeChildId: 'child_1',
+                ),
+              ),
+            ),
           ],
-          child: const MaterialApp(
-            home: ParentCertificatesScreen(),
-          ),
+          child: const MaterialApp(home: ParentCertificatesScreen()),
         ),
       );
 
@@ -369,7 +385,9 @@ void main() {
       expect(find.text('No Certificates Yet'), findsOneWidget);
     });
 
-    testWidgets('renders error card with retry button when failure occurs', (tester) async {
+    testWidgets('renders error card with retry button when failure occurs', (
+      tester,
+    ) async {
       final mockRepo = MockCertificatesRepository();
       mockRepo.shouldThrow = true;
 
@@ -377,16 +395,16 @@ void main() {
         ProviderScope(
           overrides: [
             certificatesRepositoryProvider.overrideWithValue(mockRepo),
-            childrenControllerProvider.overrideWith(() => MockChildrenController(
-                  ChildrenLoaded(
-                    children: const [testChild],
-                    activeChildId: 'child_1',
-                  ),
-                )),
+            childrenControllerProvider.overrideWith(
+              () => MockChildrenController(
+                ChildrenLoaded(
+                  children: const [testChild],
+                  activeChildId: 'child_1',
+                ),
+              ),
+            ),
           ],
-          child: const MaterialApp(
-            home: ParentCertificatesScreen(),
-          ),
+          child: const MaterialApp(home: ParentCertificatesScreen()),
         ),
       );
 
@@ -395,7 +413,10 @@ void main() {
 
       expect(find.byKey(const Key('certificates_error_card')), findsOneWidget);
       expect(find.text('Unable to Load Certificates'), findsOneWidget);
-      expect(find.byKey(const Key('certificates_retry_button')), findsOneWidget);
+      expect(
+        find.byKey(const Key('certificates_retry_button')),
+        findsOneWidget,
+      );
     });
   });
 }

@@ -31,8 +31,9 @@ class SecurityActivityRepositoryImpl implements SecurityActivityRepository {
   }
 }
 
-final securityActivityRepositoryProvider =
-    Provider<SecurityActivityRepository>((ref) {
-  final client = ref.watch(apiClientProvider);
-  return SecurityActivityRepositoryImpl(apiClient: client);
-});
+final securityActivityRepositoryProvider = Provider<SecurityActivityRepository>(
+  (ref) {
+    final client = ref.watch(apiClientProvider);
+    return SecurityActivityRepositoryImpl(apiClient: client);
+  },
+);

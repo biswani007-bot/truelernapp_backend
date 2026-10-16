@@ -77,7 +77,8 @@ class FakeSecureStorage implements SecureStorageService {
   Future<String?> getUserId() async => userId;
 
   @override
-  Future<void> saveActiveChildId(String childId) async => activeChildId = childId;
+  Future<void> saveActiveChildId(String childId) async =>
+      activeChildId = childId;
 
   @override
   Future<String?> getActiveChildId() async => activeChildId;
@@ -119,7 +120,10 @@ void main() {
       final result = await repository.login(request);
 
       expect(fakeApiClient.lastPath, '/auth/login');
-      expect(fakeApiClient.lastData, {'email': 'parent@truelern.com', 'password': 'password123'});
+      expect(fakeApiClient.lastData, {
+        'email': 'parent@truelern.com',
+        'password': 'password123',
+      });
       expect(result.accessToken, 'genuine_jwt_token_123');
       expect(fakeSecureStorage.accessToken, 'genuine_jwt_token_123');
       expect(fakeSecureStorage.refreshToken, 'genuine_refresh_token_456');
@@ -185,21 +189,27 @@ void main() {
       expect(fakeSecureStorage.accessToken, isNull);
     });
 
-    test('checkPersistedSession restores existing token from storage', () async {
-      fakeSecureStorage.accessToken = 'persisted_session_token';
+    test(
+      'checkPersistedSession restores existing token from storage',
+      () async {
+        fakeSecureStorage.accessToken = 'persisted_session_token';
 
-      final token = await repository.checkPersistedSession();
+        final token = await repository.checkPersistedSession();
 
-      expect(token, 'persisted_session_token');
-    });
+        expect(token, 'persisted_session_token');
+      },
+    );
 
-    test('checkPersistedSession returns null when storage has no token', () async {
-      fakeSecureStorage.accessToken = null;
+    test(
+      'checkPersistedSession returns null when storage has no token',
+      () async {
+        fakeSecureStorage.accessToken = null;
 
-      final token = await repository.checkPersistedSession();
+        final token = await repository.checkPersistedSession();
 
-      expect(token, isNull);
-    });
+        expect(token, isNull);
+      },
+    );
 
     test('logout invokes clearAuthSession on secure storage', () async {
       fakeSecureStorage.accessToken = 'active_token';

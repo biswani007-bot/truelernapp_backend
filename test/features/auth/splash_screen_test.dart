@@ -6,31 +6,27 @@ import 'package:go_router/go_router.dart';
 import 'package:truelearn/features/auth/presentation/screens/splash_screen.dart';
 
 void main() {
-  testWidgets('SplashScreen renders Figma SCR-01 elements accurately', (tester) async {
+  testWidgets('SplashScreen renders Figma SCR-01 elements accurately', (
+    tester,
+  ) async {
     final router = GoRouter(
       initialLocation: '/',
       routes: [
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const SplashScreen(),
-        ),
+        GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
         GoRoute(
           path: '/onboarding',
           builder: (context, state) => const Scaffold(body: Text('Onboarding')),
         ),
         GoRoute(
           path: '/parent',
-          builder: (context, state) => const Scaffold(body: Text('Parent Dashboard')),
+          builder: (context, state) =>
+              const Scaffold(body: Text('Parent Dashboard')),
         ),
       ],
     );
 
     await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          routerConfig: router,
-        ),
-      ),
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
     );
 
     // Verify version text

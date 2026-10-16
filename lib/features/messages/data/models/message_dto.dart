@@ -30,7 +30,8 @@ class MessageItemDto {
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       senderRole: (json['senderRole'] ?? json['role'] ?? 'parent').toString(),
       subject: (json['subject'] ?? '').toString(),
-      message: (json['message'] ?? json['content'] ?? json['text'] ?? '').toString(),
+      message: (json['message'] ?? json['content'] ?? json['text'] ?? '')
+          .toString(),
       isRead: json['isRead'] == true || json['read'] == true,
       status: (json['status'] ?? 'sent').toString(),
       createdAt: parsedDate,
@@ -165,7 +166,8 @@ class MessagesDataDto {
     final messageEntities = messages.map((m) {
       String? senderName;
       if (m.senderRole.toLowerCase() == 'teacher') {
-        senderName = activeTeacherEntity?.fullName ??
+        senderName =
+            activeTeacherEntity?.fullName ??
             (teachersEntities.isNotEmpty
                 ? teachersEntities.first.fullName
                 : 'Instructor');

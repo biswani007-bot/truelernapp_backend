@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../domain/entities/demo_booking_entity.dart';
 import 'demo_booking_confirmed_popup.dart';
 
 /// Displays the Demo Booking Confirmation Popup (Figma Node 74:624)
@@ -13,6 +14,8 @@ Future<void> showDemoBookingConfirmationPopup(
   String selectedDemo = 'ACE Public Speaking',
   String dateTime = 'Today at 8:00 PM',
   String teacher = 'Ms. Sarah',
+  Future<bool> Function()? onConfirm,
+  Future<DemoBookingEntity?> Function()? onConfirmBooking,
 }) {
   return showGeneralDialog(
     context: context,
@@ -25,6 +28,8 @@ Future<void> showDemoBookingConfirmationPopup(
         selectedDemo: selectedDemo,
         dateTime: dateTime,
         teacher: teacher,
+        onConfirm: onConfirm,
+        onConfirmBooking: onConfirmBooking,
       );
     },
     transitionBuilder: (ctx, anim1, anim2, child) {
@@ -43,17 +48,30 @@ Future<void> showDemoBookingConfirmationPopup(
 }
 
 /// Exact Figma Node 74:624 implementation ("Demo Booking Confirmation Popup").
-class DemoBookingConfirmationPopup extends StatelessWidget {
+class DemoBookingConfirmationPopup extends StatefulWidget {
   const DemoBookingConfirmationPopup({
     super.key,
     this.selectedDemo = 'ACE Public Speaking',
     this.dateTime = 'Today at 8:00 PM',
     this.teacher = 'Ms. Sarah',
+    this.onConfirm,
+    this.onConfirmBooking,
   });
 
   final String selectedDemo;
   final String dateTime;
   final String teacher;
+  final Future<bool> Function()? onConfirm;
+  final Future<DemoBookingEntity?> Function()? onConfirmBooking;
+
+  @override
+  State<DemoBookingConfirmationPopup> createState() =>
+      _DemoBookingConfirmationPopupState();
+}
+
+class _DemoBookingConfirmationPopupState
+    extends State<DemoBookingConfirmationPopup> {
+  bool _isConfirming = false;
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +188,7 @@ class DemoBookingConfirmationPopup extends StatelessWidget {
                               // Row 1: Selected Demo
                               _buildDetailRow(
                                 label: 'SELECTED DEMO',
-                                value: selectedDemo,
+                                value: widget.selectedDemo,
                               ),
 
                               const SizedBox(height: 8.0),
@@ -178,13 +196,16 @@ class DemoBookingConfirmationPopup extends StatelessWidget {
                               // Row 2: Date & Time
                               _buildDetailRow(
                                 label: 'DATE & TIME',
-                                value: dateTime,
+                                value: widget.dateTime,
                               ),
 
                               const SizedBox(height: 8.0),
 
                               // Row 3: Teacher
-                              _buildDetailRow(label: 'TEACHER', value: teacher),
+                              _buildDetailRow(
+                                label: 'TEACHER',
+                                value: widget.teacher,
+                              ),
                             ],
                           ),
                         ),
@@ -236,21 +257,69 @@ class DemoBookingConfirmationPopup extends StatelessWidget {
                         // 6. Confirm Booking Button (Node 74:661)
                         InkWell(
                           key: const Key('demo_popup_confirm_button'),
-                          onTap: () {
-                            Navigator.of(context).pop();
-                            showDemoBookingConfirmedPopup(
-                              context,
-                              selectedDemo: selectedDemo,
-                              dateTime: dateTime,
-                              teacher: teacher,
-                            );
-                          },
+                          onTap: _isConfirming
+                              ? null
+                              : () async {
+                                  setState(() => _isConfirming = true);
+                                  DemoBookingEntity? bookingResult;
+                                  if (widget.onConfirmBooking != null) {
+                                    try {
+                                      bookingResult =
+                                          await widget.onConfirmBooking!();
+                                      if (bookingResult == null) {
+                                        if (mounted) {
+                                          setState(() => _isConfirming = false);
+                                        }
+                                        return;
+                                      }
+                                    } catch (_) {
+                                      if (mounted) {
+                                        setState(() => _isConfirming = false);
+                                      }
+                                      return;
+                                    }
+                                  } else if (widget.onConfirm != null) {
+                                    try {
+                                      final confirmed =
+                                          await widget.onConfirm!();
+                                      if (!confirmed) {
+                                        if (mounted) {
+                                          setState(() => _isConfirming = false);
+                                        }
+                                        return;
+                                      }
+                                    } catch (_) {
+                                      if (mounted) {
+                                        setState(() => _isConfirming = false);
+                                      }
+                                      return;
+                                    }
+                                  }
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop();
+                                    showDemoBookingConfirmedPopup(
+                                      context,
+                                      selectedDemo:
+                                          bookingResult?.courseName ??
+                                          widget.selectedDemo,
+                                      dateTime:
+                                          bookingResult?.formattedDateTime ??
+                                          widget.dateTime,
+                                      teacher:
+                                          bookingResult?.displayTeacher ??
+                                          widget.teacher,
+                                      booking: bookingResult,
+                                    );
+                                  }
+                                },
                           borderRadius: BorderRadius.circular(8.0),
                           child: Container(
                             width: double.infinity,
                             height: 52.0,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0037B1),
+                              color: _isConfirming
+                                  ? const Color(0xFF93C5FD)
+                                  : const Color(0xFF0037B1),
                               borderRadius: BorderRadius.circular(8.0),
                               boxShadow: const [
                                 BoxShadow(
@@ -264,22 +333,42 @@ class DemoBookingConfirmationPopup extends StatelessWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(
-                                  'Confirm Booking',
-                                  style: GoogleFonts.hankenGrotesk(
-                                    fontSize: 15.0,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: 0.1,
-                                    color: Colors.white,
-                                    height: 20 / 14,
+                                if (_isConfirming) ...[
+                                  const SizedBox(
+                                    width: 20.0,
+                                    height: 20.0,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.0,
+                                      color: Colors.white,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 8.0),
-                                SvgPicture.asset(
-                                  'assets/icons/demo_popup_arrow.svg',
-                                  width: 16.0,
-                                  height: 16.0,
-                                ),
+                                  const SizedBox(width: 10.0),
+                                  Text(
+                                    'Confirming...',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 15.0,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Text(
+                                    'Confirm Booking',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 15.0,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.1,
+                                      color: Colors.white,
+                                      height: 20 / 14,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8.0),
+                                  SvgPicture.asset(
+                                    'assets/icons/demo_popup_arrow.svg',
+                                    width: 16.0,
+                                    height: 16.0,
+                                  ),
+                                ],
                               ],
                             ),
                           ),

@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/storage/secure_storage_service.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../auth/presentation/controllers/auth_state.dart';
 import '../../data/repositories/dashboard_repository_impl.dart';
 import '../../domain/entities/dashboard_entity.dart';
 import '../../domain/repositories/dashboard_repository.dart';
@@ -21,9 +23,28 @@ class ChildrenController extends Notifier<ChildrenState> {
   DashboardRepository get _repository => ref.read(dashboardRepositoryProvider);
   SecureStorageService get _storage => ref.read(secureStorageProvider);
 
+  int _requestToken = 0;
+  String? _sessionUserId;
+
+  /// Resets state on logout or account switching to prevent cross-account leakage.
+  void reset() {
+    _requestToken++;
+    _sessionUserId = null;
+    state = const ChildrenInitial();
+    _storage.deleteActiveChildId();
+  }
+
   /// Fetches linked children. Retains the active child across refreshes.
   Future<void> loadChildren({bool isRefresh = false}) async {
+    final token = ++_requestToken;
     final current = state;
+
+    final authState = ref.read(authControllerProvider);
+    final currentUserId = authState is Authenticated
+        ? authState.user?.id
+        : null;
+    _sessionUserId = currentUserId;
+
     if (!isRefresh || current is! ChildrenLoaded) {
       state = const ChildrenLoading();
     }
@@ -31,20 +52,37 @@ class ChildrenController extends Notifier<ChildrenState> {
       final persistedChildId = await _storage.getActiveChildId();
       final children = await _repository.getLinkedChildren();
 
+      // Guard against race conditions and account switching
+      if (token != _requestToken) {
+        return;
+      }
+
+      final latestAuthState = ref.read(authControllerProvider);
+      final latestUserId = latestAuthState is Authenticated
+          ? latestAuthState.user?.id
+          : null;
+      if (latestUserId != _sessionUserId) {
+        return;
+      }
+
       // Determine active student deterministically:
+      // STRICT RULE: Must be present in the newly fetched children list!
       // 1. Current in-memory active child if still present in children list
       // 2. Persisted active child ID from secure storage if present
       // 3. First child in list as initial fallback
       // 4. Null if empty
       String? resolvedActiveId;
-      if (current is ChildrenLoaded &&
+      if (children.isEmpty) {
+        resolvedActiveId = null;
+        await _storage.deleteActiveChildId();
+      } else if (current is ChildrenLoaded &&
           current.activeChildId != null &&
           children.any((c) => c.studentId == current.activeChildId)) {
         resolvedActiveId = current.activeChildId;
       } else if (persistedChildId != null &&
           children.any((c) => c.studentId == persistedChildId)) {
         resolvedActiveId = persistedChildId;
-      } else if (children.isNotEmpty) {
+      } else {
         resolvedActiveId = children.first.studentId;
       }
 
@@ -59,6 +97,7 @@ class ChildrenController extends Notifier<ChildrenState> {
         activeChildId: resolvedActiveId,
       );
     } catch (error) {
+      if (token != _requestToken) return;
       if (!isRefresh || state is! ChildrenLoaded) {
         state = ChildrenError(message: _messageFrom(error));
       }
@@ -96,8 +135,8 @@ final childrenControllerProvider =
     NotifierProvider<ChildrenController, ChildrenState>(ChildrenController.new);
 
 /// Provider for fetching a specific child's dashboard metrics (course, attendance rate).
-final childDashboardMetricsProvider =
-    FutureProvider.family<DashboardEntity, String>((ref, studentId) async {
+final childDashboardMetricsProvider = FutureProvider.autoDispose
+    .family<DashboardEntity, String>((ref, studentId) async {
       final repo = ref.watch(dashboardRepositoryProvider);
       return repo.getChildDashboard(childStudentId: studentId);
     });

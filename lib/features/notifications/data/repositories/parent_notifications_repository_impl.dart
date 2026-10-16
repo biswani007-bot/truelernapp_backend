@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/parent_notification_entity.dart';
 import '../../domain/repositories/parent_notifications_repository.dart';
@@ -42,6 +43,6 @@ class ParentNotificationsRepositoryImpl
 
 final parentNotificationsRepositoryProvider =
     Provider<ParentNotificationsRepository>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  return ParentNotificationsRepositoryImpl(apiClient: apiClient);
-});
+      final apiClient = ref.watch(apiClientProvider);
+      return ParentNotificationsRepositoryImpl(apiClient: apiClient);
+    });

@@ -87,10 +87,7 @@ void main() {
       };
 
       final prefJson = {
-        'channelPreferences': {
-          'whatsapp': true,
-          'email': true,
-        },
+        'channelPreferences': {'whatsapp': true, 'email': true},
       };
 
       final dto = LoginMethodsDto.fromProfileJson(json, prefJson: prefJson);
@@ -125,37 +122,36 @@ void main() {
       repository = LoginMethodsRepositoryImpl(apiClient: fakeApiClient);
     });
 
-    test('getLoginMethods calls /parent/profile and returns LoginMethodsEntity',
-        () async {
-      fakeApiClient.profileResponseData = {
-        'success': true,
-        'data': {
-          'profile': {
-            'email': 'parent@truelern.com',
-            'phone': '+1-582482368',
+    test(
+      'getLoginMethods calls /parent/profile and returns LoginMethodsEntity',
+      () async {
+        fakeApiClient.profileResponseData = {
+          'success': true,
+          'data': {
+            'profile': {
+              'email': 'parent@truelern.com',
+              'phone': '+1-582482368',
+            },
+            'security': {
+              'email': 'parent@truelern.com',
+              'hasPassword': true,
+              'isActive': true,
+            },
           },
-          'security': {
-            'email': 'parent@truelern.com',
-            'hasPassword': true,
-            'isActive': true,
-          },
-        },
-      };
+        };
 
-      fakeApiClient.prefResponseData = {
-        'success': true,
-        'data': {
-          'channelPreferences': {
-            'whatsapp': true,
-            'email': true,
+        fakeApiClient.prefResponseData = {
+          'success': true,
+          'data': {
+            'channelPreferences': {'whatsapp': true, 'email': true},
           },
-        },
-      };
+        };
 
-      final result = await repository.getLoginMethods();
-      expect(result.email, 'parent@truelern.com');
-      expect(result.phone, '+1-582482368');
-    });
+        final result = await repository.getLoginMethods();
+        expect(result.email, 'parent@truelern.com');
+        expect(result.phone, '+1-582482368');
+      },
+    );
   });
 
   group('LoginMethodsController tests', () {
@@ -174,14 +170,14 @@ void main() {
       );
 
       final container = ProviderContainer(
-        overrides: [
-          loginMethodsRepositoryProvider.overrideWithValue(fakeRepo),
-        ],
+        overrides: [loginMethodsRepositoryProvider.overrideWithValue(fakeRepo)],
       );
       addTearDown(container.dispose);
 
-      expect(container.read(loginMethodsControllerProvider),
-          isA<LoginMethodsInitial>());
+      expect(
+        container.read(loginMethodsControllerProvider),
+        isA<LoginMethodsInitial>(),
+      );
 
       await container
           .read(loginMethodsControllerProvider.notifier)
@@ -198,9 +194,7 @@ void main() {
       fakeRepo.shouldThrow = true;
 
       final container = ProviderContainer(
-        overrides: [
-          loginMethodsRepositoryProvider.overrideWithValue(fakeRepo),
-        ],
+        overrides: [loginMethodsRepositoryProvider.overrideWithValue(fakeRepo)],
       );
       addTearDown(container.dispose);
 
@@ -223,44 +217,47 @@ void main() {
     });
 
     testWidgets(
-        'renders Login Methods screen and displays real email and phone',
-        (tester) async {
-      fakeRepo.methodsToReturn = const LoginMethodsEntity(
-        email: 'brock.mercer@truelern.com',
-        phone: '+1-582482368',
-        hasPassword: true,
-        isSecurityActive: true,
-      );
+      'renders Login Methods screen and displays real email and phone',
+      (tester) async {
+        fakeRepo.methodsToReturn = const LoginMethodsEntity(
+          email: 'brock.mercer@truelern.com',
+          phone: '+1-582482368',
+          hasPassword: true,
+          isSecurityActive: true,
+        );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            loginMethodsRepositoryProvider.overrideWithValue(fakeRepo),
-          ],
-          child: const MaterialApp(
-            home: ParentLoginMethodsScreen(),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              loginMethodsRepositoryProvider.overrideWithValue(fakeRepo),
+            ],
+            child: const MaterialApp(home: ParentLoginMethodsScreen()),
           ),
-        ),
-      );
+        );
 
-      // Trigger post frame callback
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        // Trigger post frame callback
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Login Methods'), findsOneWidget);
-      expect(find.text('WhatsApp'), findsOneWidget);
-      expect(find.text('+1-582482368'), findsOneWidget);
-      expect(find.text('Email'), findsOneWidget);
-      expect(find.text('brock.mercer@truelern.com'), findsOneWidget);
-      expect(find.text('PIN'), findsOneWidget);
-      expect(find.text('Unavailable'), findsOneWidget);
-      expect(find.text('Biometrics'), findsOneWidget);
-      expect(find.text('Device Only'), findsOneWidget);
-      expect(find.textContaining('TrueLern uses secure verification'), findsOneWidget);
-    });
+        expect(find.text('Login Methods'), findsOneWidget);
+        expect(find.text('WhatsApp'), findsOneWidget);
+        expect(find.text('+1-582482368'), findsOneWidget);
+        expect(find.text('Email'), findsOneWidget);
+        expect(find.text('brock.mercer@truelern.com'), findsOneWidget);
+        expect(find.text('PIN'), findsOneWidget);
+        expect(find.text('Unavailable'), findsOneWidget);
+        expect(find.text('Biometrics'), findsOneWidget);
+        expect(find.text('Device Only'), findsOneWidget);
+        expect(
+          find.textContaining('TrueLern uses secure verification'),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets('displays error card and retry button on failure',
-        (tester) async {
+    testWidgets('displays error card and retry button on failure', (
+      tester,
+    ) async {
       fakeRepo.shouldThrow = true;
 
       await tester.pumpWidget(
@@ -268,9 +265,7 @@ void main() {
           overrides: [
             loginMethodsRepositoryProvider.overrideWithValue(fakeRepo),
           ],
-          child: const MaterialApp(
-            home: ParentLoginMethodsScreen(),
-          ),
+          child: const MaterialApp(home: ParentLoginMethodsScreen()),
         ),
       );
 

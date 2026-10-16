@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../data/repositories/counselor_repository_impl.dart';
 import '../../domain/repositories/counselor_repository.dart';
 import 'counselor_state.dart';
@@ -11,6 +12,11 @@ class CounselorController extends Notifier<CounselorState> {
   CounselorState build() {
     _repository = ref.watch(counselorRepositoryProvider);
     return const CounselorInitial();
+  }
+
+  /// Resets state on logout or account switching.
+  void reset() {
+    state = const CounselorInitial();
   }
 
   /// Loads counselor and counselling requests for the active child/user context.
@@ -55,5 +61,5 @@ class CounselorController extends Notifier<CounselorState> {
 /// Global Riverpod provider for [CounselorController].
 final counselorControllerProvider =
     NotifierProvider<CounselorController, CounselorState>(
-  CounselorController.new,
-);
+      CounselorController.new,
+    );

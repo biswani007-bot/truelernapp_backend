@@ -34,18 +34,20 @@ class ParentNotificationDto {
         (json['content'] ?? json['message'] ?? json['body'] ?? '').toString();
 
     // 1. Explicit student ID from payload or nested student object
-    String? resolvedStudentId = (json['studentId'] ??
-            json['childId'] ??
-            (json['student'] is Map ? json['student']['_id'] : null) ??
-            (json['student'] is Map ? json['student']['studentId'] : null))
-        ?.toString();
+    String? resolvedStudentId =
+        (json['studentId'] ??
+                json['childId'] ??
+                (json['student'] is Map ? json['student']['_id'] : null) ??
+                (json['student'] is Map ? json['student']['studentId'] : null))
+            ?.toString();
 
     // 2. Explicit student name from payload or nested student object
-    String? resolvedStudentName = (json['studentName'] ??
-            json['childName'] ??
-            (json['student'] is Map ? json['student']['name'] : null) ??
-            (json['student'] is Map ? json['student']['firstName'] : null))
-        ?.toString();
+    String? resolvedStudentName =
+        (json['studentName'] ??
+                json['childName'] ??
+                (json['student'] is Map ? json['student']['name'] : null) ??
+                (json['student'] is Map ? json['student']['firstName'] : null))
+            ?.toString();
 
     // 3. Fallback to authoritative backend message template:
     //    "Instructor <Teacher> replied regarding <StudentName>: "<message>""

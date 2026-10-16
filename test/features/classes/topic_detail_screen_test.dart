@@ -42,6 +42,9 @@ class MockChildrenController extends Notifier<ChildrenState>
       );
     }
   }
+
+  @override
+  void reset() {}
 }
 
 class MockDashboardController extends Notifier<DashboardState>
@@ -63,6 +66,9 @@ class MockDashboardController extends Notifier<DashboardState>
 
   @override
   Future<void> retry() async {}
+
+  @override
+  void reset() {}
 }
 
 class MockClassesController extends Notifier<ClassesState>
@@ -81,6 +87,9 @@ class MockClassesController extends Notifier<ClassesState>
 
   @override
   Future<void> retry() async {}
+
+  @override
+  void reset() {}
 }
 
 class MockAssignmentsController extends Notifier<AssignmentsState>
@@ -99,6 +108,9 @@ class MockAssignmentsController extends Notifier<AssignmentsState>
 
   @override
   void setFilter(String filter) {}
+
+  @override
+  void reset() {}
 }
 
 void main() {

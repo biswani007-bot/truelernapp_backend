@@ -108,6 +108,9 @@ class FakeChildrenController extends Notifier<ChildrenState>
 
   @override
   void setActiveChild(String studentId) {}
+
+  @override
+  void reset() {}
 }
 
 void main() {
@@ -368,6 +371,9 @@ class MultiChildrenController extends Notifier<ChildrenState>
       activeChildId: studentId,
     );
   }
+
+  @override
+  void reset() {}
 }
 
 class ChildSpecificMockAssignmentsRepository implements AssignmentsRepository {
@@ -427,6 +433,9 @@ class DelayedLoadingAssignmentsController extends Notifier<AssignmentsState>
 
   @override
   void setFilter(String filter) {}
+
+  @override
+  void reset() {}
 }
 
 class FailingAssignmentsRepository extends MockAssignmentsRepository {

@@ -65,10 +65,12 @@ class _ParentNotificationsScreenState
   Widget build(BuildContext context) {
     final state = ref.watch(parentNotificationsControllerProvider);
     final childrenState = ref.watch(childrenControllerProvider);
-    final ChildEntity? activeChild =
-        childrenState is ChildrenLoaded ? childrenState.activeChild : null;
-    final List<ChildEntity> allChildren =
-        childrenState is ChildrenLoaded ? childrenState.children : const [];
+    final ChildEntity? activeChild = childrenState is ChildrenLoaded
+        ? childrenState.activeChild
+        : null;
+    final List<ChildEntity> allChildren = childrenState is ChildrenLoaded
+        ? childrenState.children
+        : const [];
 
     final selectedTab = state is ParentNotificationsLoaded
         ? state.selectedTab
@@ -77,8 +79,9 @@ class _ParentNotificationsScreenState
     // Synchronize active child changes with ParentNotificationsController
     ref.listen<ChildrenState>(childrenControllerProvider, (previous, next) {
       if (next is ChildrenLoaded && next.activeChild != null) {
-        final prevId =
-            previous is ChildrenLoaded ? previous.activeChildId : null;
+        final prevId = previous is ChildrenLoaded
+            ? previous.activeChildId
+            : null;
         if (prevId != next.activeChildId) {
           ref
               .read(parentNotificationsControllerProvider.notifier)
@@ -92,7 +95,8 @@ class _ParentNotificationsScreenState
 
     // Automatically load when activeChild becomes available or mismatches loaded child
     if (activeChild != null && activeChild.studentId.isNotEmpty) {
-      final needsLoad = state is ParentNotificationsInitial ||
+      final needsLoad =
+          state is ParentNotificationsInitial ||
           (state is ParentNotificationsLoaded &&
               state.childStudentId != activeChild.studentId) ||
           (state is ParentNotificationsError &&

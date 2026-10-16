@@ -23,16 +23,20 @@ class CounselingRequestDto {
   final String? notes;
 
   factory CounselingRequestDto.fromJson(Map<String, dynamic> json) {
-    final id = (json['_id'] ?? json['id'] ?? json['requestId'] ?? '').toString();
+    final id = (json['_id'] ?? json['id'] ?? json['requestId'] ?? '')
+        .toString();
 
     // Counsellor info if nested or scalar
     String? cId;
     String? cName;
-    final counsellorRaw = json['counsellor'] ?? json['counselor'] ?? json['counsellorId'];
+    final counsellorRaw =
+        json['counsellor'] ?? json['counselor'] ?? json['counsellorId'];
     if (counsellorRaw is Map<String, dynamic>) {
       cId = (counsellorRaw['_id'] ?? counsellorRaw['id'])?.toString();
-      cName = counsellorRaw['name']?.toString() ??
-          '${counsellorRaw['firstName'] ?? ''} ${counsellorRaw['lastName'] ?? ''}'.trim();
+      cName =
+          counsellorRaw['name']?.toString() ??
+          '${counsellorRaw['firstName'] ?? ''} ${counsellorRaw['lastName'] ?? ''}'
+              .trim();
     } else if (counsellorRaw != null) {
       cId = counsellorRaw.toString();
     }

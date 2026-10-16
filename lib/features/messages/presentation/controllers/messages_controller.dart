@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../domain/entities/message_entity.dart';
 import '../../domain/repositories/messages_repository.dart';
 import '../../data/repositories/messages_repository_impl.dart';
@@ -13,12 +14,19 @@ class MessagesController extends Notifier<MessagesState> {
     return const MessagesInitial();
   }
 
+  /// Resets state on logout or account switching.
+  void reset() {
+    state = const MessagesInitial();
+  }
+
   Future<void> loadMessages({
     required String studentId,
     bool isRefresh = false,
   }) async {
     final current = state;
-    if (!isRefresh && current is MessagesLoading && current.studentId == studentId) {
+    if (!isRefresh &&
+        current is MessagesLoading &&
+        current.studentId == studentId) {
       return;
     }
 
@@ -35,10 +43,7 @@ class MessagesController extends Notifier<MessagesState> {
     }
   }
 
-  Future<bool> sendMessage({
-    required String message,
-    String? subject,
-  }) async {
+  Future<bool> sendMessage({required String message, String? subject}) async {
     final current = state;
     if (current is! MessagesLoaded) return false;
 
@@ -51,7 +56,9 @@ class MessagesController extends Notifier<MessagesState> {
         subject: subject,
       );
 
-      final updatedMessages = List<MessageItemEntity>.from(current.data.messages)..add(sentItem);
+      final updatedMessages = List<MessageItemEntity>.from(
+        current.data.messages,
+      )..add(sentItem);
       final updatedData = current.data.copyWith(messages: updatedMessages);
 
       state = current.copyWith(data: updatedData, isSending: false);
@@ -95,7 +102,9 @@ class MessagesController extends Notifier<MessagesState> {
     if (unread.isEmpty) return;
 
     // Optimistically update
-    final updatedMessages = current.data.messages.map((m) => m.copyWith(isRead: true)).toList();
+    final updatedMessages = current.data.messages
+        .map((m) => m.copyWith(isRead: true))
+        .toList();
     state = current.copyWith(
       data: current.data.copyWith(messages: updatedMessages),
     );
@@ -113,6 +122,4 @@ class MessagesController extends Notifier<MessagesState> {
 }
 
 final messagesControllerProvider =
-    NotifierProvider<MessagesController, MessagesState>(
-  MessagesController.new,
-);
+    NotifierProvider<MessagesController, MessagesState>(MessagesController.new);

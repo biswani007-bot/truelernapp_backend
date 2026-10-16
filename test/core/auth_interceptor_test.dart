@@ -58,19 +58,22 @@ void main() {
       interceptor = AuthInterceptor(storageService: fakeStorage, dio: Dio());
     });
 
-    test('attaches Bearer token when a valid token exists in secure storage', () async {
-      fakeStorage.token = 'verified_jwt_sample';
+    test(
+      'attaches Bearer token when a valid token exists in secure storage',
+      () async {
+        fakeStorage.token = 'verified_jwt_sample';
 
-      final options = RequestOptions(path: '/portal-config');
-      final handler = RequestInterceptorHandler();
+        final options = RequestOptions(path: '/portal-config');
+        final handler = RequestInterceptorHandler();
 
-      await interceptor.onRequest(options, handler);
+        await interceptor.onRequest(options, handler);
 
-      expect(
-        options.headers[ApiConstants.authorizationHeader],
-        'Bearer verified_jwt_sample',
-      );
-    });
+        expect(
+          options.headers[ApiConstants.authorizationHeader],
+          'Bearer verified_jwt_sample',
+        );
+      },
+    );
 
     test('does NOT attach Authorization header when no token exists', () async {
       fakeStorage.token = null;
@@ -80,19 +83,28 @@ void main() {
 
       await interceptor.onRequest(options, handler);
 
-      expect(options.headers.containsKey(ApiConstants.authorizationHeader), isFalse);
+      expect(
+        options.headers.containsKey(ApiConstants.authorizationHeader),
+        isFalse,
+      );
     });
 
-    test('does NOT attach Authorization header when token is empty string', () async {
-      fakeStorage.token = '';
+    test(
+      'does NOT attach Authorization header when token is empty string',
+      () async {
+        fakeStorage.token = '';
 
-      final options = RequestOptions(path: '/portal-config');
-      final handler = RequestInterceptorHandler();
+        final options = RequestOptions(path: '/portal-config');
+        final handler = RequestInterceptorHandler();
 
-      await interceptor.onRequest(options, handler);
+        await interceptor.onRequest(options, handler);
 
-      expect(options.headers.containsKey(ApiConstants.authorizationHeader), isFalse);
-    });
+        expect(
+          options.headers.containsKey(ApiConstants.authorizationHeader),
+          isFalse,
+        );
+      },
+    );
 
     test('handles secure storage exception safely without crashing or injecting fake token', () async {
       fakeStorage.shouldThrow = true;
@@ -102,7 +114,10 @@ void main() {
 
       await interceptor.onRequest(options, handler);
 
-      expect(options.headers.containsKey(ApiConstants.authorizationHeader), isFalse);
+      expect(
+        options.headers.containsKey(ApiConstants.authorizationHeader),
+        isFalse,
+      );
     });
   });
 }

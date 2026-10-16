@@ -16,10 +16,14 @@ class ProgressMetricDto {
     if (json == null) return const ProgressMetricDto();
 
     final rawTotal = json['total'] ?? json['totalClasses'] ?? 0;
-    final total = rawTotal is num ? rawTotal.toInt() : (int.tryParse('$rawTotal') ?? 0);
+    final total = rawTotal is num
+        ? rawTotal.toInt()
+        : (int.tryParse('$rawTotal') ?? 0);
 
     final rawCompleted = json['completed'] ?? json['attended'] ?? 0;
-    final completed = rawCompleted is num ? rawCompleted.toInt() : (int.tryParse('$rawCompleted') ?? 0);
+    final completed = rawCompleted is num
+        ? rawCompleted.toInt()
+        : (int.tryParse('$rawCompleted') ?? 0);
 
     final rawPercentage = json['percentage'] ?? 0;
     final percentage = rawPercentage is num

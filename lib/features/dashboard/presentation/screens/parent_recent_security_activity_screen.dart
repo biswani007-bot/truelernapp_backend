@@ -29,9 +29,7 @@ class _ParentRecentSecurityActivityScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(securityActivityControllerProvider.notifier)
-          .loadActivityLogs();
+      ref.read(securityActivityControllerProvider.notifier).loadActivityLogs();
     });
   }
 
@@ -47,11 +45,7 @@ class _ParentRecentSecurityActivityScreenState
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF3E8FF),
-              Color(0xFFE0F2FE),
-              Color(0xFFFFFFFF),
-            ],
+            colors: [Color(0xFFF3E8FF), Color(0xFFE0F2FE), Color(0xFFFFFFFF)],
             stops: [0.0, 0.45, 1.0],
           ),
         ),
@@ -301,11 +295,7 @@ class _ParentRecentSecurityActivityScreenState
               color: activity.iconColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              activity.iconData,
-              color: activity.iconColor,
-              size: 20,
-            ),
+            child: Icon(activity.iconData, color: activity.iconColor, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(

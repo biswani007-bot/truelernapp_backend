@@ -39,7 +39,8 @@ class LiveVerificationStorage implements SecureStorageService {
   Future<String?> getAccessToken() async => _data['access_token'];
 
   @override
-  Future<void> saveAccessToken(String token) async => _data['access_token'] = token;
+  Future<void> saveAccessToken(String token) async =>
+      _data['access_token'] = token;
 
   @override
   Future<void> deleteAccessToken() async => _data.remove('access_token');
@@ -48,7 +49,8 @@ class LiveVerificationStorage implements SecureStorageService {
   Future<String?> getRefreshToken() async => _data['refresh_token'];
 
   @override
-  Future<void> saveRefreshToken(String token) async => _data['refresh_token'] = token;
+  Future<void> saveRefreshToken(String token) async =>
+      _data['refresh_token'] = token;
 
   @override
   Future<void> deleteRefreshToken() async => _data.remove('refresh_token');
@@ -60,7 +62,8 @@ class LiveVerificationStorage implements SecureStorageService {
   Future<void> saveUserId(String id) async => _data['user_id'] = id;
 
   @override
-  Future<void> saveActiveChildId(String childId) async => _data['active_child_id'] = childId;
+  Future<void> saveActiveChildId(String childId) async =>
+      _data['active_child_id'] = childId;
 
   @override
   Future<String?> getActiveChildId() async => _data['active_child_id'];
@@ -71,8 +74,10 @@ class LiveVerificationStorage implements SecureStorageService {
   @override
   Future<void> clearAuthSession() async => _data.clear();
 
-  bool hasAccessToken() => _data.containsKey('access_token') && _data['access_token']!.isNotEmpty;
-  bool hasRefreshToken() => _data.containsKey('refresh_token') && _data['refresh_token']!.isNotEmpty;
+  bool hasAccessToken() =>
+      _data.containsKey('access_token') && _data['access_token']!.isNotEmpty;
+  bool hasRefreshToken() =>
+      _data.containsKey('refresh_token') && _data['refresh_token']!.isNotEmpty;
 }
 
 void main() {
@@ -87,9 +92,7 @@ void main() {
         final liveStorage = LiveVerificationStorage();
 
         final container = ProviderContainer(
-          overrides: [
-            secureStorageProvider.overrideWithValue(liveStorage),
-          ],
+          overrides: [secureStorageProvider.overrideWithValue(liveStorage)],
         );
         addTearDown(container.dispose);
 
@@ -114,17 +117,25 @@ void main() {
 
         if (finalState is AuthFailureState) {
           // RESULT B (HTTP 500) or RESULT D (timeout/network)
-          print('HTTP Status Code from Failure: ${finalState.statusCode ?? "null (timeout/network)"}');
+          print(
+            'HTTP Status Code from Failure: ${finalState.statusCode ?? "null (timeout/network)"}',
+          );
           print('Failure Message: ${finalState.message}');
           print('Access Token in Storage: ${liveStorage.hasAccessToken()}');
           print('Refresh Token in Storage: ${liveStorage.hasRefreshToken()}');
 
           // Governance verification: failure state invariants
           expect(success, isFalse);
-          expect(liveStorage.hasAccessToken(), isFalse,
-              reason: 'No access token must be stored on login failure');
-          expect(liveStorage.hasRefreshToken(), isFalse,
-              reason: 'No refresh token must be stored on login failure');
+          expect(
+            liveStorage.hasAccessToken(),
+            isFalse,
+            reason: 'No access token must be stored on login failure',
+          );
+          expect(
+            liveStorage.hasRefreshToken(),
+            isFalse,
+            reason: 'No refresh token must be stored on login failure',
+          );
         } else if (finalState is Authenticated) {
           // RESULT A (HTTP 200)
           print('HTTP Status Code: 200 OK');
@@ -134,8 +145,11 @@ void main() {
 
           expect(success, isTrue);
           expect(finalState.accessToken.isNotEmpty, isTrue);
-          expect(liveStorage.hasAccessToken(), isTrue,
-              reason: 'Access token must be stored on HTTP 200 success');
+          expect(
+            liveStorage.hasAccessToken(),
+            isTrue,
+            reason: 'Access token must be stored on HTTP 200 success',
+          );
         }
 
         print('============================================================');

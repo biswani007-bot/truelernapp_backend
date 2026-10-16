@@ -12,7 +12,5 @@ abstract class ProgressRepository {
 
   /// Fetches course progress for a student.
   /// Calls GET /api/student/courses/:courseId/progress
-  Future<double> getStudentCourseProgress({
-    required String courseId,
-  });
+  Future<double> getStudentCourseProgress({required String courseId});
 }

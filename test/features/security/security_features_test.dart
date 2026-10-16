@@ -318,185 +318,181 @@ void main() {
       expect(domain.iconData, Icons.login_rounded);
     });
 
-    testWidgets('ParentRecentSecurityActivityScreen displays audit logs & filters', (
+    testWidgets(
+      'ParentRecentSecurityActivityScreen displays audit logs & filters',
+      (tester) async {
+        tester.view.physicalSize = const Size(1080, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        mockSecurityRepo.activitiesList = [
+          SecurityActivityEntity(
+            id: 'log-1',
+            action: 'LOGIN',
+            entity: 'auth',
+            ip: '203.0.113.195',
+            userAgent: 'Chrome / Windows',
+            timestamp: DateTime.now().subtract(const Duration(minutes: 10)),
+          ),
+          SecurityActivityEntity(
+            id: 'log-2',
+            action: 'SESSION_REVOKED',
+            entity: 'session',
+            ip: '203.0.113.200',
+            userAgent: 'Flutter Mobile App',
+            timestamp: DateTime.now().subtract(const Duration(hours: 1)),
+          ),
+        ];
+
+        await tester.pumpWidget(
+          wrapWithScope(child: const ParentRecentSecurityActivityScreen()),
+        );
+        await tester.pumpAndSettle();
+
+        expect(mockSecurityRepo.getActivityLogsCalled, isTrue);
+        expect(find.text('Recent Security Activity'), findsOneWidget);
+        expect(find.text('Account Login'), findsOneWidget);
+        expect(find.text('Session Revocation'), findsOneWidget);
+
+        // Test Logins filter chip
+        await tester.tap(find.text('Logins'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Account Login'), findsOneWidget);
+        expect(find.text('Session Revocation'), findsNothing);
+
+        // Test Devices filter chip
+        await tester.tap(find.text('Devices'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Account Login'), findsNothing);
+        expect(find.text('Session Revocation'), findsOneWidget);
+
+        // Test All filter chip resets
+        await tester.tap(find.text('All'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Account Login'), findsOneWidget);
+        expect(find.text('Session Revocation'), findsOneWidget);
+      },
+    );
+  });
+
+  group('Feature 3: Communication Preferences (GET & PATCH /api/parent/preferences)', () {
+    test('ParentPreferencesEntity helpers and copyWith', () {
+      const entity = ParentPreferencesEntity(
+        id: 'test-id',
+        channelPreferences: {
+          'email': true,
+          'sms': false,
+          'push': true,
+          'whatsapp': false,
+        },
+        eventPreferences: {
+          'attendance': true,
+          'assignment': false,
+          'reports': true,
+          'admissions': false,
+        },
+        muteAll: false,
+        digestEnabled: true,
+        language: 'en',
+        timezone: 'Asia/Kolkata',
+      );
+
+      expect(entity.pushEnabled, isTrue);
+      expect(entity.emailEnabled, isTrue);
+      expect(entity.whatsappEnabled, isFalse);
+      expect(entity.smsEnabled, isFalse);
+      expect(entity.attendanceAlerts, isTrue);
+      expect(entity.assignmentAlerts, isFalse);
+      expect(entity.reportsAlerts, isTrue);
+      expect(entity.admissionsAlerts, isFalse);
+      expect(entity.digestEnabled, isTrue);
+      expect(entity.muteAll, isFalse);
+
+      final updated = entity.copyWith(muteAll: true);
+      expect(updated.muteAll, isTrue);
+      expect(updated.pushEnabled, isTrue);
+    });
+
+    testWidgets(
+      'Toggling channels in ParentCommunicationPreferencesScreen invokes updatePreferences',
+      (tester) async {
+        tester.view.physicalSize = const Size(1080, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        await tester.pumpWidget(
+          wrapWithScope(child: const ParentCommunicationPreferencesScreen()),
+        );
+        await tester.pumpAndSettle();
+
+        expect(mockPreferencesRepo.getPreferencesCalled, isTrue);
+        expect(find.text('Communication Preferences'), findsOneWidget);
+        expect(find.text('Push Notifications'), findsOneWidget);
+        expect(find.text('Email Notifications'), findsOneWidget);
+        expect(find.text('WhatsApp Notifications'), findsOneWidget);
+        expect(find.text('SMS Notifications'), findsOneWidget);
+        expect(find.text('Class & Attendance Reminders'), findsOneWidget);
+        expect(find.text('Assignments & Homework'), findsOneWidget);
+
+        // Find switch for Push Notifications and tap it
+        final switches = find.byType(Switch);
+        expect(switches, findsWidgets);
+
+        // Tap Push switch (index 2)
+        await tester.tap(switches.at(2));
+        await tester.pumpAndSettle();
+
+        expect(mockPreferencesRepo.updatePreferencesCalled, isTrue);
+        expect(
+          mockPreferencesRepo.lastUpdatedPreferences?.pushEnabled,
+          isFalse,
+        );
+      },
+    );
+
+    testWidgets('Mute All toggle updates muteAll field', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        wrapWithScope(child: const ParentCommunicationPreferencesScreen()),
+      );
+      await tester.pumpAndSettle();
+
+      final switches = find.byType(Switch);
+      // Switch index 0 is "Mute All Notifications"
+      await tester.tap(switches.at(0));
+      await tester.pumpAndSettle();
+
+      expect(mockPreferencesRepo.updatePreferencesCalled, isTrue);
+      expect(mockPreferencesRepo.lastUpdatedPreferences?.muteAll, isTrue);
+    });
+
+    testWidgets('Daily Digest toggle updates digestEnabled field', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
-      mockSecurityRepo.activitiesList = [
-        SecurityActivityEntity(
-          id: 'log-1',
-          action: 'LOGIN',
-          entity: 'auth',
-          ip: '203.0.113.195',
-          userAgent: 'Chrome / Windows',
-          timestamp: DateTime.now().subtract(const Duration(minutes: 10)),
-        ),
-        SecurityActivityEntity(
-          id: 'log-2',
-          action: 'SESSION_REVOKED',
-          entity: 'session',
-          ip: '203.0.113.200',
-          userAgent: 'Flutter Mobile App',
-          timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-        ),
-      ];
-
       await tester.pumpWidget(
-        wrapWithScope(child: const ParentRecentSecurityActivityScreen()),
+        wrapWithScope(child: const ParentCommunicationPreferencesScreen()),
       );
       await tester.pumpAndSettle();
 
-      expect(mockSecurityRepo.getActivityLogsCalled, isTrue);
-      expect(find.text('Recent Security Activity'), findsOneWidget);
-      expect(find.text('Account Login'), findsOneWidget);
-      expect(find.text('Session Revocation'), findsOneWidget);
-
-      // Test Logins filter chip
-      await tester.tap(find.text('Logins'));
+      final switches = find.byType(Switch);
+      // Switch index 1 is "Daily Digest Mode"
+      await tester.tap(switches.at(1));
       await tester.pumpAndSettle();
 
-      expect(find.text('Account Login'), findsOneWidget);
-      expect(find.text('Session Revocation'), findsNothing);
-
-      // Test Devices filter chip
-      await tester.tap(find.text('Devices'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Account Login'), findsNothing);
-      expect(find.text('Session Revocation'), findsOneWidget);
-
-      // Test All filter chip resets
-      await tester.tap(find.text('All'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Account Login'), findsOneWidget);
-      expect(find.text('Session Revocation'), findsOneWidget);
+      expect(mockPreferencesRepo.updatePreferencesCalled, isTrue);
+      expect(mockPreferencesRepo.lastUpdatedPreferences?.digestEnabled, isTrue);
     });
   });
-
-  group(
-    'Feature 3: Communication Preferences (GET & PATCH /api/parent/preferences)',
-    () {
-      test('ParentPreferencesEntity helpers and copyWith', () {
-        const entity = ParentPreferencesEntity(
-          id: 'test-id',
-          channelPreferences: {
-            'email': true,
-            'sms': false,
-            'push': true,
-            'whatsapp': false,
-          },
-          eventPreferences: {
-            'attendance': true,
-            'assignment': false,
-            'reports': true,
-            'admissions': false,
-          },
-          muteAll: false,
-          digestEnabled: true,
-          language: 'en',
-          timezone: 'Asia/Kolkata',
-        );
-
-        expect(entity.pushEnabled, isTrue);
-        expect(entity.emailEnabled, isTrue);
-        expect(entity.whatsappEnabled, isFalse);
-        expect(entity.smsEnabled, isFalse);
-        expect(entity.attendanceAlerts, isTrue);
-        expect(entity.assignmentAlerts, isFalse);
-        expect(entity.reportsAlerts, isTrue);
-        expect(entity.admissionsAlerts, isFalse);
-        expect(entity.digestEnabled, isTrue);
-        expect(entity.muteAll, isFalse);
-
-        final updated = entity.copyWith(muteAll: true);
-        expect(updated.muteAll, isTrue);
-        expect(updated.pushEnabled, isTrue);
-      });
-
-      testWidgets(
-        'Toggling channels in ParentCommunicationPreferencesScreen invokes updatePreferences',
-        (tester) async {
-          tester.view.physicalSize = const Size(1080, 2400);
-          tester.view.devicePixelRatio = 1.0;
-          addTearDown(tester.view.resetPhysicalSize);
-
-          await tester.pumpWidget(
-            wrapWithScope(child: const ParentCommunicationPreferencesScreen()),
-          );
-          await tester.pumpAndSettle();
-
-          expect(mockPreferencesRepo.getPreferencesCalled, isTrue);
-          expect(find.text('Communication Preferences'), findsOneWidget);
-          expect(find.text('Push Notifications'), findsOneWidget);
-          expect(find.text('Email Notifications'), findsOneWidget);
-          expect(find.text('WhatsApp Notifications'), findsOneWidget);
-          expect(find.text('SMS Notifications'), findsOneWidget);
-          expect(find.text('Class & Attendance Reminders'), findsOneWidget);
-          expect(find.text('Assignments & Homework'), findsOneWidget);
-
-          // Find switch for Push Notifications and tap it
-          final switches = find.byType(Switch);
-          expect(switches, findsWidgets);
-
-          // Tap Push switch (index 2)
-          await tester.tap(switches.at(2));
-          await tester.pumpAndSettle();
-
-          expect(mockPreferencesRepo.updatePreferencesCalled, isTrue);
-          expect(
-            mockPreferencesRepo.lastUpdatedPreferences?.pushEnabled,
-            isFalse,
-          );
-        },
-      );
-
-      testWidgets('Mute All toggle updates muteAll field', (tester) async {
-        tester.view.physicalSize = const Size(1080, 2400);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.resetPhysicalSize);
-
-        await tester.pumpWidget(
-          wrapWithScope(child: const ParentCommunicationPreferencesScreen()),
-        );
-        await tester.pumpAndSettle();
-
-        final switches = find.byType(Switch);
-        // Switch index 0 is "Mute All Notifications"
-        await tester.tap(switches.at(0));
-        await tester.pumpAndSettle();
-
-        expect(mockPreferencesRepo.updatePreferencesCalled, isTrue);
-        expect(mockPreferencesRepo.lastUpdatedPreferences?.muteAll, isTrue);
-      });
-
-      testWidgets('Daily Digest toggle updates digestEnabled field', (
-        tester,
-      ) async {
-        tester.view.physicalSize = const Size(1080, 2400);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.resetPhysicalSize);
-
-        await tester.pumpWidget(
-          wrapWithScope(child: const ParentCommunicationPreferencesScreen()),
-        );
-        await tester.pumpAndSettle();
-
-        final switches = find.byType(Switch);
-        // Switch index 1 is "Daily Digest Mode"
-        await tester.tap(switches.at(1));
-        await tester.pumpAndSettle();
-
-        expect(mockPreferencesRepo.updatePreferencesCalled, isTrue);
-        expect(
-          mockPreferencesRepo.lastUpdatedPreferences?.digestEnabled,
-          isTrue,
-        );
-      });
-    });
 
   group('Navigation from ParentSecurityPrivacyScreen', () {
     testWidgets(
@@ -519,15 +515,13 @@ void main() {
             ),
             GoRoute(
               path: AppRoutePaths.parentRecentSecurityActivity,
-              builder:
-                  (context, state) =>
-                      const ParentRecentSecurityActivityScreen(),
+              builder: (context, state) =>
+                  const ParentRecentSecurityActivityScreen(),
             ),
             GoRoute(
               path: AppRoutePaths.parentCommunicationPreferences,
-              builder:
-                  (context, state) =>
-                      const ParentCommunicationPreferencesScreen(),
+              builder: (context, state) =>
+                  const ParentCommunicationPreferencesScreen(),
             ),
           ],
         );

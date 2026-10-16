@@ -28,9 +28,7 @@ class _ParentCommunicationPreferencesScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(parentPreferencesControllerProvider.notifier)
-          .loadPreferences();
+      ref.read(parentPreferencesControllerProvider.notifier).loadPreferences();
     });
   }
 
@@ -38,30 +36,28 @@ class _ParentCommunicationPreferencesScreenState
   Widget build(BuildContext context) {
     final state = ref.watch(parentPreferencesControllerProvider);
 
-    ref.listen<ParentPreferencesState>(
-      parentPreferencesControllerProvider,
-      (prev, next) {
-        if (next is ParentPreferencesLoaded && next.feedbackMessage != null) {
-          ScaffoldMessenger.of(context).clearSnackBars();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                next.feedbackMessage!,
-                style: GoogleFonts.hankenGrotesk(fontSize: 13),
-              ),
-              backgroundColor: next.isError
-                  ? AppColors.error
-                  : const Color(0xFF10B981),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
+    ref.listen<ParentPreferencesState>(parentPreferencesControllerProvider, (
+      prev,
+      next,
+    ) {
+      if (next is ParentPreferencesLoaded && next.feedbackMessage != null) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              next.feedbackMessage!,
+              style: GoogleFonts.hankenGrotesk(fontSize: 13),
             ),
-          );
-          ref
-              .read(parentPreferencesControllerProvider.notifier)
-              .clearFeedback();
-        }
-      },
-    );
+            backgroundColor: next.isError
+                ? AppColors.error
+                : const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        ref.read(parentPreferencesControllerProvider.notifier).clearFeedback();
+      }
+    });
 
     return Scaffold(
       key: const Key('parent_communication_preferences_screen'),
@@ -272,7 +268,8 @@ class _ParentCommunicationPreferencesScreenState
                       icon: Icons.chat_outlined,
                       iconColor: const Color(0xFF25D366),
                       title: 'WhatsApp Notifications',
-                      subtitle: 'Urgent notices and class reminders on WhatsApp',
+                      subtitle:
+                          'Urgent notices and class reminders on WhatsApp',
                       value: prefs.whatsappEnabled,
                       disabled: isUpdating,
                       showDivider: true,
@@ -326,7 +323,8 @@ class _ParentCommunicationPreferencesScreenState
                       icon: Icons.analytics_outlined,
                       iconColor: const Color(0xFF8B5CF6),
                       title: 'Academic Progress & Reports',
-                      subtitle: 'Periodic progress reports and mastery milestones',
+                      subtitle:
+                          'Periodic progress reports and mastery milestones',
                       value: prefs.reportsAlerts,
                       disabled: isUpdating,
                       showDivider: true,

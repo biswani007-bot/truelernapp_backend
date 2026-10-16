@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_colors.dart';
 
 /// Reusable TrueLern pull-to-refresh indicator.

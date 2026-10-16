@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/router/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/auth_state.dart';
+import '../../../onboarding/presentation/controllers/onboarding_controller.dart';
 
 /// SCR-03: Login Screen — Node ID: 71:232 ("Student Login (Redesign)")
 /// Exact Figma Dimensions: 390 × 966
@@ -29,6 +31,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
 
   bool _isPasswordVisible = false;
+  bool _isGoogleSubmitting = false;
   String? _identifierError;
   String? _passwordError;
 
@@ -79,7 +82,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     FocusScope.of(context).unfocus();
 
-    final success = await ref.read(authControllerProvider.notifier).login(
+    final success = await ref
+        .read(authControllerProvider.notifier)
+        .login(
           email: _identifierController.text.trim(),
           password: _passwordController.text,
         );
@@ -88,39 +93,122 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (success) {
       try {
-        context.go(AppRoutePaths.parentDashboard);
+        final authState = ref.read(authControllerProvider);
+        if (authState is Authenticated) {
+          switch (authState.destination) {
+            case AuthDestination.passwordSetup:
+              context.go(AppRoutePaths.passwordSetup);
+              break;
+            case AuthDestination.onboardingChild:
+              context.go(AppRoutePaths.onboardingChild);
+              break;
+            case AuthDestination.onboardingInterests:
+              context.go(AppRoutePaths.onboardingInterests);
+              break;
+            case AuthDestination.demoBookingDashboard:
+              if (authState.demoData != null) {
+                ref
+                    .read(onboardingControllerProvider.notifier)
+                    .restoreDemoBookingState(
+                      leadId: authState.resolvedLeadId,
+                      courseName: authState.resolvedCourseName,
+                    );
+              }
+              context.go(AppRoutePaths.demoBookingDashboard);
+              break;
+            case AuthDestination.studentDashboard:
+              context.go(AppRoutePaths.parentDashboard);
+              break;
+          }
+        } else {
+          context.go(AppRoutePaths.parentDashboard);
+        }
       } catch (_) {
         // In isolated widget tests without GoRouter, state update suffices
       }
     }
   }
 
-  void _onGoogleLoginTapped() {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.info_outline, color: Colors.white, size: 20),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Google Sign-In is currently unavailable. Please sign in with your email and password.',
-                style: TextStyle(
+  Future<void> _onGoogleLoginTapped() async {
+    if (_isGoogleSubmitting) return;
+    final authState = ref.read(authControllerProvider);
+    if (authState is AuthSubmitting) return;
+
+    setState(() => _isGoogleSubmitting = true);
+    ref.read(authControllerProvider.notifier).resetError();
+    FocusScope.of(context).unfocus();
+
+    try {
+      final result = await ref
+          .read(authControllerProvider.notifier)
+          .signInWithGoogle();
+
+      if (!mounted || result == null) return;
+
+      if (result.success) {
+        try {
+          switch (result.destination) {
+            case AuthDestination.passwordSetup:
+              context.go(AppRoutePaths.passwordSetup);
+              break;
+            case AuthDestination.onboardingChild:
+              context.go(AppRoutePaths.onboardingChild);
+              break;
+            case AuthDestination.onboardingInterests:
+              context.go(AppRoutePaths.onboardingInterests);
+              break;
+            case AuthDestination.demoBookingDashboard:
+              if (result.demoData != null) {
+                ref
+                    .read(onboardingControllerProvider.notifier)
+                    .restoreDemoBookingState(
+                      leadId: result.resolvedLeadId,
+                      courseName: result.resolvedCourseName,
+                    );
+              }
+              context.go(AppRoutePaths.demoBookingDashboard);
+              break;
+            case AuthDestination.studentDashboard:
+              context.go(AppRoutePaths.parentDashboard);
+              break;
+          }
+        } catch (_) {
+          // In isolated widget tests without GoRouter, state update suffices
+        }
+      } else if (result.message != null) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
                   color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                  size: 20,
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    result.message!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF475569),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-      ),
-    );
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGoogleSubmitting = false);
+      }
+    }
   }
 
   @override
@@ -164,7 +252,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 24.0,
+                ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 448.0),
                   child: Column(
@@ -204,7 +295,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                                 onPressed: () {
-                                  ref.read(authControllerProvider.notifier).resetError();
+                                  ref
+                                      .read(authControllerProvider.notifier)
+                                      .resetError();
                                 },
                               ),
                             ],
@@ -216,10 +309,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Container(
                         padding: const EdgeInsets.all(33.0),
                         decoration: BoxDecoration(
-                          color: const Color(0xD9FFFFFF), // rgba(255, 255, 255, 0.85)
+                          color: const Color(
+                            0xD9FFFFFF,
+                          ), // rgba(255, 255, 255, 0.85)
                           borderRadius: BorderRadius.circular(24.0),
                           border: Border.all(
-                            color: const Color(0x4DFFFFFF), // rgba(255, 255, 255, 0.3)
+                            color: const Color(
+                              0x4DFFFFFF,
+                            ), // rgba(255, 255, 255, 0.3)
                             width: 1.0,
                           ),
                           boxShadow: const [
@@ -283,7 +380,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF7F9FC),
                                   borderRadius: BorderRadius.circular(8.0),
-                                  border: Border.all(color: const Color(0xFFC4C5D7)),
+                                  border: Border.all(
+                                    color: const Color(0xFFC4C5D7),
+                                  ),
                                   boxShadow: const [
                                     BoxShadow(
                                       color: Color.fromRGBO(0, 0, 0, 0.05),
@@ -308,11 +407,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     Expanded(
                                       child: TextFormField(
                                         controller: _identifierController,
-                                        keyboardType: TextInputType.emailAddress,
-                                        style: AppTypography.bodyMedium.copyWith(
-                                          color: const Color(0xFF0F172A),
-                                          fontSize: 15.0,
-                                        ),
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        style: AppTypography.bodyMedium
+                                            .copyWith(
+                                              color: const Color(0xFF0F172A),
+                                              fontSize: 15.0,
+                                            ),
                                         decoration: InputDecoration(
                                           isDense: true,
                                           contentPadding: EdgeInsets.zero,
@@ -320,10 +421,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           enabledBorder: InputBorder.none,
                                           focusedBorder: InputBorder.none,
                                           hintText: 'Email',
-                                          hintStyle: AppTypography.bodyMedium.copyWith(
-                                            color: const Color(0xFF747686),
-                                            fontSize: 15.0,
-                                          ),
+                                          hintStyle: AppTypography.bodyMedium
+                                              .copyWith(
+                                                color: const Color(0xFF747686),
+                                                fontSize: 15.0,
+                                              ),
                                         ),
                                         onChanged: (_) {
                                           if (_identifierError != null) {
@@ -364,7 +466,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF7F9FC),
                                   borderRadius: BorderRadius.circular(8.0),
-                                  border: Border.all(color: const Color(0xFFC4C5D7)),
+                                  border: Border.all(
+                                    color: const Color(0xFFC4C5D7),
+                                  ),
                                   boxShadow: const [
                                     BoxShadow(
                                       color: Color.fromRGBO(0, 0, 0, 0.05),
@@ -386,10 +490,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       child: TextFormField(
                                         controller: _passwordController,
                                         obscureText: !_isPasswordVisible,
-                                        style: AppTypography.bodyMedium.copyWith(
-                                          color: const Color(0xFF0F172A),
-                                          fontSize: 15.0,
-                                        ),
+                                        style: AppTypography.bodyMedium
+                                            .copyWith(
+                                              color: const Color(0xFF0F172A),
+                                              fontSize: 15.0,
+                                            ),
                                         decoration: InputDecoration(
                                           isDense: true,
                                           contentPadding: EdgeInsets.zero,
@@ -397,10 +502,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           enabledBorder: InputBorder.none,
                                           focusedBorder: InputBorder.none,
                                           hintText: 'Password',
-                                          hintStyle: AppTypography.bodyMedium.copyWith(
-                                            color: const Color(0xFF747686),
-                                            fontSize: 15.0,
-                                          ),
+                                          hintStyle: AppTypography.bodyMedium
+                                              .copyWith(
+                                                color: const Color(0xFF747686),
+                                                fontSize: 15.0,
+                                              ),
                                         ),
                                         onChanged: (_) {
                                           if (_passwordError != null) {
@@ -422,7 +528,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       ),
                                       onPressed: () {
                                         setState(() {
-                                          _isPasswordVisible = !_isPasswordVisible;
+                                          _isPasswordVisible =
+                                              !_isPasswordVisible;
                                         });
                                       },
                                     ),
@@ -469,17 +576,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           height: 20.0,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2.0,
-                                            valueColor: AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  Colors.white,
+                                                ),
                                           ),
                                         )
                                       : Text(
                                           'Continue',
-                                          style: AppTypography.buttonText.copyWith(
-                                            fontSize: 17.0,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                          style: AppTypography.buttonText
+                                              .copyWith(
+                                                fontSize: 17.0,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                         ),
                                 ),
                               ),
@@ -501,7 +610,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
-                                      borderRadius: BorderRadius.circular(9999.0),
+                                      borderRadius: BorderRadius.circular(
+                                        9999.0,
+                                      ),
                                       border: Border.all(
                                         color: const Color(0xFFE0E3E5),
                                       ),
@@ -520,9 +631,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                               const SizedBox(height: 20.0),
 
-                              // Google Auth Button (Node 71:264)
+                              // Google Auth Button (Node 71:264 & 382:568)
                               InkWell(
-                                onTap: _onGoogleLoginTapped,
+                                onTap: (isSubmitting || _isGoogleSubmitting)
+                                    ? null
+                                    : _onGoogleLoginTapped,
                                 borderRadius: BorderRadius.circular(12.0),
                                 child: Container(
                                   width: double.infinity,
@@ -530,7 +643,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(12.0),
-                                    border: Border.all(color: const Color(0xFFC4C5D7)),
+                                    border: Border.all(
+                                      color: const Color(0xFFC4C5D7),
+                                    ),
                                     boxShadow: const [
                                       BoxShadow(
                                         color: Color.fromRGBO(0, 0, 0, 0.05),
@@ -539,27 +654,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       ),
                                     ],
                                   ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Image.asset(
-                                        'assets/images/google_icon.png',
-                                        width: 24.0,
-                                        height: 24.0,
-                                        fit: BoxFit.contain,
-                                      ),
-                                      const SizedBox(width: 12.0),
-                                      Text(
-                                        'Sign in with Google',
-                                        style: AppTypography.titleSmall.copyWith(
-                                          color: const Color(0xFF191C1E),
-                                          fontSize: 15.0,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.28,
+                                  child: (isSubmitting || _isGoogleSubmitting)
+                                      ? const Center(
+                                          child: SizedBox(
+                                            width: 22.0,
+                                            height: 22.0,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.2,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        )
+                                      : Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Image.asset(
+                                              'assets/images/google_icon.png',
+                                              width: 24.0,
+                                              height: 24.0,
+                                              fit: BoxFit.contain,
+                                            ),
+                                            const SizedBox(width: 12.0),
+                                            Text(
+                                              'Continue with Google',
+                                              style: AppTypography.titleSmall
+                                                  .copyWith(
+                                                    color: const Color(
+                                                      0xFF191C1E,
+                                                    ),
+                                                    fontSize: 15.0,
+                                                    fontWeight: FontWeight.w600,
+                                                    letterSpacing: 0.28,
+                                                  ),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                    ],
-                                  ),
                                 ),
                               ),
                             ],

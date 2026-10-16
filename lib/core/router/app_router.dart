@@ -10,6 +10,11 @@ import '../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../features/auth/presentation/controllers/auth_state.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/onboarding_screen.dart';
+import '../../features/auth/presentation/screens/password_setup_screen.dart';
+import '../../features/onboarding/presentation/screens/onboarding_interests_screen.dart';
+import '../../features/onboarding/presentation/screens/onboarding_account_screen.dart';
+import '../../features/onboarding/presentation/screens/onboarding_child_screen.dart';
+import '../../features/onboarding/presentation/screens/onboarding_location_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/classes/domain/entities/class_entity.dart';
 import '../../features/classes/domain/entities/class_join_entity.dart';
@@ -46,6 +51,8 @@ import '../../features/assessments/presentation/screens/assessment_runner_screen
 import '../../features/dashboard/presentation/screens/parent_learning_progress_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_shell_screen.dart';
 import '../../features/dashboard/presentation/screens/demo_booking_dashboard_screen.dart';
+import '../../features/dashboard/presentation/screens/demo_session_booked_screen.dart';
+import '../../features/dashboard/domain/entities/demo_booking_entity.dart';
 import '../../features/certificates/presentation/screens/certificates_screen.dart';
 import '../../features/counselor/presentation/screens/counselor_screen.dart';
 import '../theme/app_colors.dart';
@@ -120,8 +127,8 @@ class RouterNotifier extends ChangeNotifier {
     final isRoot = location == AppRoutePaths.root;
     final isSplash = location == AppRoutePaths.splash || isRoot;
     final isOnboarding = location == AppRoutePaths.onboarding;
+    final isOnboardingFlow = location.startsWith('/onboarding');
     final isLogin = location == AppRoutePaths.login;
-    final isDemoDashboard = location == AppRoutePaths.demoBookingDashboard;
     final isAuthenticated = authState is Authenticated;
 
     // 1. Splash lifecycle: allow initialization to complete uninterrupted
@@ -131,18 +138,29 @@ class RouterNotifier extends ChangeNotifier {
 
     // 2. Unauthenticated access prevention:
     // If not authenticated and attempting to access any protected area, redirect to /login.
-    if (!isAuthenticated &&
-        !isLogin &&
-        !isSplash &&
-        !isOnboarding &&
-        !isDemoDashboard) {
+    final isPublicOrOnboarding =
+        isLogin || isSplash || isOnboarding || isOnboardingFlow;
+
+    if (!isAuthenticated && !isPublicOrOnboarding) {
       return AppRoutePaths.login;
     }
 
     // 3. Authenticated bounce:
-    // If authenticated user is on /login or /splash or /onboarding or /, redirect to /parent shell.
+    // If authenticated user is on /login or /splash or /onboarding (carousel), redirect appropriately.
+    // Allow password setup, onboarding flow, and demo dashboard to proceed uninterrupted.
     if (isAuthenticated && (isLogin || isSplash || isOnboarding)) {
-      return AppRoutePaths.parentDashboard;
+      switch (authState.destination) {
+        case AuthDestination.passwordSetup:
+          return AppRoutePaths.passwordSetup;
+        case AuthDestination.onboardingChild:
+          return AppRoutePaths.onboardingChild;
+        case AuthDestination.onboardingInterests:
+          return AppRoutePaths.onboardingInterests;
+        case AuthDestination.demoBookingDashboard:
+          return AppRoutePaths.demoBookingDashboard;
+        case AuthDestination.studentDashboard:
+          return AppRoutePaths.parentDashboard;
+      }
     }
 
     return null;
@@ -212,11 +230,51 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LoginScreen(),
       ),
 
+      // 2b. Password Setup Route (Screen B)
+      GoRoute(
+        path: AppRoutePaths.passwordSetup,
+        name: AppRouteNames.passwordSetup,
+        builder: (context, state) => const PasswordSetupScreen(),
+      ),
+
+      // 2d. Onboarding Step 1: Interests (Screen D / Figma Node 382:605)
+      GoRoute(
+        path: AppRoutePaths.onboardingInterests,
+        name: AppRouteNames.onboardingInterests,
+        builder: (context, state) => const OnboardingInterestsScreen(),
+      ),
+
+      // 2e. Onboarding Step 2: Account Details (Screen E / Figma Node 382:651)
+      GoRoute(
+        path: AppRoutePaths.onboardingAccount,
+        name: AppRouteNames.onboardingAccount,
+        builder: (context, state) => const OnboardingAccountScreen(),
+      ),
+
+      // 2f. Onboarding Step 3: Child Details (Screen C / Figma Node 382:693)
+      GoRoute(
+        path: AppRoutePaths.onboardingChild,
+        name: AppRouteNames.onboardingChild,
+        builder: (context, state) => const OnboardingChildScreen(),
+      ),
+
+      // 2g. Onboarding Step 4: Location (Screen F / Figma Node 382:731)
+      GoRoute(
+        path: AppRoutePaths.onboardingLocation,
+        name: AppRouteNames.onboardingLocation,
+        builder: (context, state) => const OnboardingLocationScreen(),
+      ),
+
       // 2c. Demo Booking Dashboard Route (Node 72:477)
       GoRoute(
         path: AppRoutePaths.demoBookingDashboard,
         name: AppRouteNames.demoBookingDashboard,
-        builder: (context, state) => const DemoBookingDashboardScreen(),
+        builder: (context, state) {
+          final courseId =
+              state.uri.queryParameters['courseId'] ??
+              (state.extra is String ? state.extra as String : null);
+          return DemoBookingDashboardScreen(courseId: courseId);
+        },
       ),
 
       // 2b. Parent Alias Route (redirects /parent to /parent/dashboard)
@@ -297,6 +355,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutePaths.paymentSuccessful,
         name: AppRouteNames.paymentSuccessful,
         builder: (context, state) => const ParentPaymentSuccessfulScreen(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.demoSessionBooked,
+        name: AppRouteNames.demoSessionBooked,
+        builder: (context, state) {
+          final booking = state.extra is DemoBookingEntity
+              ? state.extra as DemoBookingEntity
+              : null;
+          return DemoSessionBookedScreen(booking: booking);
+        },
       ),
       GoRoute(
         path: AppRoutePaths.invoiceDetails,

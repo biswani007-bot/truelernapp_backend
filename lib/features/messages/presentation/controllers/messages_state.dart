@@ -50,10 +50,7 @@ class MessagesLoaded extends MessagesState {
 }
 
 class MessagesError extends MessagesState {
-  const MessagesError({
-    required this.message,
-    this.studentId,
-  });
+  const MessagesError({required this.message, this.studentId});
 
   final String message;
   final String? studentId;

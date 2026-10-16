@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:truelearn/features/dashboard/presentation/controllers/demo_slots_controller.dart';
 import 'package:truelearn/features/dashboard/presentation/screens/demo_booking_dashboard_screen.dart';
 import 'package:truelearn/features/dashboard/presentation/widgets/demo_booking_confirmed_popup.dart';
 import 'package:truelearn/features/dashboard/presentation/widgets/parent_hamburger_drawer.dart';
+
+class _FakeDemoSlotsController extends DemoSlotsController {
+  @override
+  DemoSlotsState build() => const DemoSlotsLoaded(slots: []);
+}
 
 void main() {
   group('DemoBookingConfirmedPopup Tests', () {
@@ -196,7 +203,14 @@ void main() {
       'hamburger button on DemoBookingDashboard opens ParentHamburgerDrawer',
       (WidgetTester tester) async {
         await tester.pumpWidget(
-          const MaterialApp(home: DemoBookingDashboardScreen()),
+          ProviderScope(
+            overrides: [
+              demoSlotsControllerProvider.overrideWith(
+                () => _FakeDemoSlotsController(),
+              ),
+            ],
+            child: const MaterialApp(home: DemoBookingDashboardScreen()),
+          ),
         );
         await tester.pump();
 
@@ -213,7 +227,7 @@ void main() {
 
         // Drawer is open with exact Figma elements
         expect(find.byType(ParentHamburgerDrawer), findsOneWidget);
-        expect(find.text('Hi, PPs'), findsOneWidget);
+        expect(find.byKey(const Key('drawer_parent_name')), findsOneWidget);
         expect(find.text('LEARNING'), findsOneWidget);
         expect(find.text('MY GROWTH'), findsOneWidget);
         expect(find.text('COMMUNICATION'), findsOneWidget);

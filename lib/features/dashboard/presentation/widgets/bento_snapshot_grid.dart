@@ -135,10 +135,8 @@ class BentoSnapshotGrid extends StatelessWidget {
                 value: activeTopic,
                 isTopicText: true,
                 footer: const SizedBox.shrink(),
-                onTap: () => context.push(
-                  AppRoutePaths.topicDetail,
-                  extra: activeTopic,
-                ),
+                onTap: () =>
+                    context.push(AppRoutePaths.topicDetail, extra: activeTopic),
               ),
             ),
           ],

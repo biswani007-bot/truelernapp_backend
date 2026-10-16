@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/router/route_names.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/auth_state.dart';
+import '../../../onboarding/presentation/controllers/onboarding_controller.dart';
 
 /// SCR-01: Splash Screen (Production) — Node ID: 71:128
 /// Exact Figma Dimensions: 390 × 907
@@ -20,8 +23,6 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
-  Timer? _timer;
-
   @override
   void initState() {
     super.initState();
@@ -30,26 +31,53 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
+  Future<void> _bootstrap() async {
+    final sessionFuture = ref
+        .read(authControllerProvider.notifier)
+        .checkSession();
+    final minSplashFuture = Future.delayed(const Duration(milliseconds: 2000));
 
-  void _bootstrap() {
-    // Check secure storage session in background during splash duration
-    ref.read(authControllerProvider.notifier).checkSession();
+    try {
+      await Future.wait([sessionFuture, minSplashFuture])
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {
+      // Session check timeout fallback
+    }
 
-    _timer = Timer(const Duration(milliseconds: 2500), () {
-      if (!mounted) return;
+    if (!mounted) return;
 
-      final authState = ref.read(authControllerProvider);
-      if (authState is Authenticated) {
-        context.go(AppRoutePaths.parentDashboard);
-      } else {
-        context.go(AppRoutePaths.onboarding);
+    final authState = ref.read(authControllerProvider);
+    if (authState is Authenticated) {
+      switch (authState.destination) {
+        case AuthDestination.passwordSetup:
+          context.go(AppRoutePaths.passwordSetup);
+          break;
+        case AuthDestination.onboardingChild:
+          context.go(AppRoutePaths.onboardingChild);
+          break;
+        case AuthDestination.onboardingInterests:
+          context.go(AppRoutePaths.onboardingInterests);
+          break;
+        case AuthDestination.demoBookingDashboard:
+          if (authState.demoData != null) {
+            ref
+                .read(onboardingControllerProvider.notifier)
+                .restoreDemoBookingState(
+                  leadId: authState.resolvedLeadId,
+                  courseName: authState.resolvedCourseName,
+                );
+          }
+          context.go(AppRoutePaths.demoBookingDashboard);
+          break;
+        case AuthDestination.studentDashboard:
+          context.go(AppRoutePaths.parentDashboard);
+          break;
       }
-    });
+    } else if (authState is AuthFailureState) {
+      context.go(AppRoutePaths.login);
+    } else {
+      context.go(AppRoutePaths.onboarding);
+    }
   }
 
   @override
@@ -207,4 +235,3 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     );
   }
 }
-

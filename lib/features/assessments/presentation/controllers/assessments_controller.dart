@@ -15,6 +15,11 @@ class AssessmentsController extends Notifier<AssessmentsState> {
   AssessmentsRepository get _repository =>
       ref.read(assessmentsRepositoryProvider);
 
+  /// Resets state on logout or account switching.
+  void reset() {
+    state = const AssessmentsInitial();
+  }
+
   /// Loads assessments according to current role (Parent vs Student).
   Future<void> loadAssessments({
     String? childStudentId,

@@ -120,23 +120,22 @@ void main() {
     {
       'id': 'notif_ram_1',
       'title': 'Message from Instructor Elizabeth Vance',
-      'content': 'Instructor Elizabeth Vance replied regarding Ram Pearson: "hii"',
+      'content':
+          'Instructor Elizabeth Vance replied regarding Ram Pearson: "hii"',
       'type': 'system',
       'createdAt': '2026-10-05T10:11:43.416Z',
     },
     {
       'id': 'notif_sarah_1',
       'title': 'Message from Instructor Elizabeth Vance',
-      'content':
-          'Instructor Elizabeth Vance replied regarding Sarah Connor: "Hope you doing well"',
+      'content': 'Instructor Elizabeth Vance replied regarding Sarah Connor: "Hope you doing well"',
       'type': 'system',
       'createdAt': '2026-09-29T10:37:15.343Z',
     },
     {
       'id': 'notif_parent_portal',
       'title': 'Welcome to TrueLern Parent Portal',
-      'content':
-          'You can now monitor classroom attendance, academic milestones, and live classes for your linked children.',
+      'content': 'You can now monitor classroom attendance, academic milestones, and live classes for your linked children.',
       'type': 'system',
       'createdAt': '2026-08-21T05:39:41.388Z',
     },
@@ -171,7 +170,8 @@ void main() {
       final jsonUpdate = {
         'id': 'notif_3',
         'title': 'Message from Instructor Elizabeth Vance',
-        'content': 'Instructor Elizabeth Vance replied regarding Rony Roul: "hii"',
+        'content':
+            'Instructor Elizabeth Vance replied regarding Rony Roul: "hii"',
         'type': 'system',
       };
       final entity3 = ParentNotificationDto.fromJson(jsonUpdate).toEntity();
@@ -185,10 +185,12 @@ void main() {
           .toList();
 
       final ronyItems = items
-          .where((n) => n.belongsToChild(
-                activeChild: childRony,
-                allChildren: testAllChildren,
-              ))
+          .where(
+            (n) => n.belongsToChild(
+              activeChild: childRony,
+              allChildren: testAllChildren,
+            ),
+          )
           .toList();
 
       expect(ronyItems.any((n) => n.id == 'notif_rony_1'), isTrue);
@@ -203,10 +205,12 @@ void main() {
           .toList();
 
       final ramItems = items
-          .where((n) => n.belongsToChild(
-                activeChild: childRam,
-                allChildren: testAllChildren,
-              ))
+          .where(
+            (n) => n.belongsToChild(
+              activeChild: childRam,
+              allChildren: testAllChildren,
+            ),
+          )
           .toList();
       expect(ramItems.any((n) => n.id == 'notif_ram_1'), isTrue);
       expect(ramItems.any((n) => n.id == 'notif_parent_portal'), isTrue);
@@ -214,10 +218,12 @@ void main() {
       expect(ramItems.any((n) => n.id == 'notif_sarah_1'), isFalse);
 
       final sarahItems = items
-          .where((n) => n.belongsToChild(
-                activeChild: childSarah,
-                allChildren: testAllChildren,
-              ))
+          .where(
+            (n) => n.belongsToChild(
+              activeChild: childSarah,
+              allChildren: testAllChildren,
+            ),
+          )
           .toList();
       expect(sarahItems.any((n) => n.id == 'notif_sarah_1'), isTrue);
       expect(sarahItems.any((n) => n.id == 'notif_parent_portal'), isTrue);
@@ -227,21 +233,26 @@ void main() {
   });
 
   group('ParentNotificationsRepositoryImpl tests', () {
-    test('getNotifications calls /parent/notifications with childId parameter', () async {
-      final mockApi = MockApiClient();
-      mockApi.responseData = {
-        'success': true,
-        'message': 'Parent notifications retrieved successfully',
-        'data': rawBackendFixtures,
-      };
+    test(
+      'getNotifications calls /parent/notifications with childId parameter',
+      () async {
+        final mockApi = MockApiClient();
+        mockApi.responseData = {
+          'success': true,
+          'message': 'Parent notifications retrieved successfully',
+          'data': rawBackendFixtures,
+        };
 
-      final repo = ParentNotificationsRepositoryImpl(apiClient: mockApi);
-      final list = await repo.getNotifications(childStudentId: 'child_rony_id');
+        final repo = ParentNotificationsRepositoryImpl(apiClient: mockApi);
+        final list = await repo.getNotifications(
+          childStudentId: 'child_rony_id',
+        );
 
-      expect(mockApi.lastPath, '/parent/notifications');
-      expect(mockApi.lastQueryParams?['childId'], 'child_rony_id');
-      expect(list.length, 4);
-    });
+        expect(mockApi.lastPath, '/parent/notifications');
+        expect(mockApi.lastQueryParams?['childId'], 'child_rony_id');
+        expect(list.length, 4);
+      },
+    );
   });
 
   group('ParentNotificationsController tests', () {
@@ -265,8 +276,9 @@ void main() {
         ],
       );
 
-      final controller =
-          container.read(parentNotificationsControllerProvider.notifier);
+      final controller = container.read(
+        parentNotificationsControllerProvider.notifier,
+      );
       await controller.loadNotifications(
         activeChild: childRony,
         allChildren: testAllChildren,
@@ -278,8 +290,10 @@ void main() {
 
       // Only Rony's and the parent-wide portal notification are present
       expect(loaded.notifications.length, 2);
-      expect(loaded.notifications.map((n) => n.id),
-          containsAll(['notif_rony_1', 'notif_parent_portal']));
+      expect(
+        loaded.notifications.map((n) => n.id),
+        containsAll(['notif_rony_1', 'notif_parent_portal']),
+      );
       expect(loaded.notifications.any((n) => n.id == 'notif_ram_1'), isFalse);
       expect(loaded.notifications.any((n) => n.id == 'notif_sarah_1'), isFalse);
     });
@@ -296,18 +310,22 @@ void main() {
         ],
       );
 
-      final controller =
-          container.read(parentNotificationsControllerProvider.notifier);
+      final controller = container.read(
+        parentNotificationsControllerProvider.notifier,
+      );
 
       // Load Rony
       await controller.loadNotifications(
         activeChild: childRony,
         allChildren: testAllChildren,
       );
-      var state = container.read(parentNotificationsControllerProvider)
-          as ParentNotificationsLoaded;
-      expect(state.notifications.map((n) => n.id),
-          containsAll(['notif_rony_1', 'notif_parent_portal']));
+      var state = container.read(
+        parentNotificationsControllerProvider,
+      ) as ParentNotificationsLoaded;
+      expect(
+        state.notifications.map((n) => n.id),
+        containsAll(['notif_rony_1', 'notif_parent_portal']),
+      );
       expect(state.childStudentId, childRony.studentId);
 
       // Switch to Ram
@@ -315,10 +333,13 @@ void main() {
         activeChild: childRam,
         allChildren: testAllChildren,
       );
-      state = container.read(parentNotificationsControllerProvider)
-          as ParentNotificationsLoaded;
-      expect(state.notifications.map((n) => n.id),
-          containsAll(['notif_ram_1', 'notif_parent_portal']));
+      state = container.read(
+        parentNotificationsControllerProvider,
+      ) as ParentNotificationsLoaded;
+      expect(
+        state.notifications.map((n) => n.id),
+        containsAll(['notif_ram_1', 'notif_parent_portal']),
+      );
       expect(state.childStudentId, childRam.studentId);
       expect(state.notifications.any((n) => n.id == 'notif_rony_1'), isFalse);
 
@@ -327,10 +348,13 @@ void main() {
         activeChild: childRony,
         allChildren: testAllChildren,
       );
-      state = container.read(parentNotificationsControllerProvider)
-          as ParentNotificationsLoaded;
-      expect(state.notifications.map((n) => n.id),
-          containsAll(['notif_rony_1', 'notif_parent_portal']));
+      state = container.read(
+        parentNotificationsControllerProvider,
+      ) as ParentNotificationsLoaded;
+      expect(
+        state.notifications.map((n) => n.id),
+        containsAll(['notif_rony_1', 'notif_parent_portal']),
+      );
       expect(state.childStudentId, childRony.studentId);
       expect(state.notifications.any((n) => n.id == 'notif_ram_1'), isFalse);
     });
@@ -367,28 +391,32 @@ void main() {
         ],
       );
 
-      final controller =
-          container.read(parentNotificationsControllerProvider.notifier);
+      final controller = container.read(
+        parentNotificationsControllerProvider.notifier,
+      );
       await controller.loadNotifications(
         activeChild: childRony,
         allChildren: testAllChildren,
       );
 
       controller.setTab('Classes');
-      var state = container.read(parentNotificationsControllerProvider)
-          as ParentNotificationsLoaded;
+      var state = container.read(
+        parentNotificationsControllerProvider,
+      ) as ParentNotificationsLoaded;
       expect(state.filteredNotifications.length, 1);
       expect(state.filteredNotifications.first.id, 'n_live');
 
       controller.setTab('Assignments');
-      state = container.read(parentNotificationsControllerProvider)
-          as ParentNotificationsLoaded;
+      state = container.read(
+        parentNotificationsControllerProvider,
+      ) as ParentNotificationsLoaded;
       expect(state.filteredNotifications.length, 1);
       expect(state.filteredNotifications.first.id, 'n_assign');
 
       controller.setTab('Updates');
-      state = container.read(parentNotificationsControllerProvider)
-          as ParentNotificationsLoaded;
+      state = container.read(
+        parentNotificationsControllerProvider,
+      ) as ParentNotificationsLoaded;
       expect(state.filteredNotifications.length, 1);
       expect(state.filteredNotifications.first.id, 'n_update');
     });
@@ -403,8 +431,9 @@ void main() {
         ],
       );
 
-      final controller =
-          container.read(parentNotificationsControllerProvider.notifier);
+      final controller = container.read(
+        parentNotificationsControllerProvider.notifier,
+      );
       await controller.loadNotifications(
         activeChild: childRony,
         allChildren: testAllChildren,
@@ -428,8 +457,9 @@ void main() {
         ],
       );
 
-      final controller =
-          container.read(parentNotificationsControllerProvider.notifier);
+      final controller = container.read(
+        parentNotificationsControllerProvider.notifier,
+      );
 
       // Start slow request for Rony
       final future1 = controller.loadNotifications(
@@ -452,8 +482,9 @@ void main() {
         allChildren: testAllChildren,
       );
 
-      var state = container.read(parentNotificationsControllerProvider)
-          as ParentNotificationsLoaded;
+      var state = container.read(
+        parentNotificationsControllerProvider,
+      ) as ParentNotificationsLoaded;
       expect(state.childStudentId, childRam.studentId);
       expect(state.notifications.first.id, 'ram_fast');
 
@@ -469,8 +500,9 @@ void main() {
       await future1;
 
       // State MUST still remain Ram!
-      state = container.read(parentNotificationsControllerProvider)
-          as ParentNotificationsLoaded;
+      state = container.read(
+        parentNotificationsControllerProvider,
+      ) as ParentNotificationsLoaded;
       expect(state.childStudentId, childRam.studentId);
       expect(state.notifications.first.id, 'ram_fast');
     });
@@ -493,77 +525,83 @@ void main() {
         ],
       );
 
-      final controller =
-          container.read(parentNotificationsControllerProvider.notifier);
+      final controller = container.read(
+        parentNotificationsControllerProvider.notifier,
+      );
       await controller.loadNotifications(
         activeChild: childRony,
         allChildren: testAllChildren,
       );
 
-      var state = container.read(parentNotificationsControllerProvider)
-          as ParentNotificationsLoaded;
+      var state = container.read(
+        parentNotificationsControllerProvider,
+      ) as ParentNotificationsLoaded;
       expect(state.notifications.first.isRead, isFalse);
 
       controller.markAsRead('n_unread');
 
-      state = container.read(parentNotificationsControllerProvider)
-          as ParentNotificationsLoaded;
+      state = container.read(
+        parentNotificationsControllerProvider,
+      ) as ParentNotificationsLoaded;
       expect(state.notifications.first.isRead, isTrue);
     });
   });
 
   group('ParentNotificationsScreen Widget tests', () {
-    testWidgets('renders Notifications screen with scoped items for active child', (tester) async {
-      final fakeRepo = FakeParentNotificationsRepository();
-      fakeRepo.mockList = [
-        ParentNotificationItemEntity(
-          id: 'n1',
-          title: 'Your Public Speaking class starts in 15 minutes.',
-          content: 'Join early to test setup.',
-          type: 'live_class',
-          studentId: 'child_rony_id',
-          createdAt: DateTime.now(),
-        ),
-        ParentNotificationItemEntity(
-          id: 'n_other',
-          title: 'Other child class',
-          content: 'Instructor replied regarding Ram Pearson: "Hi"',
-          type: 'system',
-          studentId: 'child_ram_id',
-          createdAt: DateTime.now(),
-        ),
-      ];
+    testWidgets(
+      'renders Notifications screen with scoped items for active child',
+      (tester) async {
+        final fakeRepo = FakeParentNotificationsRepository();
+        fakeRepo.mockList = [
+          ParentNotificationItemEntity(
+            id: 'n1',
+            title: 'Your Public Speaking class starts in 15 minutes.',
+            content: 'Join early to test setup.',
+            type: 'live_class',
+            studentId: 'child_rony_id',
+            createdAt: DateTime.now(),
+          ),
+          ParentNotificationItemEntity(
+            id: 'n_other',
+            title: 'Other child class',
+            content: 'Instructor replied regarding Ram Pearson: "Hi"',
+            type: 'system',
+            studentId: 'child_ram_id',
+            createdAt: DateTime.now(),
+          ),
+        ];
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            parentNotificationsRepositoryProvider.overrideWithValue(fakeRepo),
-            childrenControllerProvider.overrideWith(
-              () => _MockChildrenController(
-                const ChildrenLoaded(
-                  children: [childRony, childRam],
-                  activeChildId: 'child_rony_id',
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              parentNotificationsRepositoryProvider.overrideWithValue(fakeRepo),
+              childrenControllerProvider.overrideWith(
+                () => _MockChildrenController(
+                  const ChildrenLoaded(
+                    children: [childRony, childRam],
+                    activeChildId: 'child_rony_id',
+                  ),
                 ),
               ),
-            ),
-          ],
-          child: const MaterialApp(
-            home: ParentNotificationsScreen(),
+            ],
+            child: const MaterialApp(home: ParentNotificationsScreen()),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      expect(find.text('Notifications'), findsOneWidget);
-      expect(find.text('LIVE CLASS'), findsOneWidget);
-      expect(find.text('Your Public Speaking class starts in 15 minutes.'),
-          findsOneWidget);
-      expect(find.text('View Classes'), findsOneWidget);
+        expect(find.text('Notifications'), findsOneWidget);
+        expect(find.text('LIVE CLASS'), findsOneWidget);
+        expect(
+          find.text('Your Public Speaking class starts in 15 minutes.'),
+          findsOneWidget,
+        );
+        expect(find.text('View Classes'), findsOneWidget);
 
-      // Other child's notification is NOT visible
-      expect(find.text('Other child class'), findsNothing);
-    });
+        // Other child's notification is NOT visible
+        expect(find.text('Other child class'), findsNothing);
+      },
+    );
 
     testWidgets('shows empty state when no items match tab', (tester) async {
       final fakeRepo = FakeParentNotificationsRepository();
@@ -582,9 +620,7 @@ void main() {
               ),
             ),
           ],
-          child: const MaterialApp(
-            home: ParentNotificationsScreen(),
-          ),
+          child: const MaterialApp(home: ParentNotificationsScreen()),
         ),
       );
 
@@ -593,53 +629,69 @@ void main() {
       expect(find.text('No notifications in All'), findsOneWidget);
     });
 
-    testWidgets('dynamic child switching updates notification feed without cross-child bleed', (tester) async {
-      final fakeRepo = FakeParentNotificationsRepository();
-      fakeRepo.mockList = rawBackendFixtures
-          .map((j) => ParentNotificationDto.fromJson(j).toEntity())
-          .toList();
+    testWidgets(
+      'dynamic child switching updates notification feed without cross-child bleed',
+      (tester) async {
+        final fakeRepo = FakeParentNotificationsRepository();
+        fakeRepo.mockList = rawBackendFixtures
+            .map((j) => ParentNotificationDto.fromJson(j).toEntity())
+            .toList();
 
-      final childrenNotifier = _MockChildrenController(
-        const ChildrenLoaded(
-          children: [childRony, childRam, childSarah],
-          activeChildId: 'child_rony_id',
-        ),
-      );
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            parentNotificationsRepositoryProvider.overrideWithValue(fakeRepo),
-            childrenControllerProvider.overrideWith(() => childrenNotifier),
-          ],
-          child: const MaterialApp(
-            home: ParentNotificationsScreen(),
+        final childrenNotifier = _MockChildrenController(
+          const ChildrenLoaded(
+            children: [childRony, childRam, childSarah],
+            activeChildId: 'child_rony_id',
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              parentNotificationsRepositoryProvider.overrideWithValue(fakeRepo),
+              childrenControllerProvider.overrideWith(() => childrenNotifier),
+            ],
+            child: const MaterialApp(home: ParentNotificationsScreen()),
+          ),
+        );
 
-      // Step 1: Initial state (Rony active)
-      expect(find.text('Message from Instructor Jack Sparrow'), findsOneWidget);
-      expect(find.text('Message from Instructor Elizabeth Vance'), findsNothing);
-      expect(find.text('Welcome to TrueLern Parent Portal'), findsOneWidget);
+        await tester.pumpAndSettle();
 
-      // Step 2: Switch to Ram Pearson
-      childrenNotifier.setActiveChild('child_ram_id');
-      await tester.pumpAndSettle();
+        // Step 1: Initial state (Rony active)
+        expect(
+          find.text('Message from Instructor Jack Sparrow'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Message from Instructor Elizabeth Vance'),
+          findsNothing,
+        );
+        expect(find.text('Welcome to TrueLern Parent Portal'), findsOneWidget);
 
-      expect(find.text('Message from Instructor Jack Sparrow'), findsNothing);
-      expect(find.text('Message from Instructor Elizabeth Vance'), findsOneWidget);
-      expect(find.text('Welcome to TrueLern Parent Portal'), findsOneWidget);
+        // Step 2: Switch to Ram Pearson
+        childrenNotifier.setActiveChild('child_ram_id');
+        await tester.pumpAndSettle();
 
-      // Step 3: Switch back to Rony
-      childrenNotifier.setActiveChild('child_rony_id');
-      await tester.pumpAndSettle();
+        expect(find.text('Message from Instructor Jack Sparrow'), findsNothing);
+        expect(
+          find.text('Message from Instructor Elizabeth Vance'),
+          findsOneWidget,
+        );
+        expect(find.text('Welcome to TrueLern Parent Portal'), findsOneWidget);
 
-      expect(find.text('Message from Instructor Jack Sparrow'), findsOneWidget);
-      expect(find.text('Message from Instructor Elizabeth Vance'), findsNothing);
-      expect(find.text('Welcome to TrueLern Parent Portal'), findsOneWidget);
-    });
+        // Step 3: Switch back to Rony
+        childrenNotifier.setActiveChild('child_rony_id');
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Message from Instructor Jack Sparrow'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Message from Instructor Elizabeth Vance'),
+          findsNothing,
+        );
+        expect(find.text('Welcome to TrueLern Parent Portal'), findsOneWidget);
+      },
+    );
   });
 }

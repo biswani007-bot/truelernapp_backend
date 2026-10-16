@@ -9,16 +9,19 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/router/route_paths.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../auth/presentation/controllers/auth_state.dart';
+import '../../domain/entities/demo_booking_entity.dart';
 
 /// Displays the Demo Booking Confirmed Popup (Figma Node 75:793)
 /// as a modal dialog with blur overlay, matching Figma specs 100%.
 Future<void> showDemoBookingConfirmedPopup(
   BuildContext context, {
-  String selectedDemo = 'ACE Public Speaking',
+  String selectedDemo = 'Selected Demo Course',
   String dateTime = 'Today at 8:00 PM',
   String teacher = 'Ms. Sarah',
   Duration redirectDelay = const Duration(milliseconds: 2000),
   VoidCallback? onDismissToDashboard,
+  DemoBookingEntity? booking,
 }) {
   return showGeneralDialog(
     context: context,
@@ -33,6 +36,7 @@ Future<void> showDemoBookingConfirmedPopup(
         teacher: teacher,
         redirectDelay: redirectDelay,
         onDismissToDashboard: onDismissToDashboard,
+        booking: booking,
       );
     },
     transitionBuilder: (ctx, anim1, anim2, child) {
@@ -54,11 +58,12 @@ Future<void> showDemoBookingConfirmedPopup(
 class DemoBookingConfirmedPopup extends ConsumerStatefulWidget {
   const DemoBookingConfirmedPopup({
     super.key,
-    this.selectedDemo = 'ACE Public Speaking',
+    this.selectedDemo = 'Selected Demo Course',
     this.dateTime = 'Today at 8:00 PM',
     this.teacher = 'Ms. Sarah',
     this.redirectDelay = const Duration(milliseconds: 2000),
     this.onDismissToDashboard,
+    this.booking,
   });
 
   final String selectedDemo;
@@ -66,6 +71,7 @@ class DemoBookingConfirmedPopup extends ConsumerStatefulWidget {
   final String teacher;
   final Duration redirectDelay;
   final VoidCallback? onDismissToDashboard;
+  final DemoBookingEntity? booking;
 
   @override
   ConsumerState<DemoBookingConfirmedPopup> createState() =>
@@ -96,10 +102,6 @@ class _DemoBookingConfirmedPopupState
     _hasNavigated = true;
     _redirectTimer?.cancel();
 
-    try {
-      ref.read(authControllerProvider.notifier).setDemoSession();
-    } catch (_) {}
-
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     }
@@ -108,7 +110,12 @@ class _DemoBookingConfirmedPopupState
       widget.onDismissToDashboard!();
     } else {
       try {
-        context.go(AppRoutePaths.parentDashboard);
+        final authState = ref.read(authControllerProvider);
+        if (authState is Authenticated) {
+          context.go(AppRoutePaths.demoSessionBooked, extra: widget.booking);
+        } else {
+          context.go(AppRoutePaths.login);
+        }
       } catch (_) {
         // Fallback for isolated widget tests without GoRouter
       }

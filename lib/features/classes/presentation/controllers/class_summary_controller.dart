@@ -17,6 +17,11 @@ class ClassSummaryController extends Notifier<ClassSummaryState> {
   @override
   ClassSummaryState build() => const ClassSummaryInitial();
 
+  /// Resets state on logout or account switching to prevent cross-account leakage.
+  void reset() {
+    state = const ClassSummaryInitial();
+  }
+
   Future<void> loadSummary({
     required String classId,
     String? childStudentId,

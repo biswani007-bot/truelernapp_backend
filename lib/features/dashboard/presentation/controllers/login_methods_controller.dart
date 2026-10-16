@@ -21,6 +21,11 @@ class LoginMethodsController extends Notifier<LoginMethodsState> {
     return const LoginMethodsInitial();
   }
 
+  /// Resets state on logout or account switching.
+  void reset() {
+    state = const LoginMethodsInitial();
+  }
+
   Future<void> loadLoginMethods({bool isRefresh = false}) async {
     final currentState = state;
     if (isRefresh && currentState is LoginMethodsLoaded) {

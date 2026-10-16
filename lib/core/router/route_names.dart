@@ -10,6 +10,11 @@ abstract final class AppRouteNames {
   static const String onboarding = 'onboarding';
   static const String login = 'login';
   static const String verifyOtp = 'verifyOtp';
+  static const String passwordSetup = 'passwordSetup';
+  static const String onboardingInterests = 'onboardingInterests';
+  static const String onboardingAccount = 'onboardingAccount';
+  static const String onboardingChild = 'onboardingChild';
+  static const String onboardingLocation = 'onboardingLocation';
   static const String demoBookingDashboard = 'demoBookingDashboard';
 
   // Parent App Shell & Core Tabs
@@ -56,6 +61,7 @@ abstract final class AppRouteNames {
   static const String parentCertificates = 'parentCertificates';
   static const String parentCounselor = 'parentCounselor';
   static const String progressClasses = 'progressClasses';
+  static const String demoSessionBooked = 'demoSessionBooked';
 }
 
 /// Standardized path constants.
@@ -68,6 +74,11 @@ abstract final class AppRoutePaths {
   static const String onboarding = '/onboarding';
   static const String login = '/login';
   static const String verifyOtp = '/verify-otp';
+  static const String passwordSetup = '/auth/password-setup';
+  static const String onboardingInterests = '/onboarding/interests';
+  static const String onboardingAccount = '/onboarding/account';
+  static const String onboardingChild = '/onboarding/child';
+  static const String onboardingLocation = '/onboarding/location';
   static const String demoBookingDashboard = '/demo-booking-dashboard';
 
   // Parent Tab Paths — top-level absolute paths for StatefulShellRoute branches
@@ -118,4 +129,5 @@ abstract final class AppRoutePaths {
   static const String parentCertificates = '/parent/certificates';
   static const String parentCounselor = '/parent/counselor';
   static const String progressClasses = '/parent/progress/classes';
+  static const String demoSessionBooked = '/parent/demo-booked';
 }

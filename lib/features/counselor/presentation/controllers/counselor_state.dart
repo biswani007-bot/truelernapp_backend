@@ -29,7 +29,8 @@ final class CounselorLoaded extends CounselorState {
   final String? activeChildId;
 
   bool get hasCounselor => counselors.isNotEmpty;
-  CounselorEntity? get primaryCounselor => counselors.isNotEmpty ? counselors.first : null;
+  CounselorEntity? get primaryCounselor =>
+      counselors.isNotEmpty ? counselors.first : null;
 }
 
 /// Error state when network/server request fails.

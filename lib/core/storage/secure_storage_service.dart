@@ -97,6 +97,7 @@ class FlutterSecureStorageServiceImpl implements SecureStorageService {
     await _storage.delete(key: StorageKeys.userId);
     await _storage.delete(key: StorageKeys.userRole);
     await _storage.delete(key: StorageKeys.activeChildId);
+    await _storage.delete(key: StorageKeys.assessmentProxyToken);
   }
 }
 

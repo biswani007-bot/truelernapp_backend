@@ -26,17 +26,23 @@ void main() {
       expect(StorageKeys.activeChildId, 'truelern_active_child_id');
     });
 
-    test('saveAccessToken and getAccessToken persist token correctly', () async {
-      await storageService.saveAccessToken('token_abc123');
-      final token = await storageService.getAccessToken();
-      expect(token, 'token_abc123');
-    });
+    test(
+      'saveAccessToken and getAccessToken persist token correctly',
+      () async {
+        await storageService.saveAccessToken('token_abc123');
+        final token = await storageService.getAccessToken();
+        expect(token, 'token_abc123');
+      },
+    );
 
-    test('saveRefreshToken and getRefreshToken persist refresh token correctly', () async {
-      await storageService.saveRefreshToken('refresh_xyz789');
-      final token = await storageService.getRefreshToken();
-      expect(token, 'refresh_xyz789');
-    });
+    test(
+      'saveRefreshToken and getRefreshToken persist refresh token correctly',
+      () async {
+        await storageService.saveRefreshToken('refresh_xyz789');
+        final token = await storageService.getRefreshToken();
+        expect(token, 'refresh_xyz789');
+      },
+    );
 
     test('saveUserId and getUserId persist user ID correctly', () async {
       await storageService.saveUserId('usr_456');

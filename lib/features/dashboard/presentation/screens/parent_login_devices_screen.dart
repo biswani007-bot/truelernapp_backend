@@ -46,7 +46,9 @@ class _ParentLoginDevicesScreenState
       context: context,
       builder: (dialogCtx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Text(
             'Sign Out Device?',
             style: GoogleFonts.hankenGrotesk(
@@ -134,11 +136,7 @@ class _ParentLoginDevicesScreenState
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF3E8FF),
-              Color(0xFFE0F2FE),
-              Color(0xFFFFFFFF),
-            ],
+            colors: [Color(0xFFF3E8FF), Color(0xFFE0F2FE), Color(0xFFFFFFFF)],
             stops: [0.0, 0.5, 1.0],
           ),
         ),
@@ -531,7 +529,8 @@ class _ParentLoginDevicesScreenState
     required UserDeviceEntity device,
     required bool isRevoking,
   }) {
-    final isDesktop = device.platform?.toLowerCase().contains('mac') == true ||
+    final isDesktop =
+        device.platform?.toLowerCase().contains('mac') == true ||
         device.platform?.toLowerCase().contains('windows') == true ||
         device.platform?.toLowerCase().contains('linux') == true ||
         device.platform?.toLowerCase().contains('web') == true;
@@ -636,11 +635,7 @@ class _ParentLoginDevicesScreenState
             offset: Offset(3, 3),
             blurRadius: 6,
           ),
-          BoxShadow(
-            color: Colors.white,
-            offset: Offset(-3, -3),
-            blurRadius: 6,
-          ),
+          BoxShadow(color: Colors.white, offset: Offset(-3, -3), blurRadius: 6),
         ],
       ),
       alignment: Alignment.center,

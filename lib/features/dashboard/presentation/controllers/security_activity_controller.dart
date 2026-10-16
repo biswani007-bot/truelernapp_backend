@@ -11,6 +11,11 @@ class SecurityActivityController extends Notifier<SecurityActivityState> {
   SecurityActivityRepository get _repository =>
       ref.read(securityActivityRepositoryProvider);
 
+  /// Resets state on logout or account switching.
+  void reset() {
+    state = const SecurityActivityInitial();
+  }
+
   Future<void> loadActivityLogs({bool forceRefresh = false}) async {
     final current = state;
     if (!forceRefresh && current is SecurityActivityLoaded) return;
@@ -35,5 +40,5 @@ class SecurityActivityController extends Notifier<SecurityActivityState> {
 
 final securityActivityControllerProvider =
     NotifierProvider<SecurityActivityController, SecurityActivityState>(
-  SecurityActivityController.new,
-);
+      SecurityActivityController.new,
+    );

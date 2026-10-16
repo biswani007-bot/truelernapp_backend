@@ -1,11 +1,6 @@
 /// User details returned in authentication response.
 class UserDto {
-  const UserDto({
-    required this.id,
-    this.name,
-    this.email,
-    this.role,
-  });
+  const UserDto({required this.id, this.name, this.email, this.role});
 
   final String id;
   final String? name;
@@ -45,20 +40,16 @@ class UserDto {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'email': email,
-        'role': role,
-      };
+    'id': id,
+    'name': name,
+    'email': email,
+    'role': role,
+  };
 }
 
 /// Authentication response payload containing tokens and user session data.
 class AuthResponse {
-  const AuthResponse({
-    required this.accessToken,
-    this.refreshToken,
-    this.user,
-  });
+  const AuthResponse({required this.accessToken, this.refreshToken, this.user});
 
   final String accessToken;
   final String? refreshToken;
@@ -71,7 +62,8 @@ class AuthResponse {
         : json;
 
     return AuthResponse(
-      accessToken: (payload['accessToken'] ?? payload['token'] ?? '').toString(),
+      accessToken: (payload['accessToken'] ?? payload['token'] ?? '')
+          .toString(),
       refreshToken: payload['refreshToken'] as String?,
       user: payload['user'] is Map<String, dynamic>
           ? UserDto.fromJson(payload['user'] as Map<String, dynamic>)

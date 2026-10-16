@@ -24,12 +24,13 @@ class CounselorDto {
 
   factory CounselorDto.fromJson(Map<String, dynamic> json) {
     // 1. Resolve ID
-    final resolvedId = (json['_id'] ??
-            json['id'] ??
-            json['counsellorId'] ??
-            json['counselorId'] ??
-            '')
-        .toString();
+    final resolvedId =
+        (json['_id'] ??
+                json['id'] ??
+                json['counsellorId'] ??
+                json['counselorId'] ??
+                '')
+            .toString();
 
     // 2. Resolve Name
     String resolvedName = '';
@@ -49,21 +50,27 @@ class CounselorDto {
 
     // 3. Resolve Contact Info
     final email = (json['email'] ?? json['contactEmail']) as String?;
-    final phone = (json['phone'] ?? json['phoneNumber'] ?? json['contactPhone']) as String?;
+    final phone =
+        (json['phone'] ?? json['phoneNumber'] ?? json['contactPhone'])
+            as String?;
 
     // 4. Resolve Avatar / Image
-    final avatar = (json['avatar'] ??
-            json['profilePicture'] ??
-            json['photo'] ??
-            json['image']) as String?;
+    final avatar =
+        (json['avatar'] ??
+                json['profilePicture'] ??
+                json['photo'] ??
+                json['image'])
+            as String?;
 
     // 5. Resolve Designation & Specialization
-    final designation = (json['designation'] ??
-            (json['role'] is String ? json['role'] as String? : null) ??
-            json['title']) as String?;
-    final specialization = (json['specialization'] ??
-            json['department'] ??
-            json['domain']) as String?;
+    final designation =
+        (json['designation'] ??
+                (json['role'] is String ? json['role'] as String? : null) ??
+                json['title'])
+            as String?;
+    final specialization =
+        (json['specialization'] ?? json['department'] ?? json['domain'])
+            as String?;
 
     final status = json['status']?.toString();
 

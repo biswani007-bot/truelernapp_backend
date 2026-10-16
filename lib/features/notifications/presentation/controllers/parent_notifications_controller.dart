@@ -30,6 +30,14 @@ class ParentNotificationsController extends Notifier<ParentNotificationsState> {
     return const ParentNotificationsInitial();
   }
 
+  /// Resets state on logout or account switching.
+  void reset() {
+    _requestToken++;
+    _currentChildStudentId = null;
+    _scopedCache.clear();
+    state = const ParentNotificationsInitial();
+  }
+
   /// Loads notifications scoped for [activeChild].
   ///
   /// If [activeChild] is omitted, derives the active child from [childrenControllerProvider].
@@ -54,8 +62,9 @@ class ParentNotificationsController extends Notifier<ParentNotificationsState> {
 
     final targetChildId = effectiveChild?.studentId;
     final current = state;
-    final currentTab =
-        current is ParentNotificationsLoaded ? current.selectedTab : 'All';
+    final currentTab = current is ParentNotificationsLoaded
+        ? current.selectedTab
+        : 'All';
 
     // 2. Skip redundant fetch if already loaded for same child and not refreshing
     if (!isRefresh &&
@@ -94,8 +103,7 @@ class ParentNotificationsController extends Notifier<ParentNotificationsState> {
       );
 
       // 4. Race condition guard: discard if request is no longer active
-      if (token != _requestToken ||
-          _currentChildStudentId != targetChildId) {
+      if (token != _requestToken || _currentChildStudentId != targetChildId) {
         return;
       }
 
@@ -103,10 +111,12 @@ class ParentNotificationsController extends Notifier<ParentNotificationsState> {
       final List<ParentNotificationItemEntity> scopedList;
       if (effectiveChild != null) {
         scopedList = rawList
-            .where((n) => n.belongsToChild(
-                  activeChild: effectiveChild!,
-                  allChildren: effectiveChildren,
-                ))
+            .where(
+              (n) => n.belongsToChild(
+                activeChild: effectiveChild!,
+                allChildren: effectiveChildren,
+              ),
+            )
             .toList();
       } else {
         // Without active child, show parent-level general notifications
@@ -123,12 +133,10 @@ class ParentNotificationsController extends Notifier<ParentNotificationsState> {
         childStudentId: targetChildId,
       );
     } catch (e) {
-      if (token != _requestToken ||
-          _currentChildStudentId != targetChildId) {
+      if (token != _requestToken || _currentChildStudentId != targetChildId) {
         return;
       }
-      final errorMsg =
-          e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+      final errorMsg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
       state = ParentNotificationsError(
         message: errorMsg,
         childStudentId: targetChildId,
@@ -168,5 +176,5 @@ class ParentNotificationsController extends Notifier<ParentNotificationsState> {
 
 final parentNotificationsControllerProvider =
     NotifierProvider<ParentNotificationsController, ParentNotificationsState>(
-  ParentNotificationsController.new,
-);
+      ParentNotificationsController.new,
+    );

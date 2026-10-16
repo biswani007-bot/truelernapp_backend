@@ -22,6 +22,7 @@ import 'package:truelearn/features/dashboard/data/repositories/dashboard_reposit
 import 'package:truelearn/features/dashboard/domain/entities/child_entity.dart';
 import 'package:truelearn/features/dashboard/domain/entities/dashboard_entity.dart';
 import 'package:truelearn/features/dashboard/domain/repositories/dashboard_repository.dart';
+import 'package:truelearn/features/auth/data/models/password_prompt_status.dart';
 import 'package:truelearn/features/dashboard/presentation/controllers/children_controller.dart';
 import 'package:truelearn/features/dashboard/presentation/controllers/children_state.dart';
 
@@ -31,6 +32,36 @@ class _FakeAuthRepo implements AuthRepository {
   @override
   Future<AuthResponse> login(LoginRequest request) async =>
       throw UnimplementedError();
+  @override
+  Future<AuthResponse> signInWithGoogle(String idToken) async =>
+      throw UnimplementedError();
+  @override
+  Future<PasswordPromptStatus> getPasswordPromptStatus() async =>
+      const PasswordPromptStatus(
+        showPrompt: false,
+        hasPassword: true,
+        dontAskAgain: false,
+        cooldownActive: false,
+      );
+  @override
+  Future<bool> setupPassword({
+    required String password,
+    required String confirmPassword,
+  }) async => true;
+  @override
+  Future<bool> dismissPasswordPrompt({required String action}) async => true;
+  @override
+  Future<Map<String, dynamic>> getCurrentParentContext() async => {};
+  @override
+  Future<Map<String, dynamic>?> getParentDemo({String? studentId}) async =>
+      null;
+  @override
+  Future<Map<String, dynamic>?> getParentStatus({String? studentId}) async =>
+      null;
+  @override
+  Future<Map<String, dynamic>?> getChildDashboard(
+    String childStudentId,
+  ) async => null;
   @override
   Future<void> logout() async {}
 }

@@ -15,10 +15,7 @@ class ProgressLoading extends ProgressState {
 }
 
 class ProgressLoaded extends ProgressState {
-  const ProgressLoaded({
-    required this.progress,
-    required this.activeChildId,
-  });
+  const ProgressLoaded({required this.progress, required this.activeChildId});
 
   final ProgressEntity progress;
   final String activeChildId;
@@ -57,10 +54,7 @@ class ProgressEmpty extends ProgressState {
 }
 
 class ProgressError extends ProgressState {
-  const ProgressError({
-    required this.message,
-    this.activeChildId,
-  });
+  const ProgressError({required this.message, this.activeChildId});
 
   final String message;
   final String? activeChildId;

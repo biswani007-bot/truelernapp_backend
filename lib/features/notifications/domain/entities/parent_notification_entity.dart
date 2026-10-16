@@ -1,10 +1,6 @@
 import '../../../dashboard/domain/entities/child_entity.dart';
 
-enum NotificationCategory {
-  classes,
-  assignments,
-  updates,
-}
+enum NotificationCategory { classes, assignments, updates }
 
 class ParentNotificationItemEntity {
   const ParentNotificationItemEntity({
@@ -131,7 +127,8 @@ class ParentNotificationItemEntity {
       final activeFirst = activeChild.firstName.trim().toLowerCase();
       final activeLast = (activeChild.lastName ?? '').trim().toLowerCase();
 
-      final matchesActive = (activeFull.isNotEmpty &&
+      final matchesActive =
+          (activeFull.isNotEmpty &&
               (namePattern == activeFull ||
                   namePattern.contains(activeFull) ||
                   activeFull.contains(namePattern))) ||
@@ -163,7 +160,8 @@ class ParentNotificationItemEntity {
       final activeFirst = activeChild.firstName.trim().toLowerCase();
       final activeLast = (activeChild.lastName ?? '').trim().toLowerCase();
 
-      final matchesActive = (activeFull.isNotEmpty &&
+      final matchesActive =
+          (activeFull.isNotEmpty &&
               (targetName == activeFull ||
                   targetName.contains(activeFull) ||
                   activeFull.contains(targetName))) ||
@@ -188,7 +186,8 @@ class ParentNotificationItemEntity {
       final otherFirst = other.firstName.trim().toLowerCase();
       final otherCode = (other.studentCode ?? '').trim().toLowerCase();
 
-      final mentionsOther = (otherFull.isNotEmpty &&
+      final mentionsOther =
+          (otherFull.isNotEmpty &&
               (lowerContent.contains(otherFull) ||
                   lowerTitle.contains(otherFull))) ||
           (otherFirst.length > 2 &&

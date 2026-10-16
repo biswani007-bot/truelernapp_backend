@@ -27,6 +27,9 @@ class _MockClassesController extends Notifier<ClassesState>
 
   @override
   Future<void> retry() async {}
+
+  @override
+  void reset() {}
 }
 
 class _MockChildrenController extends Notifier<ChildrenState>
@@ -45,6 +48,9 @@ class _MockChildrenController extends Notifier<ChildrenState>
 
   @override
   void setActiveChild(String studentId) {}
+
+  @override
+  void reset() {}
 }
 
 class _MockDevicePreviewService implements NativeDevicePreviewService {

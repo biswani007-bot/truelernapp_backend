@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../auth/presentation/controllers/auth_state.dart';
 import '../../data/repositories/dashboard_repository_impl.dart';
 import '../../data/repositories/student_dashboard_repository_impl.dart';
 import '../../domain/repositories/dashboard_repository.dart';
@@ -20,12 +22,27 @@ class DashboardController extends Notifier<DashboardState> {
 
   int _requestToken = 0;
   String? _currentlyLoadingChildId;
+  String? _sessionUserId;
+
+  /// Resets state on logout or account switching to prevent cross-account leakage.
+  void reset() {
+    _requestToken++;
+    _currentlyLoadingChildId = null;
+    _sessionUserId = null;
+    state = const DashboardInitial();
+  }
 
   /// Loads dashboard data directly for the authenticated Student using
   /// verified Student APIs (live-classes, assignments, attendance summary).
   Future<void> loadStudentDashboard({bool isRefresh = false}) async {
     final token = ++_requestToken;
     _currentlyLoadingChildId = 'student_self';
+
+    final authState = ref.read(authControllerProvider);
+    final currentUserId = authState is Authenticated
+        ? authState.user?.id
+        : null;
+    _sessionUserId = currentUserId;
 
     final current = state;
     if (!isRefresh || current is! DashboardLoaded) {
@@ -36,6 +53,14 @@ class DashboardController extends Notifier<DashboardState> {
       final entity = await _studentRepository.getStudentDashboard();
 
       if (token != _requestToken) {
+        return;
+      }
+
+      final latestAuthState = ref.read(authControllerProvider);
+      final latestUserId = latestAuthState is Authenticated
+          ? latestAuthState.user?.id
+          : null;
+      if (latestUserId != _sessionUserId) {
         return;
       }
 
@@ -69,6 +94,12 @@ class DashboardController extends Notifier<DashboardState> {
     final token = ++_requestToken;
     _currentlyLoadingChildId = childStudentId;
 
+    final authState = ref.read(authControllerProvider);
+    final currentUserId = authState is Authenticated
+        ? authState.user?.id
+        : null;
+    _sessionUserId = currentUserId;
+
     final current = state;
     // On refresh of the same child, preserve current DashboardLoaded state during fetch
     if (!isRefresh ||
@@ -85,6 +116,14 @@ class DashboardController extends Notifier<DashboardState> {
       // Race condition check: ensure response is still for the active child context
       if (token != _requestToken ||
           _currentlyLoadingChildId != childStudentId) {
+        return;
+      }
+
+      final latestAuthState = ref.read(authControllerProvider);
+      final latestUserId = latestAuthState is Authenticated
+          ? latestAuthState.user?.id
+          : null;
+      if (latestUserId != _sessionUserId) {
         return;
       }
 
