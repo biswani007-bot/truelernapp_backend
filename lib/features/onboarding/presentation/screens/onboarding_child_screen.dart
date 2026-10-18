@@ -149,20 +149,16 @@ class _OnboardingChildScreenState extends ConsumerState<OnboardingChildScreen> {
 
         if (!mounted) return;
 
-        if (context.canPop()) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '${createdChild.displayName} has been added successfully!',
-              ),
-              backgroundColor: const Color(0xFF10B981),
-              behavior: SnackBarBehavior.floating,
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${createdChild.displayName} has been added successfully!',
             ),
-          );
-          context.pop(createdChild);
-        } else {
-          context.push(AppRoutePaths.onboardingInterests);
-        }
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        context.push(AppRoutePaths.onboardingInterests);
       } catch (e) {
         if (!mounted) return;
         setState(() {
@@ -185,11 +181,7 @@ class _OnboardingChildScreenState extends ConsumerState<OnboardingChildScreen> {
           );
 
       if (!mounted) return;
-      if (context.canPop()) {
-        context.pop();
-      } else {
-        context.push(AppRoutePaths.onboardingInterests);
-      }
+      context.push(AppRoutePaths.onboardingInterests);
     }
   }
 

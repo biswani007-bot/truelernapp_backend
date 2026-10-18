@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../auth/data/repositories/auth_repository_impl.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../auth/presentation/controllers/auth_state.dart';
 import '../../domain/entities/dashboard_entity.dart';
@@ -288,15 +289,39 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                 if (isChildrenLoading)
                   const ChildSelectorSkeleton()
                 else if (displayChildren.isNotEmpty)
-                  ChildSelectorRow(
-                    children: displayChildren,
-                    activeChildId: activeChild?.studentId,
-                    onSelectChild: (childId) {
-                      ref
-                          .read(childrenControllerProvider.notifier)
-                          .setActiveChild(childId);
-                    },
-                  ),
+                    ChildSelectorRow(
+                      children: displayChildren,
+                      activeChildId: activeChild?.studentId,
+                      onSelectChild: (childId) async {
+                        ref
+                            .read(childrenControllerProvider.notifier)
+                            .setActiveChild(childId);
+
+                        // If child is not enrolled in classes, check their onboarding / demo status
+                        try {
+                          final statusMap = await ref
+                              .read(authRepositoryProvider)
+                              .getParentStatus(studentId: childId);
+                          if (!context.mounted) return;
+                          final stateCode =
+                              statusMap?['state']?.toString().toUpperCase();
+                          final action =
+                              statusMap?['action']?.toString().toLowerCase();
+
+                          if (stateCode == 'STATE_4' || action == 'payment') {
+                            context.go(AppRoutePaths.parentInvoices);
+                          } else if (stateCode == 'STATE_3') {
+                            context.go(AppRoutePaths.demoWaitingForAdmin);
+                          } else if (stateCode == 'STATE_2' ||
+                              action == 'schedule_demo' ||
+                              action == 'join_demo') {
+                            context.go(AppRoutePaths.demoBookingDashboard);
+                          } else if (stateCode == 'STATE_1') {
+                            context.go(AppRoutePaths.onboardingInterests);
+                          }
+                        } catch (_) {}
+                      },
+                    ),
 
               // Error banner if children or dashboard encountered an error
               if ((!isStudent && childrenState is ChildrenError) ||

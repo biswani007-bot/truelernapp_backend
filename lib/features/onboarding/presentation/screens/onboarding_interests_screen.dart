@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/router/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../auth/presentation/controllers/auth_state.dart';
 import '../../../courses/domain/entities/course_entity.dart';
 import '../controllers/onboarding_controller.dart';
 
@@ -83,7 +85,15 @@ class _OnboardingInterestsScreenState
           timeZone: _selectedTimeZone ?? _kTimeZones.first,
         );
 
-    context.push(AppRoutePaths.onboardingAccount);
+    final authState = ref.read(authControllerProvider);
+    if (authState is Authenticated) {
+      context.push(
+        AppRoutePaths.demoBookingDashboard,
+        extra: effectiveCourse.id,
+      );
+    } else {
+      context.push(AppRoutePaths.onboardingAccount);
+    }
   }
 
   @override

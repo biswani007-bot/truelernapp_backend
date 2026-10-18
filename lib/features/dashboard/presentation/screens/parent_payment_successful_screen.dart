@@ -1,28 +1,49 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/router/route_paths.dart';
 
-/// Parent Payment Successful Screen — PURE FRONTEND ONLY.
+/// Arguments passed to [ParentPaymentSuccessfulScreen].
+class PaymentSuccessfulArgs {
+  const PaymentSuccessfulArgs({
+    required this.invoiceNumber,
+    required this.amountPaid,
+    required this.courseName,
+    required this.studentName,
+    this.transactionReference,
+    this.paymentDate,
+    this.isAwaitingAdminVerification = false,
+  });
+
+  final String invoiceNumber;
+  final String amountPaid;
+  final String courseName;
+  final String studentName;
+  final String? transactionReference;
+  final DateTime? paymentDate;
+  final bool isAwaitingAdminVerification;
+}
+
+/// Parent Payment Successful Screen displaying real verified transaction information.
 ///
 /// Figma Source of Truth: `Parent(full app)_TreLern`, Frame: `Payment Successful` (Node 104:294).
-/// Displays the exact Figma design:
-/// - Atmospheric Background: Linear gradient (Lavender -> Sky Blue -> White) with blur accents
+/// - Atmospheric Background: Linear gradient with blur accents
 /// - Center Card (Node 104:299):
 ///   - 3D Success Checkmark asset (Node 104:313)
 ///   - Heading: "Payment Successful" (24px SemiBold, #1A1B23)
-///   - Message: "$149.50 for Invoice #TL-2026-0018\npaid successfully." (16px Regular, #434655)
-///   - Primary Button: "Back to Invoices" (#1E4ED8 blue, rounded 8px)
-///   - Outlined Button: "View Receipt" (border 2px solid #C4C5D7, text #0037B1)
-///
-/// STRICT RULES:
-/// - Zero backend calls / Zero API calls / Pure static frontend
-/// - No bottom navigation bar (matching Figma transactional intent)
+///   - Real message with invoice number and amount paid
+///   - Transaction reference and verification status
+///   - Primary Button: "Back to Invoices"
+///   - Outlined Button: "Go to Dashboard"
 class ParentPaymentSuccessfulScreen extends StatelessWidget {
-  const ParentPaymentSuccessfulScreen({super.key});
+  const ParentPaymentSuccessfulScreen({
+    super.key,
+    this.args,
+  });
+
+  final PaymentSuccessfulArgs? args;
 
   static const String _imgCheckmark =
       'assets/images/payment_success_checkmark.png';
@@ -107,6 +128,17 @@ class ParentPaymentSuccessfulScreen extends StatelessWidget {
   }
 
   Widget _buildSuccessCard(BuildContext context) {
+    final invoiceNum = args?.invoiceNumber ?? 'TL-2026-0018';
+    final amount = args?.amountPaid ?? '\$149.50';
+    final isAwaiting = args?.isAwaitingAdminVerification ?? false;
+    final studentName = args?.studentName ?? 'Student';
+    final courseName = args?.courseName ?? 'Enrolled Program';
+    final txnRef = args?.transactionReference;
+    final date = args?.paymentDate ?? DateTime.now();
+
+    final formattedDate =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -144,7 +176,7 @@ class ParentPaymentSuccessfulScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Text(
-              'Payment Successful',
+              isAwaiting ? 'Payment Received' : 'Payment Successful',
               textAlign: TextAlign.center,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 25.5,
@@ -161,10 +193,12 @@ class ParentPaymentSuccessfulScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              '\$149.50 for Invoice #TL-2026-0018\npaid successfully.',
+              isAwaiting
+                  ? '$amount for Invoice #$invoiceNum\nreceived and awaiting admin verification.'
+                  : '$amount for Invoice #$invoiceNum\npaid successfully.',
               textAlign: TextAlign.center,
               style: GoogleFonts.hankenGrotesk(
-                fontSize: 17,
+                fontSize: 16,
                 fontWeight: FontWeight.w400,
                 height: 24 / 16,
                 color: const Color(0xFF434655),
@@ -172,7 +206,44 @@ class ParentPaymentSuccessfulScreen extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
+
+          // Transaction details box
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                children: [
+                  _buildReceiptRow('Program:', courseName),
+                  const SizedBox(height: 6),
+                  _buildReceiptRow('Student:', studentName),
+                  const SizedBox(height: 6),
+                  _buildReceiptRow('Date:', formattedDate),
+                  if (txnRef != null && txnRef.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    _buildReceiptRow('Reference:', txnRef),
+                  ],
+                  const SizedBox(height: 6),
+                  _buildReceiptRow(
+                    'Status:',
+                    isAwaiting ? 'Awaiting Verification' : 'Verified & Active',
+                    highlightColor: isAwaiting
+                        ? const Color(0xFFB45309)
+                        : const Color(0xFF15803D),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 28),
 
           // Actions Column (Node 104:306)
           Padding(
@@ -181,9 +252,9 @@ class ParentPaymentSuccessfulScreen extends StatelessWidget {
               children: [
                 // Primary Button: "Back to Invoices" (Node 104:307)
                 GestureDetector(
+                  key: const Key('payment_success_back_to_invoices_button'),
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
-                    // Navigate back to Invoices list
                     context.go(AppRoutePaths.parentInvoices);
                   },
                   child: Container(
@@ -217,20 +288,16 @@ class ParentPaymentSuccessfulScreen extends StatelessWidget {
 
                 const SizedBox(height: 12),
 
-                // Outlined Button: "View Receipt" (Node 104:309)
+                // Outlined Button: "Go to Dashboard"
                 GestureDetector(
+                  key: const Key('payment_success_dashboard_button'),
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
-                    // Return to invoice detail
-                    if (Navigator.of(context).canPop()) {
-                      Navigator.of(context).pop();
-                    } else {
-                      context.pop();
-                    }
+                    context.go(AppRoutePaths.parentDashboard);
                   },
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
@@ -241,7 +308,7 @@ class ParentPaymentSuccessfulScreen extends StatelessWidget {
                     ),
                     child: Center(
                       child: Text(
-                        'View Receipt',
+                        'Go to Dashboard',
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
@@ -257,9 +324,42 @@ class ParentPaymentSuccessfulScreen extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 46),
+          const SizedBox(height: 32),
         ],
       ),
+    );
+  }
+
+  Widget _buildReceiptRow(
+    String label,
+    String value, {
+    Color? highlightColor,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF64748B),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: highlightColor ?? const Color(0xFF1E293B),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

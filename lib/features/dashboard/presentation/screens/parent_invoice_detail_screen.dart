@@ -1,44 +1,147 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/widgets/app_refresh_indicator.dart';
 import '../../../../core/router/route_paths.dart';
+import '../../../../core/widgets/app_refresh_indicator.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../auth/presentation/controllers/auth_state.dart';
+import '../../../finance/domain/entities/invoice_entity.dart';
+import '../../../finance/presentation/controllers/finance_controller.dart';
 import 'parent_payment_successful_screen.dart';
 
-/// Parent Invoice Detail Screen — PURE FRONTEND ONLY.
+/// Parent Invoice Detail Screen displaying real invoice details and supporting payment.
 ///
 /// Figma Source of Truth: `Parent(full app)_TreLern`, Frame: `Invoice Detail` (Node 104:198).
-/// Displays the exact Figma design:
 /// - Top App Bar: Back button and centered title "Invoice Detail" (Node 104:209)
 /// - Background: Linear gradient (Lavender -> Sky Blue -> White)
 /// - Invoice Card (Node 104:217):
 ///   - Top decorative accent: Blue to rose horizontal gradient bar (Node 104:293)
-///   - Header: "INVOICE NUMBER", "#TL-2026-0018", and "Unpaid" badge (Node 104:218)
-///   - Dates: Issued Date (Aug 15, 2026), Due Date (Sep 15, 2026) (Node 104:228)
-///   - Details: Billed To (Sarah Jenkins), Student & Program (Mia, Emotional Intelligence) (Node 104:237)
-///   - Breakdown: Program Fee ($299.00), Discount (-$50.00), Tax ($0.00), Total ($249.00), Amount Paid (-$100.00) (Node 104:257)
-///   - Total Due box: "Balance Due" & "$149.00" (Node 104:288)
+///   - Header: "INVOICE NUMBER", real number, and status badge (Node 104:218)
+///   - Dates: Issued Date, Due Date (Node 104:228)
+///   - Details: Billed To, Student & Program (Node 104:237)
+///   - Breakdown: Program Fee, Discount, Tax, Total, Amount Paid (Node 104:257)
+///   - Total Due box: "Balance Due" & real balance (Node 104:288)
 /// - Bottom Action Buttons (Node 104:199):
-///   - Primary Button: "Pay $149.00" with credit card icon
-///   - Outlined Button: "Download Invoice" with download icon
-///
-/// STRICT RULES:
-/// - Zero backend calls / Zero API calls / Pure static frontend
-/// - No bottom navigation bar (matching Figma Node 104:198)
-class ParentInvoiceDetailScreen extends StatelessWidget {
-  const ParentInvoiceDetailScreen({super.key});
+///   - Primary Button: "Pay $X.XX" (or "Paid" if settled)
+///   - Outlined Button: "Download Invoice"
+class ParentInvoiceDetailScreen extends ConsumerStatefulWidget {
+  const ParentInvoiceDetailScreen({
+    super.key,
+    this.invoice,
+    this.invoiceId,
+  });
 
-  static const _svgCard = 'assets/icons/inv_detail_card.svg';
+  final InvoiceEntity? invoice;
+  final String? invoiceId;
+
+  @override
+  ConsumerState<ParentInvoiceDetailScreen> createState() =>
+      _ParentInvoiceDetailScreenState();
+}
+
+class _ParentInvoiceDetailScreenState
+    extends ConsumerState<ParentInvoiceDetailScreen> {
   static const _svgDownload = 'assets/icons/inv_detail_download.svg';
   static const _svgBackArrow = 'assets/icons/inv_detail_back.svg';
   static const _svgUnpaid = 'assets/icons/inv_detail_unpaid.svg';
   static const _svgHeart = 'assets/icons/inv_detail_heart.svg';
-  static const _svgDiscount = 'assets/icons/inv_detail_discount.svg';
+
+  InvoiceEntity? _invoice;
+  bool _isProcessingPayment = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _invoice = widget.invoice;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_invoice == null) {
+        _resolveInvoice();
+      }
+    });
+  }
+
+  void _resolveInvoice() {
+    final financeState = ref.read(financeControllerProvider);
+    if (financeState is FinanceLoaded) {
+      final found = financeState.invoices
+          .where(
+            (i) => i.id == widget.invoiceId || i.invoiceNumber == widget.invoiceId,
+          )
+          .firstOrNull;
+      if (found != null && mounted) {
+        setState(() {
+          _invoice = found;
+        });
+      }
+    }
+  }
+
+  Future<void> _handlePayment(InvoiceEntity invoice) async {
+    if (invoice.isPaid || invoice.amountDue <= 0.01) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This invoice is already paid in full.'),
+          backgroundColor: Color(0xFF15803D),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isProcessingPayment = true;
+    });
+
+    try {
+      final payment = await ref
+          .read(financeControllerProvider.notifier)
+          .processPayment(invoice);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isProcessingPayment = false;
+      });
+
+      // Navigate to Payment Successful screen with verified transaction details
+      context.push(
+        AppRoutePaths.paymentSuccessful,
+        extra: PaymentSuccessfulArgs(
+          invoiceNumber: invoice.invoiceNumber,
+          amountPaid: invoice.formattedDue,
+          courseName: invoice.courseName,
+          studentName: invoice.studentName ?? 'Ward',
+          transactionReference: payment?.transactionReference,
+          paymentDate: payment?.paymentDate ?? DateTime.now(),
+          isAwaitingAdminVerification: false,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessingPayment = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment failed: $e'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Current invoice resolution
+    final invoice = _invoice ?? widget.invoice;
+    final authState = ref.watch(authControllerProvider);
+    final parentName = (authState is Authenticated && authState.user != null)
+        ? (authState.user!.name ?? 'Parent / Guardian')
+        : 'Parent / Guardian';
+
     return Scaffold(
       key: const Key('parent_invoice_detail_screen'),
       body: Container(
@@ -59,7 +162,6 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
         child: SafeArea(
           child: Stack(
             children: [
-              // Scrollable Main Content Column (Node 104:216)
               Column(
                 children: [
                   // Top App Bar (Node 104:209)
@@ -69,9 +171,10 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
                   Expanded(
                     child: AppRefreshIndicator(
                       onRefresh: () async {
-                        await Future<void>.delayed(
-                          const Duration(milliseconds: 600),
-                        );
+                        await ref
+                            .read(financeControllerProvider.notifier)
+                            .loadFinance();
+                        _resolveInvoice();
                       },
                       child: SingleChildScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
@@ -79,7 +182,9 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
                         child: Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 448),
-                            child: _buildInvoiceCard(),
+                            child: invoice != null
+                                ? _buildInvoiceCard(invoice, parentName)
+                                : _buildLoadingOrFallbackCard(),
                           ),
                         ),
                       ),
@@ -89,12 +194,13 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
               ),
 
               // Fixed Bottom Action Buttons (Node 104:199)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _buildBottomActionButtons(context),
-              ),
+              if (invoice != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _buildBottomActionButtons(context, invoice),
+                ),
             ],
           ),
         ),
@@ -102,16 +208,16 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
     );
   }
 
-  /// Top App Bar matching Figma Node 104:209 & 104:210
+  /// Top App Bar matching Figma Node 104:209
   Widget _buildTopHeader(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: const BoxDecoration(
-        color: Color(0xCCFFFFFF), // rgba(255, 255, 255, 0.8)
+        color: Color(0xCCFFFFFF),
         boxShadow: [
           BoxShadow(
-            color: Color(0x0D000000), // rgba(0, 0, 0, 0.05)
+            color: Color(0x0D000000),
             blurRadius: 2,
             offset: Offset(0, 1),
           ),
@@ -119,8 +225,8 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Back button (Node 104:211)
           InkWell(
+            key: const Key('invoice_detail_back_button'),
             borderRadius: BorderRadius.circular(9999),
             onTap: () {
               if (context.canPop()) {
@@ -134,8 +240,6 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
               child: SvgPicture.asset(_svgBackArrow, width: 16, height: 16),
             ),
           ),
-
-          // Centered Title "Invoice Detail" (Node 104:215)
           Expanded(
             child: Center(
               child: Text(
@@ -149,8 +253,6 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          // Symmetry balancing box matching back button width
           const SizedBox(width: 32),
         ],
       ),
@@ -158,15 +260,19 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
   }
 
   /// Main Invoice Card matching Figma Node 104:217
-  Widget _buildInvoiceCard() {
+  Widget _buildInvoiceCard(InvoiceEntity invoice, String parentName) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xE6FFFFFF),
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0x80FFFFFF),
+          width: 1,
+        ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0A000000), // rgba(0, 0, 0, 0.04)
+            color: Color(0x0A000000),
             blurRadius: 20,
             offset: Offset(0, 4),
           ),
@@ -177,45 +283,36 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Decorative accent bar (Node 104:293): 8px height, gradient #0037B1 to #FB7185
+            // Top Accent Horizontal Gradient Bar (Node 104:293)
             Container(
-              height: 8,
               width: double.infinity,
+              height: 4,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF0037B1), Color(0xFFFB7185)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Color(0xFF2563EB),
+                    Color(0xFFF43F5E),
+                  ],
                 ),
               ),
             ),
 
-            // Card body padding 24px
             Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(25, 25, 25, 25),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Invoice Header Row (Node 104:218)
-                  _buildInvoiceHeader(),
-
+                  _buildInvoiceHeader(invoice),
                   const SizedBox(height: 24),
-
-                  // Dates Row (Node 104:228)
-                  _buildDatesRow(),
-
+                  _buildDatesRow(invoice),
                   const SizedBox(height: 24),
-
-                  // Details Box (Node 104:237)
-                  _buildDetailsBox(),
-
+                  _buildDetailsSection(invoice, parentName),
                   const SizedBox(height: 24),
-
-                  // Breakdown Section (Node 104:257)
-                  _buildBreakdownSection(),
-
+                  _buildBreakdownSection(invoice),
                   const SizedBox(height: 24),
-
-                  // Total Due Box (Node 104:288)
-                  _buildTotalDueBox(),
+                  _buildTotalDueBox(invoice),
                 ],
               ),
             ),
@@ -226,129 +323,67 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
   }
 
   /// Header with Invoice Number and Status Badge (Node 104:218)
-  Widget _buildInvoiceHeader() {
-    return Container(
-      padding: const EdgeInsets.only(bottom: 25),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE2E1ED), width: 1)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Invoice Number column (Node 104:219)
-          Column(
+  Widget _buildInvoiceHeader(InvoiceEntity invoice) {
+    final isPaid = invoice.isPaid;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'INVOICE NUMBER',
                 style: GoogleFonts.hankenGrotesk(
-                  fontSize: 17,
-                  fontWeight: FontWeight.normal,
-                  letterSpacing: 0.8,
-                  height: 24 / 16,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.6,
                   color: const Color(0xFF747686),
                 ),
               ),
-              const SizedBox(height: 4.5),
+              const SizedBox(height: 4),
               Text(
-                '#TL-2026-0018',
+                invoice.invoiceNumber,
                 style: GoogleFonts.hankenGrotesk(
-                  fontSize: 17,
-                  fontWeight: FontWeight.normal,
-                  height: 24 / 16,
+                  fontSize: 21.5,
+                  fontWeight: FontWeight.w600,
                   color: const Color(0xFF1A1B23),
                 ),
               ),
             ],
           ),
-
-          // Unpaid status pill badge (Node 104:224)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8E7F3),
-              borderRadius: BorderRadius.circular(9999),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SvgPicture.asset(
-                  _svgUnpaid,
-                  width: 12.67,
-                  height: 14,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Unpaid',
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 17,
-                    fontWeight: FontWeight.normal,
-                    height: 24 / 16,
-                    color: const Color(0xFF1A1B23),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Dates Row matching Figma Node 104:228
-  Widget _buildDatesRow() {
-    return Row(
-      children: [
-        // Issued Date (Node 104:229)
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Issued Date',
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: 17,
-                  fontWeight: FontWeight.normal,
-                  height: 24 / 16,
-                  color: const Color(0xFF747686),
-                ),
-              ),
-              Text(
-                'Aug 15, 2026',
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w500,
-                  height: 24 / 16,
-                  color: const Color(0xFF434655),
-                ),
-              ),
-            ],
-          ),
         ),
+        const SizedBox(width: 8),
 
-        // Due Date (Node 104:233)
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        // Status Badge (Paid vs Unpaid)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: isPaid
+                ? const Color(0x3310B981)
+                : const Color(0x1AF59E0B),
+            borderRadius: BorderRadius.circular(9999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'Due Date',
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: 17,
-                  fontWeight: FontWeight.normal,
-                  height: 24 / 16,
-                  color: const Color(0xFF747686),
-                ),
+              SvgPicture.asset(
+                isPaid ? 'assets/icons/inv_paid_check.svg' : _svgUnpaid,
+                width: 14,
+                height: 14,
+                fit: BoxFit.contain,
               ),
+              const SizedBox(width: 4),
               Text(
-                'Sep 15, 2026',
+                isPaid ? 'Paid' : 'Unpaid',
                 style: GoogleFonts.hankenGrotesk(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w500,
-                  height: 24 / 16,
-                  color: const Color(0xFF434655),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isPaid
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFF59E0B),
                 ),
               ),
             ],
@@ -358,245 +393,194 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
     );
   }
 
-  /// Details Box matching Figma Node 104:237
-  Widget _buildDetailsBox() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFAF8FF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0x80E2E1ED), // rgba(226, 225, 237, 0.5)
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Billed To section (Node 104:238)
-          Text(
-            'Billed To',
-            style: GoogleFonts.hankenGrotesk(
-              fontSize: 17,
-              fontWeight: FontWeight.normal,
-              height: 24 / 16,
-              color: const Color(0xFF747686),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Sarah Jenkins',
-            style: GoogleFonts.hankenGrotesk(
-              fontSize: 17,
-              fontWeight: FontWeight.normal,
-              height: 24 / 16,
-              color: const Color(0xFF1A1B23),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Horizontal Divider (Node 104:243)
-          Container(
-            height: 1,
-            width: double.infinity,
-            color: const Color(0x80E2E1ED),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Student & Program section (Node 104:244)
-          Text(
-            'Student & Program',
-            style: GoogleFonts.hankenGrotesk(
-              fontSize: 17,
-              fontWeight: FontWeight.normal,
-              height: 24 / 16,
-              color: const Color(0xFF747686),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          Row(
+  /// Dates Row: Issued Date & Due Date (Node 104:228)
+  Widget _buildDatesRow(InvoiceEntity invoice) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Purple circle avatar with 'M' (Node 104:248)
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF8A4CFC),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  'M',
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+              Text(
+                'ISSUED DATE',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.6,
+                  color: const Color(0xFF747686),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(height: 4),
+              Text(
+                invoice.formattedIssueDate,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1A1B23),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'DUE DATE',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.6,
+                  color: const Color(0xFF747686),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                invoice.formattedDueDate,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: invoice.isPaid
+                      ? const Color(0xFF1A1B23)
+                      : const Color(0xFFBA1A1A),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
-              // Student name and program tag column (Node 104:250)
-              Column(
+  /// Details: Billed To, Student & Program (Node 104:237)
+  Widget _buildDetailsSection(InvoiceEntity invoice, String parentName) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'BILLED TO',
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.6,
+            color: const Color(0xFF747686),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          parentName,
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1A1B23),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'STUDENT & PROGRAM',
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.6,
+            color: const Color(0xFF747686),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: const Color(0x1AFB7185),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: SvgPicture.asset(
+                _svgHeart,
+                width: 14,
+                height: 13,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Mia',
+                    invoice.studentName ?? 'Ward',
                     style: GoogleFonts.hankenGrotesk(
-                      fontSize: 17,
-                      fontWeight: FontWeight.normal,
-                      height: 20 / 16,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                       color: const Color(0xFF1A1B23),
                     ),
                   ),
-                  const SizedBox(height: 4),
-
-                  // Tag: Emotional Intelligence (Node 104:253)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(
-                        0x1AFB7185,
-                      ), // rgba(251, 113, 133, 0.1)
-                      borderRadius: BorderRadius.circular(9999),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SvgPicture.asset(
-                          _svgHeart,
-                          width: 11.67,
-                          height: 10.7,
-                          fit: BoxFit.contain,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Emotional Intelligence',
-                          style: GoogleFonts.hankenGrotesk(
-                            fontSize: 17,
-                            fontWeight: FontWeight.normal,
-                            height: 24 / 16,
-                            color: const Color(0xFFFB7185),
-                          ),
-                        ),
-                      ],
+                  Text(
+                    invoice.courseName,
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 13,
+                      fontWeight: FontWeight.normal,
+                      color: const Color(0xFF434655),
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Breakdown Section matching Figma Node 104:257
-  Widget _buildBreakdownSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Program Fee
-        _buildBreakdownRow(
-          label: 'Program Fee',
-          value: '\$299.00',
-          labelColor: const Color(0xFF434655),
-          valueColor: const Color(0xFF434655),
-        ),
-
-        const SizedBox(height: 11.5),
-
-        // Discount with icon
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                SvgPicture.asset(
-                  _svgDiscount,
-                  width: 13.32,
-                  height: 13.33,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Discount',
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 17,
-                    fontWeight: FontWeight.normal,
-                    height: 24 / 16,
-                    color: const Color(0xFFFB7185),
-                  ),
-                ),
-              ],
-            ),
-            Text(
-              '-\$50.00',
-              style: GoogleFonts.hankenGrotesk(
-                fontSize: 17,
-                fontWeight: FontWeight.normal,
-                height: 24 / 16,
-                color: const Color(0xFFFB7185),
-              ),
             ),
           ],
-        ),
-
-        const SizedBox(height: 11.5),
-
-        // Tax
-        _buildBreakdownRow(
-          label: 'Tax',
-          value: '\$0.00',
-          labelColor: const Color(0xFF434655),
-          valueColor: const Color(0xFF434655),
-        ),
-
-        const SizedBox(height: 8),
-
-        // Divider
-        Container(
-          height: 1,
-          width: double.infinity,
-          color: const Color(0xFFE2E1ED),
-        ),
-
-        const SizedBox(height: 8),
-
-        // Total
-        _buildBreakdownRow(
-          label: 'Total',
-          value: '\$249.00',
-          labelColor: const Color(0xFF1A1B23),
-          valueColor: const Color(0xFF1A1B23),
-        ),
-
-        const SizedBox(height: 11.5),
-
-        // Amount Paid
-        _buildBreakdownRow(
-          label: 'Amount Paid',
-          value: '-\$100.00',
-          labelColor: const Color(0xFF434655),
-          valueColor: const Color(0xFF434655),
         ),
       ],
     );
   }
 
-  /// Single Breakdown Row helper
-  Widget _buildBreakdownRow({
-    required String label,
-    required String value,
-    required Color labelColor,
-    required Color valueColor,
+  /// Breakdown Section (Node 104:257)
+  Widget _buildBreakdownSection(InvoiceEntity invoice) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'BREAKDOWN',
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.6,
+            color: const Color(0xFF747686),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildBreakdownRow('Program Fee', invoice.formattedBase),
+        if (invoice.discountAmount > 0) ...[
+          const SizedBox(height: 8),
+          _buildBreakdownRow(
+            'Discount',
+            invoice.formattedDiscount,
+            textColor: const Color(0xFF15803D),
+          ),
+        ],
+        if (invoice.taxAmount > 0) ...[
+          const SizedBox(height: 8),
+          _buildBreakdownRow('Tax (5%)', invoice.formattedTax),
+        ],
+        const SizedBox(height: 8),
+        _buildBreakdownRow('Total Invoiced', invoice.formattedTotal, isBold: true),
+        if (invoice.amountPaid > 0) ...[
+          const SizedBox(height: 8),
+          _buildBreakdownRow(
+            'Amount Paid',
+            '-${invoice.formattedPaid}',
+            textColor: const Color(0xFF15803D),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildBreakdownRow(
+    String label,
+    String amount, {
+    Color? textColor,
+    bool isBold = false,
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -604,57 +588,56 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
         Text(
           label,
           style: GoogleFonts.hankenGrotesk(
-            fontSize: 17,
-            fontWeight: FontWeight.normal,
-            height: 24 / 16,
-            color: labelColor,
+            fontSize: 14,
+            fontWeight: isBold ? FontWeight.w600 : FontWeight.w400,
+            color: isBold ? const Color(0xFF1A1B23) : const Color(0xFF434655),
           ),
         ),
         Text(
-          value,
+          amount,
           style: GoogleFonts.hankenGrotesk(
-            fontSize: 17,
-            fontWeight: FontWeight.normal,
-            height: 24 / 16,
-            color: valueColor,
+            fontSize: 14,
+            fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+            color: textColor ??
+                (isBold ? const Color(0xFF1A1B23) : const Color(0xFF1A1B23)),
           ),
         ),
       ],
     );
   }
 
-  /// Total Due Box matching Figma Node 104:288
-  Widget _buildTotalDueBox() {
+  /// Total Due Box (Node 104:288)
+  Widget _buildTotalDueBox(InvoiceEntity invoice) {
+    final isPaid = invoice.isPaid;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(17),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0x1A1E4ED8), // rgba(30, 78, 216, 0.1)
+        color: isPaid ? const Color(0xFFDCFCE7) : const Color(0xFFEFF6FF),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0x331E4ED8), // rgba(30, 78, 216, 0.2)
-          width: 1,
+          color: isPaid ? const Color(0xFF86EFAC) : const Color(0xFFBFDBFE),
         ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            'Balance Due',
+            isPaid ? 'STATUS' : 'BALANCE DUE',
             style: GoogleFonts.hankenGrotesk(
-              fontSize: 17,
-              fontWeight: FontWeight.normal,
-              height: 24 / 16,
-              color: const Color(0xFF0037B1),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+              color: isPaid ? const Color(0xFF166534) : const Color(0xFF1E4ED8),
             ),
           ),
           Text(
-            '\$149.00',
+            isPaid ? 'Paid in Full' : invoice.formattedDue,
             style: GoogleFonts.hankenGrotesk(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              height: 24 / 16,
-              color: const Color(0xFF0037B1),
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: isPaid ? const Color(0xFF166534) : const Color(0xFF1E4ED8),
             ),
           ),
         ],
@@ -662,129 +645,191 @@ class ParentInvoiceDetailScreen extends StatelessWidget {
     );
   }
 
-  /// Fixed Bottom Action Buttons matching Figma Node 104:199
-  Widget _buildBottomActionButtons(BuildContext context) {
+  /// Bottom Action Buttons matching Figma Node 104:199
+  Widget _buildBottomActionButtons(
+    BuildContext context,
+    InvoiceEntity invoice,
+  ) {
+    final isPaid = invoice.isPaid;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 17, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       decoration: const BoxDecoration(
-        color: Color(0xE6FFFFFF), // rgba(255, 255, 255, 0.9)
-        border: Border(
-          top: BorderSide(
-            color: Color(0x80E2E1ED), // rgba(226, 225, 237, 0.5)
-            width: 1,
-          ),
-        ),
+        color: Color(0xCCFFFFFF),
         boxShadow: [
           BoxShadow(
-            color: Color(0x0A000000), // rgba(0, 0, 0, 0.04)
-            blurRadius: 20,
-            offset: Offset(0, -4),
+            color: Color(0x0D000000),
+            blurRadius: 10,
+            offset: Offset(0, -2),
           ),
         ],
       ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 448),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Primary "Pay $149.00" Button (Node 104:201)
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  try {
-                    context.push(AppRoutePaths.paymentSuccessful);
-                  } catch (_) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ParentPaymentSuccessfulScreen(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Primary Pay / Paid Button
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              key: const Key('invoice_detail_pay_button'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isPaid
+                    ? const Color(0xFF15803D)
+                    : const Color(0xFF1E4ED8),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
+              ),
+              onPressed: _isProcessingPayment || isPaid
+                  ? null
+                  : () => _handlePayment(invoice),
+              child: _isProcessingPayment
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.5,
                       ),
-                    );
-                  }
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0037B1),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x0D000000), // rgba(0, 0, 0, 0.05)
-                        blurRadius: 1,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SvgPicture.asset(
-                        _svgCard,
-                        width: 16.67,
-                        height: 13.33,
-                        fit: BoxFit.contain,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Pay \$149.00',
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          height: 24 / 16,
-                          color: Colors.white,
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isPaid
+                              ? Icons.check_circle_outline
+                              : Icons.credit_card_outlined,
+                          size: 20,
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isPaid ? 'Invoice Paid' : 'Pay ${invoice.formattedDue}',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Outlined "Download Invoice" Button
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              key: const Key('invoice_detail_download_button'),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFC4C5D7), width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-
-              const SizedBox(height: 12),
-
-              // Outlined "Download Invoice" Button (Node 104:205)
-              InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () {
-                  // Frontend-only action
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF747686),
-                      width: 2,
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Downloading invoice #${invoice.invoiceNumber}...',
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SvgPicture.asset(
-                        _svgDownload,
-                        width: 13.33,
-                        height: 13.33,
-                        fit: BoxFit.contain,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Download Invoice',
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          height: 24 / 16,
-                          color: const Color(0xFF434655),
-                        ),
-                      ),
-                    ],
-                  ),
+                );
+              },
+              icon: SvgPicture.asset(
+                _svgDownload,
+                width: 16,
+                height: 16,
+                fit: BoxFit.contain,
+              ),
+              label: Text(
+                'Download Invoice',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF0037B1),
                 ),
               ),
-            ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingOrFallbackCard() {
+    final financeState = ref.watch(financeControllerProvider);
+    final isLoaded = financeState is FinanceLoaded;
+
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Center(
+        child: Column(
+          children: [
+            if (!isLoaded) ...[
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Loading invoice details...',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 15,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ] else ...[
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: Color(0xFFDC2626),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Invoice Not Found',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Unable to retrieve the requested billing record.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 14,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                key: const Key('invoice_detail_return_button'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E4ED8),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go(AppRoutePaths.parentInvoices);
+                  }
+                },
+                child: const Text('Return to Invoices'),
+              ),
+            ],
+          ],
         ),
       ),
     );

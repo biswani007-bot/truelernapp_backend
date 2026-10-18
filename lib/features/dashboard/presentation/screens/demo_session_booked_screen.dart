@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/router/route_paths.dart';
+import '../../domain/entities/child_entity.dart';
 import '../../domain/entities/demo_booking_entity.dart';
 import '../controllers/children_controller.dart';
 import '../controllers/children_state.dart';
@@ -89,6 +90,71 @@ class _DemoSessionBookedScreenState
           _errorMessage = 'No active demo session found on your account.';
         }
       });
+    }
+  }
+
+  void _handleGoToDemoClass() {
+    if (_booking == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Demo booking information is loading or unavailable.'),
+          backgroundColor: Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _resolveBookingData();
+      return;
+    }
+
+    final booking = _booking!;
+    final now = DateTime.now();
+
+    // Preserve authoritative child participant context
+    final childrenState = ref.read(childrenControllerProvider);
+    final linkedChildren = childrenState is ChildrenLoaded
+        ? childrenState.children
+        : <ChildEntity>[];
+    final authoritativeChild = resolveAuthoritativeStudent(
+      booking: booking,
+      linkedChildren: linkedChildren,
+    );
+    final resolvedStudentName = authoritativeChild?.displayName ??
+        booking.studentName ??
+        (childrenState is ChildrenLoaded && childrenState.activeChild != null
+            ? childrenState.activeChild!.displayName
+            : null);
+    final resolvedStudentId =
+        authoritativeChild?.studentId ?? booking.studentId;
+
+    final contextualBooking = DemoBookingEntity(
+      bookingId: booking.bookingId,
+      liveClassId: booking.liveClassId,
+      demoCode: booking.demoCode,
+      courseName: booking.courseName,
+      studentName: resolvedStudentName,
+      studentId: resolvedStudentId,
+      studentCode: authoritativeChild?.studentCode ?? booking.studentCode,
+      startDateTime: booking.startDateTime,
+      endDateTime: booking.endDateTime,
+      teacherName: booking.teacherName,
+      teacherStatus: booking.teacherStatus,
+      status: booking.status,
+      meetingUrl: booking.meetingUrl,
+      joinEligible: booking.joinEligible,
+      duration: booking.duration,
+    );
+
+    // Reliable Session Time Gate
+    if (contextualBooking.isTooEarly(now)) {
+      context.push(
+        AppRoutePaths.demoClassWaiting,
+        extra: contextualBooking,
+      );
+    } else {
+      context.push(
+        AppRoutePaths.demoClassPreJoin,
+        extra: contextualBooking,
+      );
     }
   }
 
@@ -430,18 +496,34 @@ class _DemoSessionBookedScreenState
 
           const SizedBox(height: 24.0),
 
-          // 6. Action Button: Return to Dashboard
+          // 6. Action Button: Go to Demo Class
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: _buildPrimaryButton(
-              label: 'Go to Dashboard',
-              onTap: () {
-                context.go(AppRoutePaths.parentDashboard);
-              },
+              label: 'Go to Demo Class',
+              onTap: _handleGoToDemoClass,
             ),
           ),
 
-          const SizedBox(height: 24.0),
+          const SizedBox(height: 12.0),
+
+          // Secondary Action: Return to Dashboard
+          TextButton(
+            key: const Key('demo_booked_return_dashboard_button'),
+            onPressed: () {
+              context.go(AppRoutePaths.parentDashboard);
+            },
+            child: Text(
+              'Return to Dashboard',
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 14.0,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16.0),
         ],
       ),
     );

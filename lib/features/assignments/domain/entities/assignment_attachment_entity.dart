@@ -22,7 +22,13 @@ class AssignmentAttachmentEntity {
           json['name']?.toString() ??
           json['title']?.toString() ??
           'Attachment',
-      fileUrl: json['fileUrl']?.toString() ?? json['url']?.toString() ?? '',
+      fileUrl:
+          json['fileUrl']?.toString() ??
+          json['url']?.toString() ??
+          json['path']?.toString() ??
+          json['filePath']?.toString() ??
+          json['attachmentUrl']?.toString() ??
+          '',
       fileSize:
           (json['fileSize'] as num?)?.toInt() ??
           (json['size'] as num?)?.toInt() ??

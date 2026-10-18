@@ -31,6 +31,105 @@ class AttachmentViewerScreen extends ConsumerStatefulWidget {
     this.assignmentTitle = 'Assignment',
   });
 
+  /// Validates whether a remote host is a trusted TrueLern service or environment.
+  @visibleForTesting
+  static bool isTrustedHost(String host, String baseHost) {
+    final lowerHost = host.toLowerCase();
+    final lowerBase = baseHost.toLowerCase();
+
+    if (lowerHost == lowerBase) return true;
+    if (lowerHost.endsWith('.truelern.com') || lowerHost == 'truelern.com') {
+      return true;
+    }
+    if (lowerHost.endsWith('.truelern.in') || lowerHost == 'truelern.in') {
+      return true;
+    }
+    if (lowerHost.endsWith('.visital.in') || lowerHost == 'visital.in') {
+      return true;
+    }
+    if (lowerHost == 'localhost' ||
+        lowerHost == '127.0.0.1' ||
+        lowerHost == '10.0.2.2') {
+      return true;
+    }
+    return false;
+  }
+
+  /// Authoritatively resolves raw attachment paths or URLs against the configured backend base URL.
+  @visibleForTesting
+  static String? resolveAttachmentUrl(String fileUrl, String baseApiUrl) {
+    final trimmed = fileUrl.trim();
+    if (trimmed.isEmpty) return null;
+
+    // 1. Preserve valid absolute URLs (HTTP or HTTPS)
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      final uri = Uri.tryParse(trimmed);
+      if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+        return null;
+      }
+      final baseUri = Uri.tryParse(baseApiUrl);
+      if (baseUri != null && !isTrustedHost(uri.host, baseUri.host)) {
+        // Prevent downloading from untrusted remote hosts
+        return null;
+      }
+      return uri.toString();
+    }
+
+    // 2. Parse the base API URL to determine server origin and base path
+    final baseUri = Uri.tryParse(baseApiUrl);
+    if (baseUri == null || !baseUri.hasScheme || baseUri.host.isEmpty) {
+      return null;
+    }
+
+    // Server origin (e.g., "https://truelern.visital.in" from "https://truelern.visital.in/api")
+    final serverOrigin = baseUri.origin;
+
+    // Base API path without trailing slash (e.g. "/api")
+    final baseApiPath = baseUri.path.endsWith('/')
+        ? baseUri.path.substring(0, baseUri.path.length - 1)
+        : baseUri.path;
+
+    // Normalize relative path
+    final pathWithoutLeadingSlash = trimmed.startsWith('/')
+        ? trimmed.substring(1)
+        : trimmed;
+
+    String resolved;
+
+    // Check if relative path already contains the "api" prefix (e.g. "/api/..." or "api/...")
+    if (pathWithoutLeadingSlash.startsWith('api/') ||
+        pathWithoutLeadingSlash == 'api') {
+      resolved = '$serverOrigin/$pathWithoutLeadingSlash';
+    }
+    // Check if the relative path points to static uploads (e.g. "/uploads/..." or "uploads/...")
+    else if (pathWithoutLeadingSlash.startsWith('uploads/') ||
+        pathWithoutLeadingSlash == 'uploads') {
+      resolved = '$serverOrigin/$pathWithoutLeadingSlash';
+    }
+    // Root-relative path (e.g. "/files/...", "/static/...") -> resolve against server root origin
+    else if (trimmed.startsWith('/')) {
+      resolved = '$serverOrigin$trimmed';
+    }
+    // Standard relative API path -> resolve against configured base API URL
+    else {
+      final normalizedBase = '$serverOrigin$baseApiPath';
+      resolved = '$normalizedBase/$pathWithoutLeadingSlash';
+    }
+
+    // Safely encode URI without double-encoding existing percent escapes or breaking query parameters
+    try {
+      final parsedUri = Uri.parse(resolved);
+      return parsedUri.toString();
+    } catch (_) {
+      try {
+        final parsedUri = Uri.parse(Uri.encodeFull(resolved));
+        return parsedUri.toString();
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
   @override
   ConsumerState<AttachmentViewerScreen> createState() =>
       _AttachmentViewerScreenState();
@@ -91,27 +190,7 @@ class _AttachmentViewerScreenState
   }
 
   String? _resolveFullUrl(String fileUrl, String baseApiUrl) {
-    if (fileUrl.trim().isEmpty) return null;
-
-    final trimmed = fileUrl.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      final uri = Uri.tryParse(trimmed);
-      if (uri == null) return null;
-
-      final baseUri = Uri.tryParse(baseApiUrl);
-      if (baseUri != null && uri.host != baseUri.host) {
-        // Prevent downloading from untrusted remote hosts
-        return null;
-      }
-      return trimmed;
-    }
-
-    final normalizedBase = baseApiUrl.endsWith('/')
-        ? baseApiUrl.substring(0, baseApiUrl.length - 1)
-        : baseApiUrl;
-    final normalizedPath = trimmed.startsWith('/') ? trimmed : '/$trimmed';
-
-    return '$normalizedBase$normalizedPath';
+    return AttachmentViewerScreen.resolveAttachmentUrl(fileUrl, baseApiUrl);
   }
 
   Future<void> _loadAttachment() async {
@@ -273,6 +352,38 @@ class _AttachmentViewerScreenState
     }
   }
 
+  Future<void> _downloadToDeviceStorage() async {
+    if (_cachedFile == null || !await _cachedFile!.exists()) return;
+    try {
+      Directory? downloadsDir;
+      if (Platform.isAndroid) {
+        downloadsDir = Directory('/storage/emulated/0/Download');
+        if (!await downloadsDir.exists()) {
+          downloadsDir = await getExternalStorageDirectory();
+        }
+      } else {
+        downloadsDir = await getApplicationDocumentsDirectory();
+      }
+
+      if (downloadsDir != null) {
+        final destPath = '${downloadsDir.path}/${widget.attachment.fileName}';
+        await _cachedFile!.copy(destPath);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved to Downloads: ${widget.attachment.fileName}'),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      if (_cachedFile != null) {
+        _openWithExternalApp(_cachedFile!.path);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -314,8 +425,19 @@ class _AttachmentViewerScreenState
           ],
         ),
         actions: [
-          if (_cachedFile != null)
+          if (_cachedFile != null) ...[
             IconButton(
+              key: const Key('attachment_download_button'),
+              tooltip: 'Save to device',
+              icon: const Icon(
+                Icons.download_rounded,
+                color: Color(0xFF0037B1),
+                size: 22,
+              ),
+              onPressed: _downloadToDeviceStorage,
+            ),
+            IconButton(
+              key: const Key('attachment_open_external_button'),
               tooltip: 'Open in external app',
               icon: const Icon(
                 Icons.open_in_new_rounded,
@@ -324,6 +446,7 @@ class _AttachmentViewerScreenState
               ),
               onPressed: () => _openWithExternalApp(_cachedFile!.path),
             ),
+          ],
         ],
       ),
       body: SafeArea(child: _buildBody()),

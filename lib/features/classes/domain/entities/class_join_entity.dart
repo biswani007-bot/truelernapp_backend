@@ -47,4 +47,48 @@ class ClassJoinEntity {
 
   /// Title of the live class session.
   final String? classTitle;
+
+  /// Whether the classroom token has expired.
+  bool get isExpired {
+    if (expiresAt == null) return false;
+    final expiresMillis = expiresAt! < 10000000000
+        ? expiresAt! * 1000
+        : expiresAt!;
+    return DateTime.now().millisecondsSinceEpoch >= expiresMillis;
+  }
+
+  /// Whether this join credential payload has a non-empty token, room, and is unexpired.
+  bool get hasValidCredentials =>
+      token.trim().isNotEmpty && roomName.trim().isNotEmpty && !isExpired;
+
+  /// Resolves the authenticated Jitsi Meet URI including the `jwt` query parameter.
+  Uri get authenticatedMeetingUri {
+    final cleanDomain = jitsiDomain.trim().isNotEmpty
+        ? jitsiDomain.replaceAll(RegExp(r'^https?:\/\/'), '').split('/').first
+        : 'livetl.visital.in';
+    final cleanRoom = roomName.trim().isNotEmpty
+        ? (roomName.startsWith('/') ? roomName.substring(1) : roomName)
+        : 'classroom';
+
+    if (meetingUrl.trim().isNotEmpty) {
+      final parsed = Uri.tryParse(meetingUrl.trim());
+      if (parsed != null && parsed.hasScheme) {
+        if (parsed.queryParameters.containsKey('jwt') &&
+            (parsed.queryParameters['jwt']?.isNotEmpty ?? false)) {
+          return parsed;
+        }
+        if (token.isNotEmpty) {
+          final newParams = Map<String, String>.from(parsed.queryParameters);
+          newParams['jwt'] = token;
+          return parsed.replace(queryParameters: newParams);
+        }
+      }
+    }
+
+    return Uri.https(
+      cleanDomain,
+      cleanRoom,
+      token.isNotEmpty ? {'jwt': token} : null,
+    );
+  }
 }

@@ -1,3 +1,7 @@
+import '../../../classes/domain/entities/class_entity.dart';
+import 'child_entity.dart';
+import 'demo_session_eligibility.dart';
+
 /// Domain entity representing a confirmed demo booking session.
 ///
 /// Encapsulates all verified fields returned by POST /api/parent/demo
@@ -11,6 +15,8 @@ class DemoBookingEntity {
     this.demoCode,
     this.studentName,
     this.studentId,
+    this.studentCode,
+    this.liveClassId,
     this.teacherName,
     this.teacherStatus,
     this.status = 'scheduled',
@@ -22,6 +28,9 @@ class DemoBookingEntity {
   /// Unique identifier of the demo booking / DemoSession record.
   final String bookingId;
 
+  /// Optional live-class session identifier if distinct from demo booking record.
+  final String? liveClassId;
+
   /// Human-readable booking reference code (e.g. "DEMO-847291").
   final String? demoCode;
 
@@ -31,8 +40,11 @@ class DemoBookingEntity {
   /// Full name of the linked child or student.
   final String? studentName;
 
-  /// ID of the student.
+  /// ID of the student (internal database identifier or code).
   final String? studentId;
+
+  /// Human-readable student code (e.g. "STU-00520397").
+  final String? studentCode;
 
   /// Scheduled start timestamp (UTC/ISO8601 converted to DateTime).
   final DateTime startDateTime;
@@ -146,6 +158,56 @@ class DemoBookingEntity {
   /// Formatted date and time: e.g. "Oct 17, 2026 at 8:00 PM".
   String get formattedDateTime => '$formattedShortDate at $formattedTime';
 
+  /// Session time gate eligibility instance.
+  DemoSessionEligibility get eligibility => DemoSessionEligibility(
+        startDateTime: startDateTime,
+        endDateTime: endDateTime,
+        durationMinutes: duration,
+        status: status,
+      );
+
+  /// Evaluates time-gate eligibility relative to [now].
+  DemoSessionTimeGateStatus evaluateEligibility([DateTime? now]) =>
+      eligibility.evaluate(now);
+
+  /// Whether the session is eligible for classroom entry right now.
+  bool canEnterDemoClass([DateTime? now]) => eligibility.canEnter(now);
+
+  /// Whether the session start is more than 15 minutes away.
+  bool isTooEarly([DateTime? now]) => eligibility.isTooEarly(now);
+
+  /// Whether the session has concluded.
+  bool isExpired([DateTime? now]) => eligibility.isExpired(now);
+
+  /// Remaining duration until the 15-minute joining window opens.
+  Duration remainingUntilWindowOpen([DateTime? now]) =>
+      eligibility.remainingUntilWindowOpen(now);
+
+  /// Effective live class session identifier for classroom SDK / join operation.
+  /// Prioritizes explicit [liveClassId] if available, otherwise uses [bookingId].
+  String get effectiveClassId =>
+      (liveClassId != null && liveClassId!.trim().isNotEmpty)
+          ? liveClassId!.trim()
+          : bookingId;
+
+  /// Converts this demo booking into a unified [ClassEntity] for classroom session handling.
+  ClassEntity toClassEntity() {
+    return ClassEntity(
+      id: effectiveClassId,
+      classCode: demoCode,
+      title: courseName,
+      subject: courseName,
+      scheduledStartTime: startDateTime,
+      scheduledEndTime:
+          endDateTime ?? startDateTime.add(Duration(minutes: duration)),
+      duration: duration,
+      status: status.toUpperCase(),
+      effectiveStatus: status.toLowerCase(),
+      teacherName: teacherName,
+      meetingUrl: meetingUrl,
+    );
+  }
+
   /// Factory deserializer converting backend API JSON responses into [DemoBookingEntity].
   factory DemoBookingEntity.fromJson(
     Map<String, dynamic> json, {
@@ -163,6 +225,19 @@ class DemoBookingEntity {
                 json['bookingId'] ??
                 '')
             .toString();
+
+    // Extract live class ID if distinct from demo ID
+    final liveClassIdVal = json['liveClassId']?.toString() ??
+        json['sessionId']?.toString() ??
+        json['classId']?.toString() ??
+        (json['liveClass'] is Map
+            ? json['liveClass']['_id']?.toString() ??
+                json['liveClass']['id']?.toString()
+            : null) ??
+        (json['session'] is Map
+            ? json['session']['_id']?.toString() ??
+                json['session']['id']?.toString()
+            : null);
 
     // Extract demo code
     final code =
@@ -191,6 +266,12 @@ class DemoBookingEntity {
         json['studentId']?.toString() ??
         (json['student'] is Map ? json['student']['_id']?.toString() : null) ??
         (json['student'] is String ? json['student'] : null);
+
+    final studentCodeVal =
+        json['studentCode']?.toString() ??
+        (json['student'] is Map
+            ? json['student']['studentCode']?.toString()
+            : null);
 
     // Parse start date time
     DateTime start = fallbackStartDateTime ?? DateTime.now();
@@ -259,10 +340,12 @@ class DemoBookingEntity {
       bookingId: id.isNotEmpty
           ? id
           : (code ?? 'DEMO-${DateTime.now().millisecondsSinceEpoch}'),
+      liveClassId: liveClassIdVal,
       demoCode: code,
       courseName: course,
       studentName: child,
       studentId: studentIdVal,
+      studentCode: studentCodeVal,
       startDateTime: start,
       endDateTime: end,
       teacherName: teacher,
@@ -273,4 +356,67 @@ class DemoBookingEntity {
       duration: dur,
     );
   }
+}
+
+/// Resolves the authoritative linked child matching the demo booking.
+///
+/// Governance:
+/// 1. Verifies that the student belongs to the authenticated parent's linked children.
+/// 2. Resolves the internal database identifier (e.g. MongoDB ObjectId) even when
+///    the booking or CRM specifies a human-readable student code (e.g., STU-00520397).
+/// 3. Prevents joining on behalf of an unrelated or stale active child.
+ChildEntity? resolveAuthoritativeStudent({
+  required DemoBookingEntity booking,
+  required List<ChildEntity> linkedChildren,
+}) {
+  if (linkedChildren.isEmpty) return null;
+
+  // 1. Direct match by internal database identifier
+  if (booking.studentId != null && booking.studentId!.isNotEmpty) {
+    for (final child in linkedChildren) {
+      if (child.studentId == booking.studentId) {
+        return child;
+      }
+    }
+  }
+
+  // 2. Match by human-readable student code (e.g., STU-00520397)
+  final candidateCode = booking.studentCode ??
+      (booking.studentId != null && booking.studentId!.startsWith('STU-')
+          ? booking.studentId
+          : null);
+  if (candidateCode != null) {
+    for (final child in linkedChildren) {
+      if (child.studentCode != null &&
+          child.studentCode!.toUpperCase() == candidateCode.toUpperCase()) {
+        return child;
+      }
+    }
+  }
+
+  // 3. Match by studentName / displayName (case-insensitive)
+  if (booking.studentName != null && booking.studentName!.trim().isNotEmpty) {
+    final targetName = booking.studentName!.trim().toLowerCase();
+    for (final child in linkedChildren) {
+      final childName = child.displayName.trim().toLowerCase();
+      if (childName == targetName) {
+        return child;
+      }
+      final first = child.firstName.trim().toLowerCase();
+      final last = (child.lastName ?? '').trim().toLowerCase();
+      if ('$first $last'.trim() == targetName) {
+        return child;
+      }
+      if (childName.contains(targetName) || targetName.contains(childName)) {
+        return child;
+      }
+    }
+  }
+
+  // 4. Fallback: If only one child is linked under this parent, that child is the authoritative ward
+  if (linkedChildren.length == 1) {
+    return linkedChildren.first;
+  }
+
+  return null;
 }

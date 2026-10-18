@@ -23,6 +23,15 @@ class AppConfig {
   final Duration receiveTimeout;
   final Duration sendTimeout;
 
+  /// Base origin of the server (e.g. `https://truelern.visital.in`), without trailing `/api`.
+  String get serverOrigin {
+    final uri = Uri.tryParse(apiBaseUrl);
+    if (uri != null && uri.hasScheme && uri.host.isNotEmpty) {
+      return uri.origin;
+    }
+    return apiBaseUrl.replaceAll(RegExp(r'/api/?$'), '');
+  }
+
   /// Authoritative production configuration baseline.
   static const AppConfig production = AppConfig(
     environment: AppEnvironment.production,

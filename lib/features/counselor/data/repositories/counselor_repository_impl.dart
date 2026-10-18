@@ -67,6 +67,47 @@ class CounselorRepositoryImpl implements CounselorRepository {
       return [];
     }
   }
+
+  @override
+  Future<CounselingRequestEntity> submitRequest({
+    required String counsellorId,
+    required String studentId,
+    required DateTime proposedStart,
+    required DateTime proposedEnd,
+    required String reason,
+  }) async {
+    try {
+      final payload = {
+        'counsellorId': counsellorId,
+        'studentId': studentId,
+        'proposedStart': proposedStart.toUtc().toIso8601String(),
+        'proposedEnd': proposedEnd.toUtc().toIso8601String(),
+        'reason': reason.trim(),
+        'notes': reason.trim(),
+      };
+
+      final response = await apiClient.post<dynamic>(
+        '/counselling',
+        data: payload,
+      );
+
+      final data = response.data;
+      if (data is Map<String, dynamic>) {
+        if (data['data'] is Map<String, dynamic>) {
+          return CounselingRequestDto.fromJson(
+            data['data'] as Map<String, dynamic>,
+          ).toEntity();
+        }
+        return CounselingRequestDto.fromJson(data).toEntity();
+      }
+
+      throw Exception(
+        'Invalid response received from counselling request submission.',
+      );
+    } catch (e) {
+      throw Exception('Failed to submit counselling request: $e');
+    }
+  }
 }
 
 /// Riverpod provider for [CounselorRepository].

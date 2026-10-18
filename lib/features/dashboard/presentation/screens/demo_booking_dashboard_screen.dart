@@ -4,12 +4,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/router/route_names.dart';
+import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../courses/domain/entities/course_entity.dart';
 import '../../domain/entities/child_entity.dart';
 import '../../domain/entities/demo_booking_entity.dart';
 import '../../domain/entities/demo_slot_entity.dart';
+import '../controllers/child_demo_status_controller.dart';
 import '../controllers/children_controller.dart';
 import '../controllers/children_state.dart';
 import '../controllers/demo_slots_controller.dart';
@@ -32,6 +33,14 @@ class DemoBookingDashboardScreen extends ConsumerStatefulWidget {
 class _DemoBookingDashboardScreenState
     extends ConsumerState<DemoBookingDashboardScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ScrollController _scrollController = ScrollController();
+  bool _isNavigating = false;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -51,14 +60,21 @@ class _DemoBookingDashboardScreenState
               ? onboardingState.availableCourses.first
               : null);
       final effectiveCourseId = widget.courseId ?? activeCourse?.id;
+      final activeStudentId = childrenState is ChildrenLoaded
+          ? childrenState.activeChildId
+          : null;
+
       final slotsState = ref.read(demoSlotsControllerProvider);
-      if (slotsState is DemoSlotsInitial) {
-        final activeStudentId = childrenState is ChildrenLoaded
-            ? childrenState.activeChildId
-            : null;
+      if (slotsState is DemoSlotsInitial || widget.courseId != null) {
         ref
             .read(demoSlotsControllerProvider.notifier)
             .loadSlots(courseId: effectiveCourseId, studentId: activeStudentId);
+      }
+
+      if (activeStudentId != null) {
+        ref
+            .read(childDemoStatusControllerProvider.notifier)
+            .resolveStatusForChild(studentId: activeStudentId);
       }
     });
   }
@@ -68,6 +84,19 @@ class _DemoBookingDashboardScreenState
     final onboardingState = ref.watch(onboardingControllerProvider);
     final childrenState = ref.watch(childrenControllerProvider);
     final slotsState = ref.watch(demoSlotsControllerProvider);
+    final childDemoStatus = ref.watch(childDemoStatusControllerProvider);
+
+    // Listen for child switching to refresh demo status
+    ref.listen<ChildrenState>(childrenControllerProvider, (prev, next) {
+      if (next is ChildrenLoaded && next.activeChildId != null) {
+        final prevId = prev is ChildrenLoaded ? prev.activeChildId : null;
+        if (prevId != next.activeChildId) {
+          ref
+              .read(childDemoStatusControllerProvider.notifier)
+              .resolveStatusForChild(studentId: next.activeChildId!);
+        }
+      }
+    });
 
     // Listen for transient booking feedback
     ref.listen<DemoSlotsState>(demoSlotsControllerProvider, (prev, next) {
@@ -95,6 +124,25 @@ class _DemoBookingDashboardScreenState
     return Scaffold(
       key: _scaffoldKey,
       drawer: const ParentHamburgerDrawer(activeItem: ''),
+      floatingActionButton: childDemoStatus.shouldShowApplyFab
+          ? FloatingActionButton.extended(
+              key: const Key('apply_for_demo_class_button'),
+              onPressed: _handleApplyForDemoClass,
+              backgroundColor: const Color(0xFF0037B1),
+              foregroundColor: Colors.white,
+              elevation: 4.0,
+              icon: const Icon(Icons.add_task_rounded, size: 20.0),
+              label: Text(
+                'Apply for Demo Class',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -118,6 +166,7 @@ class _DemoBookingDashboardScreenState
               // Main Scrollable Area (Node 72:511)
               Expanded(
                 child: SingleChildScrollView(
+                  controller: _scrollController,
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Center(
                     child: ConstrainedBox(
@@ -126,7 +175,10 @@ class _DemoBookingDashboardScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Green status banner - Demo Request Received (Node 72:512)
-                          _buildDemoRequestReceivedBanner(onboardingState),
+                          _buildDemoRequestReceivedBanner(
+                            onboardingState,
+                            childDemoStatus,
+                          ),
 
                           const SizedBox(height: 16.0),
 
@@ -146,14 +198,14 @@ class _DemoBookingDashboardScreenState
                           const SizedBox(height: 24.0),
 
                           // Benefits Section (Node 72:578)
-                          _buildBenefitsSection(),
+                          _buildBenefitsSection(childDemoStatus),
 
                           const SizedBox(height: 16.0),
 
                           // Footer Note (Node 72:597)
                           _buildFooterNote(),
 
-                          const SizedBox(height: 56.0),
+                          const SizedBox(height: 80.0),
                         ],
                       ),
                     ),
@@ -167,7 +219,13 @@ class _DemoBookingDashboardScreenState
     );
   }
 
-  Widget _buildDemoRequestReceivedBanner(OnboardingState onboardingState) {
+  Widget _buildDemoRequestReceivedBanner(
+    OnboardingState onboardingState,
+    ChildDemoStatusState demoStatus,
+  ) {
+    if (demoStatus is! ChildDemoPendingConfirmation) {
+      return const SizedBox.shrink();
+    }
     final courseName =
         onboardingState.effectiveCourseName ??
         (onboardingState.availableCourses.isNotEmpty
@@ -1042,6 +1100,9 @@ class _DemoBookingDashboardScreenState
         ref
             .read(demoSlotsControllerProvider.notifier)
             .loadSlots(courseId: effectiveCourseId, studentId: child.studentId);
+        ref
+            .read(childDemoStatusControllerProvider.notifier)
+            .resolveStatusForChild(studentId: child.studentId);
         Navigator.of(context).pop();
       },
       child: Padding(
@@ -1519,19 +1580,11 @@ class _DemoBookingDashboardScreenState
     );
   }
 
-  Widget _buildBenefitsSection() {
+  Widget _buildBenefitsSection(ChildDemoStatusState childDemoStatus) {
     return Column(
       children: [
-        // 1. Free live demo (Node 72:579)
-        _buildBenefitCard(
-          bgColor: const Color(0x336CF8BB), // rgba(108, 248, 187, 0.2)
-          borderColor: const Color(0x4D6CF8BB), // rgba(108, 248, 187, 0.3)
-          circleBgColor: const Color(0x666CF8BB), // rgba(108, 248, 187, 0.4)
-          iconAsset: 'assets/icons/demo_video.svg',
-          iconWidth: 20.0,
-          iconHeight: 16.0,
-          title: 'Free live demo',
-        ),
+        // 1. Join Demo Class (Node 72:579 replacement)
+        _buildJoinDemoClassCard(context, childDemoStatus),
 
         const SizedBox(height: 8.0),
 
@@ -1559,6 +1612,456 @@ class _DemoBookingDashboardScreenState
           title: '45-minute session',
         ),
       ],
+    );
+  }
+
+  Widget _buildJoinDemoClassCard(
+    BuildContext context,
+    ChildDemoStatusState status,
+  ) {
+    String subtitle;
+    Widget? statusBadge;
+    Color circleBg = const Color(0x666CF8BB);
+    Color cardBg = const Color(0x336CF8BB);
+    Color borderColor = const Color(0x4D6CF8BB);
+
+    if (status is ChildDemoEligibleToJoin) {
+      subtitle = 'Session is ready • Tap to enter classroom';
+      circleBg = const Color(0xFF10B981);
+      cardBg = const Color(0x1A10B981);
+      borderColor = const Color(0xFF10B981);
+      statusBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFF10B981),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Text(
+          'LIVE NOW',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+          ),
+        ),
+      );
+    } else if (status is ChildDemoScheduledTooEarly) {
+      subtitle = 'Scheduled: ${status.booking.formattedDateTime}';
+      circleBg = const Color(0x666CF8BB);
+      cardBg = const Color(0x336CF8BB);
+      borderColor = const Color(0x4D6CF8BB);
+      statusBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0037B1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Text(
+          'SCHEDULED',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    } else if (status is ChildDemoPendingConfirmation) {
+      subtitle = 'Application submitted • Awaiting counselor';
+      circleBg = const Color(0x33F59E0B);
+      cardBg = const Color(0x1AF59E0B);
+      borderColor = const Color(0x33F59E0B);
+      statusBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFFD97706),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Text(
+          'PENDING',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    } else if (status is ChildDemoTerminal) {
+      subtitle = status.isCancelled ? 'Session cancelled' : 'Session completed';
+      circleBg = const Color(0x1A64748B);
+      cardBg = const Color(0x0D64748B);
+      borderColor = const Color(0x1A64748B);
+    } else if (status is ChildDemoError) {
+      subtitle = 'Unable to check status • Tap to retry';
+      circleBg = const Color(0x1AEF4444);
+      cardBg = const Color(0x0DEF4444);
+      borderColor = const Color(0x33EF4444);
+    } else if (status is ChildDemoLoading) {
+      subtitle = 'Checking session status...';
+    } else {
+      subtitle = 'Access your scheduled demo class';
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const Key('dashboard_join_demo_class_card'),
+        onTap: () => _handleJoinDemoClassTap(context, status),
+        borderRadius: BorderRadius.circular(12.0),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(17.0),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(12.0),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40.0,
+                height: 40.0,
+                decoration: BoxDecoration(
+                  color: circleBg,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: SvgPicture.asset(
+                  'assets/icons/demo_video.svg',
+                  width: 20.0,
+                  height: 16.0,
+                  colorFilter: status is ChildDemoEligibleToJoin
+                      ? const ColorFilter.mode(Colors.white, BlendMode.srcIn)
+                      : null,
+                ),
+              ),
+              const SizedBox(width: 16.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Join Demo Class',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 17.0,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF191C1E),
+                            height: 24 / 16,
+                          ),
+                        ),
+                        if (statusBadge != null) ...[
+                          const SizedBox(width: 8.0),
+                          statusBadge,
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2.0),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8.0),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16.0,
+                color: Color(0xFF0037B1),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleJoinDemoClassTap(
+    BuildContext context,
+    ChildDemoStatusState status,
+  ) {
+    if (_isNavigating) return;
+
+    final childrenState = ref.read(childrenControllerProvider);
+
+    if (status is ChildDemoEligibleToJoin) {
+      _isNavigating = true;
+      final contextualBooking = _buildContextualBooking(status.booking, childrenState);
+      context.push(
+        AppRoutePaths.demoClassPreJoin,
+        extra: contextualBooking,
+      ).then((_) {
+        _isNavigating = false;
+        final activeId = childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+        if (activeId != null) {
+          ref
+              .read(childDemoStatusControllerProvider.notifier)
+              .resolveStatusForChild(studentId: activeId, forceRefresh: true);
+        }
+      });
+    } else if (status is ChildDemoScheduledTooEarly) {
+      _isNavigating = true;
+      final contextualBooking = _buildContextualBooking(status.booking, childrenState);
+      context.push(
+        AppRoutePaths.demoClassWaiting,
+        extra: contextualBooking,
+      ).then((_) {
+        _isNavigating = false;
+        final activeId = childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+        if (activeId != null) {
+          ref
+              .read(childDemoStatusControllerProvider.notifier)
+              .resolveStatusForChild(studentId: activeId, forceRefresh: true);
+        }
+      });
+    } else if (status is ChildDemoPendingConfirmation) {
+      _showPendingConfirmationDialog(context, status);
+    } else if (status is ChildDemoTerminal) {
+      _showTerminalSessionDialog(context, status);
+    } else if (status is ChildDemoError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Status check failed: ${status.message}'),
+          backgroundColor: const Color(0xFFEF4444),
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: Colors.white,
+            onPressed: () {
+              ref
+                  .read(childDemoStatusControllerProvider.notifier)
+                  .resolveStatusForChild(studentId: status.studentId, forceRefresh: true);
+            },
+          ),
+        ),
+      );
+    } else if (status is ChildDemoLoading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Checking demo class status... Please wait.'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    } else if (status is ChildDemoNone) {
+      _showNoDemoDialog(context);
+    }
+  }
+
+  void _handleApplyForDemoClass() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        350.0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Select an available slot below to apply for your free demo class.'),
+        backgroundColor: Color(0xFF0037B1),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  DemoBookingEntity _buildContextualBooking(
+    DemoBookingEntity booking,
+    ChildrenState childrenState,
+  ) {
+    final linkedChildren = childrenState is ChildrenLoaded
+        ? childrenState.children
+        : <ChildEntity>[];
+    final authoritativeChild = resolveAuthoritativeStudent(
+      booking: booking,
+      linkedChildren: linkedChildren,
+    );
+    final activeChild = childrenState is ChildrenLoaded
+        ? childrenState.activeChild
+        : null;
+
+    final resolvedStudentName = authoritativeChild?.displayName ??
+        booking.studentName ??
+        activeChild?.displayName;
+    final resolvedStudentId =
+        authoritativeChild?.studentId ?? booking.studentId ?? activeChild?.studentId;
+
+    return DemoBookingEntity(
+      bookingId: booking.bookingId,
+      liveClassId: booking.liveClassId,
+      demoCode: booking.demoCode,
+      courseName: booking.courseName,
+      studentName: resolvedStudentName,
+      studentId: resolvedStudentId,
+      studentCode: authoritativeChild?.studentCode ?? booking.studentCode ?? activeChild?.studentCode,
+      startDateTime: booking.startDateTime,
+      endDateTime: booking.endDateTime,
+      teacherName: booking.teacherName,
+      teacherStatus: booking.teacherStatus,
+      status: booking.status,
+      meetingUrl: booking.meetingUrl,
+      joinEligible: booking.joinEligible,
+      duration: booking.duration,
+    );
+  }
+
+  void _showPendingConfirmationDialog(
+    BuildContext context,
+    ChildDemoPendingConfirmation status,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFECFDF5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.hourglass_top_rounded, color: Color(0xFF059669), size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Application Submitted',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Your demo class request for ${status.courseName ?? "your selected course"} has been submitted and is currently awaiting academic counselor scheduling and confirmation.',
+                style: const TextStyle(fontSize: 14, height: 1.4, color: Color(0xFF334155)),
+              ),
+              if (status.leadId != null && status.leadId!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Reference ID: #${status.leadId}',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              const Text(
+                'Our counselors will contact you to confirm batch timings and teacher assignment before the session.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Understood', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showTerminalSessionDialog(
+    BuildContext context,
+    ChildDemoTerminal status,
+  ) {
+    final isCancelled = status.isCancelled;
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            isCancelled ? 'Demo Class Cancelled' : 'Demo Class Concluded',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            isCancelled
+                ? 'This demo session was cancelled. You can select another available slot below to apply for a new demo class.'
+                : 'This demo class has ended. Thank you for attending! If you would like to book another demo, please select a new slot below.',
+            style: const TextStyle(fontSize: 14, height: 1.4, color: Color(0xFF334155)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Close'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogCtx).pop();
+                _handleApplyForDemoClass();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0037B1),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Book New Demo'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showNoDemoDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'No Demo Scheduled',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'No demo class has been scheduled for this child yet. Tap "Apply for Demo Class" to book a free live demo session.',
+            style: TextStyle(fontSize: 14, height: 1.4, color: Color(0xFF334155)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogCtx).pop();
+                _handleApplyForDemoClass();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0037B1),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Apply for Demo Class'),
+            ),
+          ],
+        );
+      },
     );
   }
 

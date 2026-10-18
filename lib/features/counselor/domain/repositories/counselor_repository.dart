@@ -12,4 +12,15 @@ abstract class CounselorRepository {
   ///
   /// Backed by `GET /api/counselling/my-requests`.
   Future<List<CounselingRequestEntity>> getMyRequests();
+
+  /// Submits a new counselling session request.
+  ///
+  /// Backed by `POST /api/counselling`.
+  Future<CounselingRequestEntity> submitRequest({
+    required String counsellorId,
+    required String studentId,
+    required DateTime proposedStart,
+    required DateTime proposedEnd,
+    required String reason,
+  });
 }

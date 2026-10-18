@@ -8,6 +8,11 @@ abstract final class AppRoutePaths {
   static const String onboarding = '/onboarding';
   static const String login = '/login';
   static const String verifyOtp = '/verify-otp';
+  static const String passwordSetup = '/auth/password-setup';
+  static const String onboardingInterests = '/onboarding/interests';
+  static const String onboardingAccount = '/onboarding/account';
+  static const String onboardingChild = '/onboarding/child';
+  static const String onboardingLocation = '/onboarding/location';
   static const String demoBookingDashboard = '/demo-booking-dashboard';
 
   // Parent Tab Paths — top-level absolute paths for StatefulShellRoute branches
@@ -59,4 +64,7 @@ abstract final class AppRoutePaths {
   static const String parentCounselor = '/parent/counselor';
   static const String progressClasses = '/parent/progress/classes';
   static const String demoSessionBooked = '/parent/demo-booked';
+  static const String demoClassWaiting = '/parent/demo-class/waiting';
+  static const String demoClassPreJoin = '/parent/demo-class/pre-join';
+  static const String demoWaitingForAdmin = '/parent/demo-class/waiting-for-admin';
 }

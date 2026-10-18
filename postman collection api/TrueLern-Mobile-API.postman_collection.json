@@ -1285,6 +1285,194 @@
             "description": "**Purpose:** Retrieve child assessment launch session.\n**Authentication:** Bearer Token (Parent)"
           },
           "response": []
+        },
+        {
+          "name": "Precheck Parent Account Deletion",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "description": "Bearer token authentication"
+              },
+              {
+                "key": "Cookie",
+                "value": "accessToken={{accessToken}}; refreshToken={{refreshToken}}",
+                "type": "text",
+                "description": "Cookie authentication fallback"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/account/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "account",
+                "delete"
+              ],
+              "variable": []
+            },
+            "description": "**Purpose:** Pre-check Parent account deletion eligibility and calculate active dependencies.\n**Authentication:** Required (Parent Bearer Token or Session Cookie)\n**Role:** PARENT\n**Dependencies Checked:** Linked wards, active enrollments, unpaid invoices, scheduled counselling, upcoming demo sessions.\n**Expected success:** 200 OK with eligibility status, blocker list, warnings, and stats\n**Expected errors:** 401 Unauthorized, 403 Forbidden, 404 Not Found, 500 Server Error\n**Source File:** `app/api/parent/account/delete/route.ts`"
+          },
+          "response": [
+            {
+              "name": "200 - Eligibility Precheck Success",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/parent/account/delete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "parent",
+                    "account",
+                    "delete"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Parent deletion precheck completed\",\n  \"data\": {\n    \"eligible\": true,\n    \"role\": \"Parent\",\n    \"hasPassword\": true,\n    \"email\": \"parent@example.com\",\n    \"name\": \"Jane Doe\",\n    \"linkedChildren\": [\n      {\n        \"id\": \"670200000000000000000001\",\n        \"name\": \"Johnny Doe\",\n        \"relationship\": \"Mother\"\n      }\n    ],\n    \"blockers\": [],\n    \"warnings\": [\n      \"Linked students will remain enrolled under institutional records.\"\n    ],\n    \"stats\": {\n      \"activeEnrollments\": 0,\n      \"unpaidInvoices\": 0,\n      \"pendingCounselling\": 0,\n      \"pendingDemos\": 0\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response is valid JSON with eligibility data', function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property('eligible');",
+                  "    pm.expect(jsonData.data).to.have.property('blockers');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirm Parent Account Deletion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "description": "Bearer token authentication"
+              },
+              {
+                "key": "Cookie",
+                "value": "accessToken={{accessToken}}; refreshToken={{refreshToken}}",
+                "type": "text",
+                "description": "Cookie authentication fallback"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirmPhrase\": \"DELETE\",\n  \"password\": \"{{parentPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/parent/account/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "parent",
+                "account",
+                "delete"
+              ],
+              "variable": []
+            },
+            "description": "**Purpose:** Confirms and executes permanent Parent account deletion.\n**Authentication:** Required (Parent Bearer Token or Session Cookie)\n**Role:** PARENT\n**Workflow:** Validates confirmPhrase ('DELETE') or password, confirms zero active blockers, soft-deletes user record, archives parent profile, revokes all sessions across devices, and clears cookies.\n**Expected success:** 200 OK with success confirmation and cookie clearance\n**Expected errors:** 400 Bad Request (Active blockers or invalid confirmation), 401 Unauthorized, 403 Forbidden, 500 Server Error\n**Source File:** `app/api/parent/account/delete/route.ts`"
+          },
+          "response": [
+            {
+              "name": "200 - Deletion Confirmed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"confirmPhrase\": \"DELETE\",\n  \"password\": \"Password123!\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/parent/account/delete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "parent",
+                    "account",
+                    "delete"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Account deleted successfully. We are sorry to see you go.\",\n  \"data\": {\n    \"success\": true\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 400 (validation)', function () {",
+                  "    pm.expect([200, 400]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Response is valid JSON', function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ]
     },
@@ -1369,6 +1557,193 @@
             },
             "description": "Weekly availability schedule and max teaching hours."
           }
+        },
+        {
+          "name": "Precheck Faculty Account Deletion",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "description": "Bearer token authentication"
+              },
+              {
+                "key": "Cookie",
+                "value": "accessToken={{accessToken}}; refreshToken={{refreshToken}}",
+                "type": "text",
+                "description": "Cookie authentication fallback"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/teacher/account/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "teacher",
+                "account",
+                "delete"
+              ],
+              "variable": []
+            },
+            "description": "**Purpose:** Pre-checks faculty account deletion eligibility and active teaching commitments.\n**Authentication:** Required (Teacher / Instructor Session or Bearer Token)\n**Role:** TEACHER, INSTRUCTOR\n**Dependencies Checked:** Assigned cohorts/batches, future scheduled live classes, scheduled counselling sessions, assigned demo sessions.\n**Expected success:** 200 OK with eligibility status, blocker list, and teaching stats\n**Expected errors:** 401 Unauthorized, 403 Forbidden, 404 Not Found, 500 Server Error\n**Source File:** `app/api/teacher/account/delete/route.ts`"
+          },
+          "response": [
+            {
+              "name": "200 - Faculty Eligibility Precheck",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/teacher/account/delete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "teacher",
+                    "account",
+                    "delete"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Teacher deletion precheck completed\",\n  \"data\": {\n    \"eligible\": true,\n    \"role\": \"Teacher\",\n    \"hasPassword\": true,\n    \"email\": \"faculty@truelern.com\",\n    \"name\": \"Prof. Alan Turing\",\n    \"blockers\": [],\n    \"warnings\": [],\n    \"stats\": {\n      \"activeBatches\": 0,\n      \"upcomingClasses\": 0,\n      \"pendingCounselling\": 0,\n      \"pendingDemos\": 0\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response is valid JSON with eligibility data', function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property('eligible');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirm Faculty Account Deletion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "description": "Bearer token authentication"
+              },
+              {
+                "key": "Cookie",
+                "value": "accessToken={{accessToken}}; refreshToken={{refreshToken}}",
+                "type": "text",
+                "description": "Cookie authentication fallback"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirmPhrase\": \"DELETE\",\n  \"password\": \"{{teacherPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teacher/account/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "teacher",
+                "account",
+                "delete"
+              ],
+              "variable": []
+            },
+            "description": "**Purpose:** Confirms and executes faculty account deletion.\n**Authentication:** Required (Teacher / Instructor Session or Bearer Token)\n**Role:** TEACHER, INSTRUCTOR\n**Workflow:** Re-authenticates credentials, ensures no active cohorts or classes block departure, archives teacher profile, revokes all user sessions, and clears authentication cookies.\n**Expected success:** 200 OK with success confirmation\n**Expected errors:** 400 Bad Request (Active teaching duties block deletion), 401 Unauthorized, 403 Forbidden, 500 Server Error\n**Source File:** `app/api/teacher/account/delete/route.ts`"
+          },
+          "response": [
+            {
+              "name": "200 - Teacher Deletion Confirmed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"confirmPhrase\": \"DELETE\",\n  \"password\": \"Password123!\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/teacher/account/delete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "teacher",
+                    "account",
+                    "delete"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Account deleted successfully. We are sorry to see you go.\",\n  \"data\": {\n    \"success\": true\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 400 (validation)', function () {",
+                  "    pm.expect([200, 400]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Response is valid JSON', function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ]
     },
@@ -1695,6 +2070,221 @@
             },
             "description": "Slide decks, reference PDFs, and downloadable materials attached to the class."
           }
+        },
+        {
+          "name": "Generate Counselling Session Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "description": "Bearer token authentication"
+              },
+              {
+                "key": "Cookie",
+                "value": "accessToken={{accessToken}}; refreshToken={{refreshToken}}",
+                "type": "text",
+                "description": "Cookie authentication fallback"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/counselling/:requestId/token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "counselling",
+                ":requestId",
+                "token"
+              ],
+              "variable": [
+                {
+                  "key": "requestId",
+                  "value": "{{counsellingRequestId}}",
+                  "description": "Unique Counselling Request ID"
+                }
+              ]
+            },
+            "description": "**Purpose:** Generates secure Jitsi JWT and room parameters for Counselling meeting participant.\n**Authentication:** Required (Parent, Student, or Teacher Session)\n**Role:** PARENT, STUDENT, TEACHER\n**Timing Restriction:** Accessible 15 minutes before scheduled start through confirmed end time.\n**Recording Policy:** Recording strictly disabled for all counselling sessions.\n**Expected success:** 200 OK with token, roomName, jitsiDomain, serverUrl, xmppDomain (meet.jitsi)\n**Expected errors:** 400 Bad Request (Outside window), 401 Unauthorized, 403 Forbidden, 404 Not Found\n**Source File:** `app/api/counselling/[requestId]/token/route.ts`"
+          },
+          "response": [
+            {
+              "name": "200 - Token Generated Successfully",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/counselling/:requestId/token",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "counselling",
+                    ":requestId",
+                    "token"
+                  ],
+                  "variable": [
+                    {
+                      "key": "requestId",
+                      "value": "671b00000000000000000001"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Counselling session token generated successfully\",\n  \"data\": {\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"roomName\": \"truelern-counselling-671b00000000000000000001\",\n    \"jitsiDomain\": \"livetl.visital.in\",\n    \"serverUrl\": \"https://livetl.visital.in\",\n    \"xmppDomain\": \"meet.jitsi\",\n    \"isModerator\": true,\n    \"expiresAt\": 1792078800,\n    \"role\": \"teacher\",\n    \"scheduledStart\": \"2026-10-15T15:00:00.000Z\",\n    \"scheduledEnd\": \"2026-10-15T16:00:00.000Z\"\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 400 (timing window)', function () {",
+                  "    pm.expect([200, 400]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Response is valid JSON', function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    if (pm.response.code === 200) {",
+                  "        var jsonData = pm.response.json();",
+                  "        pm.expect(jsonData.data).to.have.property('token');",
+                  "        pm.expect(jsonData.data).to.have.property('roomName');",
+                  "        pm.environment.set('counsellingToken', jsonData.data.token);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Generate Child Counselling Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "description": "Parent bearer token authentication"
+              },
+              {
+                "key": "Cookie",
+                "value": "accessToken={{accessToken}}; refreshToken={{refreshToken}}",
+                "type": "text",
+                "description": "Cookie authentication fallback"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/counselling/:requestId/child-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "counselling",
+                ":requestId",
+                "child-token"
+              ],
+              "variable": [
+                {
+                  "key": "requestId",
+                  "value": "{{counsellingRequestId}}",
+                  "description": "Unique Counselling Request ID"
+                }
+              ]
+            },
+            "description": "**Purpose:** Generates child participant Jitsi JWT for counselling with recording strictly disabled.\n**Authentication:** Required (Parent Session / Bearer Token)\n**Role:** PARENT\n**Expected success:** 200 OK with child token, student details, and room credentials\n**Expected errors:** 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found\n**Source File:** `app/api/counselling/[requestId]/child-token/route.ts`"
+          },
+          "response": [
+            {
+              "name": "200 - Child Token Generated",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/counselling/:requestId/child-token",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "counselling",
+                    ":requestId",
+                    "child-token"
+                  ],
+                  "variable": [
+                    {
+                      "key": "requestId",
+                      "value": "671b00000000000000000001"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"roomName\": \"truelern-counselling-671b00000000000000000001\",\n    \"jitsiDomain\": \"livetl.visital.in\",\n    \"serverUrl\": \"https://livetl.visital.in\",\n    \"xmppDomain\": \"meet.jitsi\",\n    \"student\": {\n      \"id\": \"670200000000000000000001\",\n      \"name\": \"Johnny Doe\",\n      \"studentId\": \"STU-001\"\n    },\n    \"session\": {\n      \"id\": \"671b00000000000000000001\",\n      \"roomName\": \"truelern-counselling-671b00000000000000000001\",\n      \"status\": \"confirmed\",\n      \"recordingEnabled\": false\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 400 (timing window)', function () {",
+                  "    pm.expect([200, 400]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Response is valid JSON with child session', function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    if (pm.response.code === 200) {",
+                  "        var jsonData = pm.response.json();",
+                  "        pm.expect(jsonData.data).to.have.property('token');",
+                  "        pm.expect(jsonData.data).to.have.property('student');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ]
     },
@@ -2118,7 +2708,7 @@
     },
     {
       "name": "13 - Finance",
-      "description": "Invoices, payment receipts, fee plans, and balance calculations (Stripe remains deferred).",
+      "description": "Invoices, payment receipts, fee plans, Stripe Checkout Session creation, and checkout status verification.\n\nNOTE ON WEBHOOK TESTING:\nStripe Webhooks (POST /api/finance/stripe/webhook) require genuine cryptographic signature headers (`stripe-signature`) generated with `STRIPE_WEBHOOK_SECRET`. They cannot be tested with fabricated Postman POST requests. Use the official Stripe CLI to forward signed test webhooks:\n```bash\nstripe listen --forward-to http://localhost:3000/api/finance/stripe/webhook\n```",
       "item": [
         {
           "name": "Get Invoices List",
@@ -2233,6 +2823,243 @@
               ]
             },
             "description": "Downloadable payment receipt records."
+          }
+        },
+        {
+          "name": "Create Stripe Checkout Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Response indicates success and contains Checkout Session URL', function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.be.an('object');",
+                  "    pm.expect(jsonData.data.sessionId).to.be.a('string');",
+                  "    pm.expect(jsonData.data.url).to.be.a('string');",
+                  "});",
+                  "if (jsonData.data && jsonData.data.sessionId) {",
+                  "    pm.environment.set('checkoutSessionId', jsonData.data.sessionId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceId\": \"{{invoiceId}}\",\n  \"studentId\": \"{{studentId}}\",\n  \"successUrl\": \"{{baseUrl}}/checkout?session={{sessionToken}}&payment=success\",\n  \"cancelUrl\": \"{{baseUrl}}/checkout?session={{sessionToken}}&payment=cancelled\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/stripe/create-checkout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "stripe",
+                "create-checkout"
+              ]
+            },
+            "description": "Creates an authoritative Stripe Checkout Session for an outstanding invoice. Requires authenticated Parent or Student. Note: Amount and currency are derived strictly server-side from invoice records to prevent client tampering. Session can be reused if active."
+          }
+        },
+        {
+          "name": "Create Checkout Session - Missing Auth (Negative 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceId\": \"{{invoiceId}}\",\n  \"studentId\": \"{{studentId}}\",\n  \"successUrl\": \"{{baseUrl}}/checkout?payment=success\",\n  \"cancelUrl\": \"{{baseUrl}}/checkout?payment=cancelled\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/stripe/create-checkout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "stripe",
+                "create-checkout"
+              ]
+            },
+            "description": "Negative security test: Verifies that unauthenticated requests without a valid Bearer token are rejected with 401."
+          }
+        },
+        {
+          "name": "Create Checkout Session - Unauthorized Child / Student (Negative 400/403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 or 403 Forbidden', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 403]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceId\": \"{{invoiceId}}\",\n  \"studentId\": \"650000000000000000000099\",\n  \"successUrl\": \"{{baseUrl}}/checkout?payment=success\",\n  \"cancelUrl\": \"{{baseUrl}}/checkout?payment=cancelled\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/stripe/create-checkout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "stripe",
+                "create-checkout"
+              ]
+            },
+            "description": "Negative security test: Verifies that an authenticated parent cannot initiate checkout for a student they are not linked to or an invoice belonging to another student."
+          }
+        },
+        {
+          "name": "Create Checkout Session - Invalid Redirect URL (Negative 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Rejects open redirect attempts', function () {",
+                  "    pm.expect(jsonData.message).to.include('Invalid redirect URLs');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceId\": \"{{invoiceId}}\",\n  \"studentId\": \"{{studentId}}\",\n  \"successUrl\": \"https://malicious-site.example/steal\",\n  \"cancelUrl\": \"https://malicious-site.example/steal\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/stripe/create-checkout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "stripe",
+                "create-checkout"
+              ]
+            },
+            "description": "Negative security test: Open-redirect prevention. Verifies that return URLs from foreign origins are rejected."
+          }
+        },
+        {
+          "name": "Verify Invoice Status After Checkout Return",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Invoice status is confirmed or pending', function () {",
+                  "    pm.expect(jsonData.data).to.be.an('object');",
+                  "    pm.expect(['paid', 'issued', 'partially-paid']).to.include(jsonData.data.status);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/invoices/{{invoiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "invoices",
+                "{{invoiceId}}"
+              ]
+            },
+            "description": "Retrieves the server-authoritative invoice state after customer returns from Stripe Checkout. Mobile apps should poll this endpoint (or receive push notification) to confirm settlement after returning from the external checkout browser session."
           }
         }
       ]

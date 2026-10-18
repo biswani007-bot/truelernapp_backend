@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/demo_booking_entity.dart';
 import '../../domain/entities/demo_slot_entity.dart';
+import 'child_demo_status_controller.dart';
 
 /// Sealed state hierarchy for available demo slots.
 sealed class DemoSlotsState {
@@ -251,6 +252,9 @@ class DemoSlotsController extends Notifier<DemoSlotsState> {
             lastConfirmedBooking: bookingEntity,
           );
         }
+        await ref
+            .read(childDemoStatusControllerProvider.notifier)
+            .resolveStatusForChild(studentId: studentId, forceRefresh: true);
         return true;
       } else {
         state = current.copyWith(

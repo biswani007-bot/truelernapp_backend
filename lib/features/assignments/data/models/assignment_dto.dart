@@ -129,6 +129,23 @@ class AssignmentDto {
       for (final item in (json['attachments'] as List)) {
         if (item is Map<String, dynamic>) {
           parsedAttachments.add(AssignmentAttachmentEntity.fromJson(item));
+        } else if (item is String && item.trim().isNotEmpty) {
+          final trimmed = item.trim();
+          final uri = Uri.tryParse(trimmed);
+          final name = (uri != null && uri.pathSegments.isNotEmpty)
+              ? uri.pathSegments.last
+              : 'Attachment';
+          parsedAttachments.add(
+            AssignmentAttachmentEntity(
+              id: name,
+              fileName: name,
+              fileUrl: trimmed,
+              fileSize: 0,
+              fileType: name.toLowerCase().endsWith('.pdf')
+                  ? 'application/pdf'
+                  : 'application/octet-stream',
+            ),
+          );
         }
       }
     }

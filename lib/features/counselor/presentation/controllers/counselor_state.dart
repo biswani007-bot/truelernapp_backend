@@ -29,8 +29,17 @@ final class CounselorLoaded extends CounselorState {
   final String? activeChildId;
 
   bool get hasCounselor => counselors.isNotEmpty;
-  CounselorEntity? get primaryCounselor =>
+
+  /// Primary assigned counselor (displayed in top Academic Guidance section).
+  CounselorEntity? get assignedCounselor =>
       counselors.isNotEmpty ? counselors.first : null;
+
+  /// Backward-compatible alias for assignedCounselor.
+  CounselorEntity? get primaryCounselor => assignedCounselor;
+
+  /// Other available counselors available for requesting sessions.
+  List<CounselorEntity> get availableCounselors =>
+      counselors.length > 1 ? counselors.sublist(1) : const [];
 }
 
 /// Error state when network/server request fails.

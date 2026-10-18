@@ -62,6 +62,9 @@ abstract final class AppRouteNames {
   static const String parentCounselor = 'parentCounselor';
   static const String progressClasses = 'progressClasses';
   static const String demoSessionBooked = 'demoSessionBooked';
+  static const String demoClassWaiting = 'demoClassWaiting';
+  static const String demoClassPreJoin = 'demoClassPreJoin';
+  static const String demoWaitingForAdmin = 'demoWaitingForAdmin';
 }
 
 /// Standardized path constants.
@@ -130,4 +133,7 @@ abstract final class AppRoutePaths {
   static const String parentCounselor = '/parent/counselor';
   static const String progressClasses = '/parent/progress/classes';
   static const String demoSessionBooked = '/parent/demo-booked';
+  static const String demoClassWaiting = '/parent/demo-class/waiting';
+  static const String demoClassPreJoin = '/parent/demo-class/pre-join';
+  static const String demoWaitingForAdmin = '/parent/demo-class/waiting-for-admin';
 }

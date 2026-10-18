@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/error/failures.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/class_entity.dart';
 import '../../domain/entities/class_join_entity.dart';
@@ -126,20 +127,52 @@ class ClassesRepositoryImpl implements ClassesRepository {
     required String childStudentId,
     required String classId,
   }) async {
-    final response = await apiClient.post<Map<String, dynamic>>(
-      '/live-classes/$classId/token',
-      data: <String, dynamic>{},
-    );
+    final payload = <String, dynamic>{
+      if (childStudentId.isNotEmpty) 'studentId': childStudentId,
+      if (childStudentId.isNotEmpty) 'childId': childStudentId,
+    };
+
+    dynamic response;
+    try {
+      response = await apiClient.post<Map<String, dynamic>>(
+        '/live-classes/$classId/token',
+        data: payload,
+      );
+    } catch (e) {
+      // If live-classes endpoint indicates it's a demo session route or not found,
+      // attempt documented demo token endpoint /parent/demo/$classId/token
+      if (e is Failure &&
+          (e.statusCode == 404 ||
+              (e.statusCode == 403 &&
+                  e.message.toLowerCase().contains('only instructors')))) {
+        try {
+          response = await apiClient.post<Map<String, dynamic>>(
+            '/parent/demo/$classId/token',
+            data: payload,
+          );
+        } catch (_) {
+          rethrow;
+        }
+      } else {
+        rethrow;
+      }
+    }
 
     final body = response.data;
     final dataField =
-        (body?['data'] as Map<String, dynamic>?) ?? body ?? <String, dynamic>{};
+        (body?['data'] as Map<String, dynamic>?) ??
+        (body is Map<String, dynamic> ? body : null) ??
+        <String, dynamic>{};
     final liveClassMap = dataField['liveClass'] as Map<String, dynamic>?;
     final childMap = dataField['child'] as Map<String, dynamic>?;
 
     return ClassJoinEntity(
-      token: dataField['token']?.toString() ?? '',
-      roomName: dataField['roomName']?.toString() ?? '',
+      token: dataField['token']?.toString() ??
+          dataField['jwtToken']?.toString() ??
+          '',
+      roomName: dataField['roomName']?.toString() ??
+          dataField['room']?.toString() ??
+          '',
       jitsiDomain: dataField['jitsiDomain']?.toString() ?? 'livetl.visital.in',
       serverUrl:
           dataField['serverUrl']?.toString() ?? 'https://livetl.visital.in',
@@ -153,10 +186,14 @@ class ClassesRepositoryImpl implements ClassesRepository {
           childMap?['id']?.toString() ??
           childStudentId,
       childName: childMap?['name']?.toString(),
-      classId: liveClassMap?['id']?.toString() ?? classId,
+      classId: liveClassMap?['id']?.toString() ??
+          dataField['classId']?.toString() ??
+          dataField['demoId']?.toString() ??
+          classId,
       classTitle:
           liveClassMap?['title']?.toString() ??
-          liveClassMap?['classTitle']?.toString(),
+          liveClassMap?['classTitle']?.toString() ??
+          dataField['courseName']?.toString(),
     );
   }
 }

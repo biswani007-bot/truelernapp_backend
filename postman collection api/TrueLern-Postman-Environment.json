@@ -4,7 +4,7 @@
   "values": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:3030",
+      "value": "http://localhost:3000",
       "enabled": true
     },
     {
@@ -45,6 +45,16 @@
     {
       "key": "adminId",
       "value": "670400000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "userId",
+      "value": "670400000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "roleId",
+      "value": "670400000000000000000002",
       "enabled": true
     },
     {
@@ -93,6 +103,11 @@
       "enabled": true
     },
     {
+      "key": "questionId",
+      "value": "670d00000000000000000002",
+      "enabled": true
+    },
+    {
       "key": "invoiceId",
       "value": "670e00000000000000000001",
       "enabled": true
@@ -100,6 +115,26 @@
     {
       "key": "receiptId",
       "value": "670f00000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "paymentId",
+      "value": "671500000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "feePlanId",
+      "value": "671600000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "installmentId",
+      "value": "671700000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "refundId",
+      "value": "671700000000000000000002",
       "enabled": true
     },
     {
@@ -145,6 +180,127 @@
     {
       "key": "messageId",
       "value": "671400000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "leadId",
+      "value": "671a00000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "workflowId",
+      "value": "671800000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "reportId",
+      "value": "671900000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "requestId",
+      "value": "671b00000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "model",
+      "value": "blogs",
+      "enabled": true
+    },
+    {
+      "key": "stripeSignature",
+      "value": "t=1728640000,v1=mock_stripe_signature_hash",
+      "enabled": true
+    },
+    {
+      "key": "googleIdToken",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "proxyToken",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "recordingId",
+      "value": "671c00000000000000000001",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "jitsiAppSecret",
+      "value": "truelern_secure_jitsi_jwt_secret_key_2026",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "childId",
+      "value": "670200000000000000000001",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "demoId",
+      "value": "670900000000000000000001",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "counsellingRequestId",
+      "value": "671b00000000000000000001",
+      "enabled": true
+    },
+    {
+      "key": "counsellingToken",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "confirmPhrase",
+      "value": "DELETE",
+      "enabled": true
+    },
+    {
+      "key": "parentPassword",
+      "value": "Password123!",
+      "enabled": true
+    },
+    {
+      "key": "teacherPassword",
+      "value": "Password123!",
+      "enabled": true
+    },
+    {
+      "key": "parentToken",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "teacherToken",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "checkoutSessionId",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "applicationId",
+      "value": "671000000000000000000099",
+      "enabled": true
+    },
+    {
+      "key": "activationToken",
+      "value": "",
       "enabled": true
     }
   ],

@@ -5,29 +5,52 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
-import '../../../../core/storage/secure_storage_service.dart';
+import '../../../../core/error/failures.dart';
+import '../../../../core/router/route_names.dart';
+import '../../../dashboard/domain/entities/demo_booking_entity.dart';
+import '../../../dashboard/presentation/controllers/children_controller.dart';
+import '../../../dashboard/presentation/controllers/children_state.dart';
+import '../../data/repositories/classes_repository_impl.dart';
 import '../../domain/entities/class_entity.dart';
 import '../../domain/entities/class_join_entity.dart';
 import '../controllers/classes_controller.dart';
 import '../controllers/classes_state.dart';
 
+/// Diagnostic categories for classroom connection & authorization failures.
+enum ClassroomErrorCategory {
+  tokenRequestFailure('Token Request Failure'),
+  viewerAuthFailure('Viewer Authorization Failure'),
+  tokenExpired('Token Expired'),
+  networkFailure('Network Connection Failure'),
+  roomMismatch('Room Configuration Mismatch'),
+  entryWindowRestricted('Entry Window Restricted'),
+  sessionNotFound('Session Not Found'),
+  unknown('Connection Error');
+
+  final String displayName;
+  const ClassroomErrorCategory(this.displayName);
+}
+
 /// SCR-17 Live Classroom Screen
 ///
-/// Embeds the production TrueLern Web Classroom:
-/// `https://truelern.visital.in/parent/live-classes/{classId}/room`
+/// Embeds the authoritative TrueLern Live Classroom via Jitsi Meet:
+/// Loads the authenticated WebRTC room directly on the authorized classroom domain
+/// (`https://{jitsiDomain}/{roomName}?jwt={token}`) using the student's authorized credentials.
 ///
-/// Features:
-/// - Starts directly from the actual classroom / Jitsi UI (no upper observation or Flutter header)
-/// - Native HttpOnly cookie injection via [WebViewCookieManager] (zero token in URL)
-/// - Real Jitsi Meet live classroom via production WebRTC iframe
-/// - Android WebRTC platform permissions (camera + microphone) granted cleanly
-/// - Zero static/fake participants or mockup stages
-/// - Clean leave & session ended transition returning to native Flutter Class Summary (Revised)
+/// Key Architectural Guarantees:
+/// - Authoritative student JWT token is passed directly through Jitsi's native `jwt` parameter.
+/// - Zero reliance on unauthenticated URLs or external parent portal cookies.
+/// - Never substitutes demo booking ID for actual live class or room identifier.
+/// - Enforces token validity and expiration checks before attempting connection.
+/// - Comprehensive in-app error handling with diagnostic categorization, Retry, and Back to Demo.
+/// - Prevents duplicate join requests and automatic retry loops.
 class LiveClassroomScreen extends ConsumerStatefulWidget {
   final String classId;
   final ClassEntity? session;
   final ClassJoinEntity? joinData;
   final String? childStudentId;
+  final bool fromDemo;
+  final DemoBookingEntity? booking;
 
   const LiveClassroomScreen({
     super.key,
@@ -35,6 +58,8 @@ class LiveClassroomScreen extends ConsumerStatefulWidget {
     this.session,
     this.joinData,
     this.childStudentId,
+    this.fromDemo = false,
+    this.booking,
   });
 
   @override
@@ -47,22 +72,32 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
   bool _isLoading = true;
   int _loadingProgress = 0;
   String? _errorMessage;
+  ClassroomErrorCategory? _errorCategory;
+  ClassJoinEntity? _activeJoinData;
   bool _hasNavigatedToSummary = false;
+  bool _isRetrying = false;
+  DateTime? _lastRetryTime;
 
   @override
   void initState() {
     super.initState();
-    _initializeWebView();
+    _activeJoinData = widget.joinData;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _initializeClassroom();
+      }
+    });
   }
 
-  Future<void> _initializeWebView() async {
+  Future<void> _initializeClassroom({bool forceRefresh = false}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _errorCategory = null;
     });
 
     try {
-      // 0. 15-Minute Entry Window Guard:
+      // 1. Entry Window Guard:
       ClassEntity? resolvedSession = widget.session;
       if (resolvedSession == null) {
         final classesState = ref.read(classesControllerProvider);
@@ -73,66 +108,124 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
         }
       }
 
-      if (widget.joinData == null &&
+      if (_activeJoinData == null &&
           resolvedSession != null &&
           resolvedSession.scheduledStartTime != null &&
           !resolvedSession.canEnterLiveClass()) {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _errorMessage = 'You can join 15 minutes before the class starts.';
+            _errorCategory = ClassroomErrorCategory.entryWindowRestricted;
+            _errorMessage =
+                'You can join 15 minutes before the class starts.';
           });
         }
         return;
       }
 
-      // 1. Read Parent access token from FlutterSecureStorage
-      final token = await ref.read(secureStorageProvider).getAccessToken();
-      // 2. Verify token is non-empty
-      if (token == null || token.isEmpty) {
+      // 2. Authoritative Participant Token Resolution:
+      // If joinData was not passed or fresh token is explicitly requested via Retry
+      if (_activeJoinData == null || forceRefresh) {
+        final childId = widget.childStudentId ??
+            (ref.read(childrenControllerProvider) is ChildrenLoaded
+                ? (ref.read(childrenControllerProvider) as ChildrenLoaded)
+                    .activeChildId
+                : null);
+
+        if (childId == null || childId.trim().isEmpty) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _errorCategory = ClassroomErrorCategory.tokenRequestFailure;
+              _errorMessage =
+                  'Child student identity is missing. Cannot authorize classroom participant.';
+            });
+          }
+          return;
+        }
+
+        try {
+          final fetchedJoinData = await ref
+              .read(classesRepositoryProvider)
+              .joinLiveClass(
+                childStudentId: childId,
+                classId: widget.classId,
+              );
+          _activeJoinData = fetchedJoinData;
+        } catch (e) {
+          _handleJoinError(e);
+          return;
+        }
+      }
+
+      final joinData = _activeJoinData;
+
+      // 3. Strict Validation of Returned Credentials:
+      if (joinData == null || joinData.token.trim().isEmpty) {
         if (mounted) {
           setState(() {
             _isLoading = false;
+            _errorCategory = ClassroomErrorCategory.tokenRequestFailure;
             _errorMessage =
-                'Authentication session missing. Please sign in again.';
+                'Incomplete classroom authorization credentials received from server.';
           });
         }
         return;
       }
 
-      // 3. Set WebView cookie for domain truelern.visital.in with path /
-      final cookieManager = WebViewCookieManager();
-      await cookieManager.setCookie(
-        WebViewCookie(
-          name: 'accessToken',
-          value: token,
-          domain: 'truelern.visital.in',
-          path: '/',
-        ),
-      );
-
-      // 4. Confirm cookie was successfully written using getCookies API
-      final cookies = await cookieManager.getCookies(
-        domain: Uri.parse('https://truelern.visital.in'),
-      );
-      final hasToken = cookies.any(
-        (c) => c.name == 'accessToken' && c.value.isNotEmpty,
-      );
-      debugPrint(
-        '[WebView Auth] Pre-load cookie verification: accessToken present = $hasToken',
-      );
-      if (!hasToken) {
-        await cookieManager.setCookie(
-          WebViewCookie(
-            name: 'accessToken',
-            value: token,
-            domain: 'https://truelern.visital.in',
-            path: '/',
-          ),
-        );
+      if (joinData.roomName.trim().isEmpty) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _errorCategory = ClassroomErrorCategory.roomMismatch;
+            _errorMessage =
+                'Classroom room identifier is missing. Cannot connect to unauthorized session.';
+          });
+        }
+        return;
       }
 
-      // WebViewController instantiation
+      if (joinData.isExpired) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _errorCategory = ClassroomErrorCategory.tokenExpired;
+            _errorMessage =
+                'Classroom authorization token has expired. Please retry to request a fresh token.';
+          });
+        }
+        return;
+      }
+
+      // 4. Resolve Authenticated Meeting URI with JWT parameter:
+      final targetUri = joinData.authenticatedMeetingUri;
+      final jwtParam = targetUri.queryParameters['jwt'];
+
+      if (jwtParam == null || jwtParam.trim().isEmpty) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _errorCategory = ClassroomErrorCategory.viewerAuthFailure;
+            _errorMessage =
+                'Cannot open unauthenticated classroom URL without participant token.';
+          });
+        }
+        return;
+      }
+
+      // Safe diagnostic logging without exposing sensitive tokens
+      debugPrint(
+        '[Classroom Viewer] Connecting to host: ${targetUri.host}, room: ${joinData.roomName}, isModerator: ${joinData.isModerator}',
+      );
+
+      // 5. Setup WebViewController for WebRTC Classroom:
+      if (WebViewPlatform.instance == null) {
+        debugPrint(
+          '[Classroom Viewer] WebViewPlatform.instance is null (test environment). Skipping native controller instantiation.',
+        );
+        return;
+      }
+
       late final PlatformWebViewControllerCreationParams params;
       if (WebViewPlatform.instance is AndroidWebViewPlatform) {
         params = AndroidWebViewControllerCreationParams();
@@ -142,40 +235,29 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
 
       final controller = WebViewController.fromPlatformCreationParams(params);
 
-      // Instrument navigation and bridge token status & client exit events
       controller
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setUserAgent(
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        )
         ..setBackgroundColor(const Color(0xFF0F172A))
         ..addJavaScriptChannel(
           'FlutterClassroomBridge',
           onMessageReceived: (JavaScriptMessage message) {
             final msg = message.message;
-            if (msg.startsWith('TOKEN_STATUS:')) {
-              final statusStr = msg.substring('TOKEN_STATUS:'.length);
-              final status = int.tryParse(statusStr) ?? 0;
-              debugPrint(
-                '[WebView Auth] /api/live-classes/${widget.classId}/token HTTP status: $status',
-              );
-              if (status == 401) {
-                if (mounted) {
-                  setState(() {
-                    _isLoading = false;
-                    _errorMessage = 'Session expired. Please sign in again.';
-                  });
-                }
-              } else if (status == 403) {
-                if (mounted) {
-                  setState(() {
-                    _isLoading = false;
-                    _errorMessage = 'Access denied. You are not authorized to view this classroom.';
-                  });
-                }
-              }
-            } else if (msg == 'classroom_exit') {
-              debugPrint(
-                '[WebView Navigation] Classroom exit triggered via client navigation/Jitsi',
-              );
+            if (msg == 'classroom_exit' || msg == 'hangup') {
+              debugPrint('[Classroom Viewer] Hangup received from viewer bridge');
               _navigateToSummary();
+            } else if (msg.startsWith('AUTH_ERROR:')) {
+              debugPrint('[Classroom Viewer] Viewer authorization error reported by Jitsi');
+              if (mounted) {
+                setState(() {
+                  _isLoading = false;
+                  _errorCategory = ClassroomErrorCategory.viewerAuthFailure;
+                  _errorMessage =
+                      'Classroom server rejected the participant authorization credentials.';
+                });
+              }
             }
           },
         )
@@ -189,49 +271,55 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
               }
             },
             onPageStarted: (String url) {
-              debugPrint('[WebView Navigation] Page loading started: $url');
+              debugPrint('[Classroom Viewer] Viewer loading started');
               if (mounted) {
                 setState(() {
                   _isLoading = true;
                 });
               }
-              _verifyCookiePersistence();
             },
             onPageFinished: (String url) {
-              debugPrint('[WebView Navigation] Page loading finished: $url');
+              debugPrint('[Classroom Viewer] Viewer loading finished');
               if (mounted) {
                 setState(() {
                   _isLoading = false;
                 });
               }
-              // Inject edge-to-edge styles, hide web portal wrapper headers, and install exit bridge
-              _injectClassroomStylesAndBridge(controller);
+              _injectClassroomBridge(controller);
             },
             onWebResourceError: (WebResourceError error) {
               debugPrint(
-                '[WebView Navigation] WebResourceError: ${error.errorCode} - ${error.description} on ${error.url}',
+                '[Classroom Viewer] WebResourceError: ${error.errorCode} - ${error.description}',
               );
+              // Handle fatal connection/network failures on the main frame
+              if (error.isForMainFrame ?? true) {
+                final isNetError = error.errorCode == -2 || // ERROR_HOST_LOOKUP
+                    error.errorCode == -6 || // ERROR_CONNECT
+                    error.errorCode == -8 || // ERROR_TIMEOUT
+                    error.description.toLowerCase().contains('net::err') ||
+                    error.description.toLowerCase().contains('failed to connect');
+
+                if (isNetError && mounted) {
+                  setState(() {
+                    _isLoading = false;
+                    _errorCategory = ClassroomErrorCategory.networkFailure;
+                    _errorMessage =
+                        'Unable to reach classroom server. Please check your internet connection.';
+                  });
+                }
+              }
             },
             onNavigationRequest: (NavigationRequest request) {
               final uri = Uri.tryParse(request.url);
-              final isMain = request.isMainFrame;
-              debugPrint(
-                '[WebView Navigation] Navigation requested: isMainFrame=$isMain, url=${request.url}',
-              );
-
-              if (uri != null) {
-                final path = uri.path;
-
-                // Intercept navigation that leaves the classroom room
-                if (isMain &&
-                    (path == '/parent/dashboard' ||
-                        path == '/parent/live-classes' ||
-                        path == '/student/dashboard' ||
-                        path == '/student/live-classes' ||
-                        (path.startsWith('/parent/') &&
-                            !path.contains('/room')))) {
+              if (uri != null && request.isMainFrame) {
+                final path = uri.path.toLowerCase();
+                // If Jitsi redirects to goodbye or static exit page, transition to summary
+                if (path.contains('/static/close') ||
+                    path.contains('/close') ||
+                    path.contains('/goodbye') ||
+                    path.contains('/feedback')) {
                   debugPrint(
-                    '[WebView Navigation] Detected navigation to exit route ($path) -> Transitioning to native Class Summary',
+                    '[Classroom Viewer] Detected terminal conference URL ($path) -> Transitioning to summary',
                   );
                   _navigateToSummary();
                   return NavigationDecision.prevent;
@@ -249,21 +337,9 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
         androidController.setOnPlatformPermissionRequest((request) {
           request.grant();
         });
-        final androidCookieManager =
-            cookieManager.platform as AndroidWebViewCookieManager;
-        await androidCookieManager.setAcceptThirdPartyCookies(
-          androidController,
-          true,
-        );
       }
 
-      // 5. Load classroom URL: https://truelern.visital.in/parent/live-classes/{classId}/room
-      final targetUrl =
-          'https://truelern.visital.in/parent/live-classes/${widget.classId}/room';
-      debugPrint(
-        '[WebView Navigation] Loading classroom target URL: $targetUrl',
-      );
-      await controller.loadRequest(Uri.parse(targetUrl));
+      await controller.loadRequest(targetUri);
 
       if (mounted) {
         setState(() {
@@ -271,64 +347,70 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Failed to load classroom session: ${e.toString()}';
-        });
+      _handleJoinError(e);
+    }
+  }
+
+  void _handleJoinError(Object e) {
+    debugPrint('[Classroom Viewer] Catch error in _initializeClassroom: $e');
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      if (e is Failure) {
+        if (e.statusCode == 401 || e is AuthFailure) {
+          _errorCategory = ClassroomErrorCategory.viewerAuthFailure;
+          _errorMessage =
+              'Session expired or unauthorized. Please sign in again.';
+        } else if (e.statusCode == 403) {
+          _errorCategory = ClassroomErrorCategory.viewerAuthFailure;
+          _errorMessage =
+              'Access denied. You are not authorized to view this classroom.';
+        } else if (e.statusCode == 404) {
+          _errorCategory = ClassroomErrorCategory.sessionNotFound;
+          _errorMessage =
+              'This live classroom session was not found or has concluded.';
+        } else if (e is NetworkFailure || e is TimeoutFailure) {
+          _errorCategory = ClassroomErrorCategory.networkFailure;
+          _errorMessage =
+              'Network connection failed. Please check your internet connection.';
+        } else {
+          _errorCategory = ClassroomErrorCategory.tokenRequestFailure;
+          _errorMessage = e.message;
+        }
+      } else {
+        final str = e.toString().toLowerCase();
+        if (str.contains('403') || str.contains('denied') || str.contains('unauthorized')) {
+          _errorCategory = ClassroomErrorCategory.viewerAuthFailure;
+          _errorMessage =
+              'Access denied. You are not authorized to view this classroom.';
+        } else if (str.contains('401') || str.contains('expired')) {
+          _errorCategory = ClassroomErrorCategory.tokenExpired;
+          _errorMessage =
+              'Classroom authorization token has expired. Please retry.';
+        } else if (str.contains('socket') || str.contains('network') || str.contains('timeout')) {
+          _errorCategory = ClassroomErrorCategory.networkFailure;
+          _errorMessage =
+              'Network connection failure. Please check your connection and retry.';
+        } else {
+          _errorCategory = ClassroomErrorCategory.tokenRequestFailure;
+          _errorMessage =
+              'Failed to connect to classroom session. Please try again.';
+        }
       }
-    }
+    });
   }
 
-  Future<void> _verifyCookiePersistence() async {
+  Future<void> _injectClassroomBridge(WebViewController controller) async {
     try {
-      final cookieManager = WebViewCookieManager();
-      final cookies = await cookieManager.getCookies(
-        domain: Uri.parse('https://truelern.visital.in'),
-      );
-      final hasAccessToken = cookies.any(
-        (c) => c.name == 'accessToken' && c.value.isNotEmpty,
-      );
-      debugPrint(
-        '[WebView Auth] Classroom route cookie check: accessToken present = $hasAccessToken',
-      );
-    } catch (e) {
-      debugPrint('[WebView Auth] Classroom route cookie check error: $e');
-    }
-  }
-
-  Future<void> _injectClassroomStylesAndBridge(
-    WebViewController controller,
-  ) async {
-    try {
-      // 1. Hide Web Portal Header & Sidebar
-      // 2. Hide "Parent Access Verified" / "TRUELEARN PARENT OBSERVATION" banners
-      // 3. Hide duplicate control bar inside JitsiMeetRoom ("testing", room name, "In Session", web leave button)
-      // 4. Expand Jitsi container edge-to-edge directly to top
       const jsCode = r'''
         (function() {
           try {
+            // Fullscreen container styles
             if (!document.getElementById('truelern-classroom-styles')) {
               var style = document.createElement('style');
               style.id = 'truelern-classroom-styles';
               style.innerHTML = `
-                /* Hide Next.js web portal sticky header, navigation, and sidebar */
-                header, aside, nav, header.sticky, header[class*="sticky"] { display: none !important; }
-
-                /* Hide upper observation banner containing Parent Observation & Access Verified */
-                div[class*="bg-slate-900/80"],
-                div.bg-slate-900\/80 { 
-                  display: none !important; 
-                }
-
-                /* Hide duplicate classroom header bar inside JitsiMeetRoom */
-                div[class*="bg-slate-900"][class*="border-b"],
-                div.bg-slate-900.border-b { 
-                  display: none !important; 
-                }
-
-                /* Fullscreen layout */
-                body, html, #__next { 
+                body, html { 
                   background-color: #0F172A !important; 
                   overflow: hidden !important; 
                   margin: 0 !important; 
@@ -336,115 +418,103 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
                   width: 100vw !important; 
                   height: 100vh !important; 
                 }
-
-                main { 
-                  padding: 0 !important; 
-                  margin: 0 !important; 
-                  width: 100vw !important; 
-                  max-width: 100vw !important; 
-                  height: 100vh !important; 
-                  overflow: hidden !important; 
-                }
-
-                /* Make the Jitsi classroom iframe fill the entire viewport without being constrained */
-                iframe,
-                iframe[id^="jitsiConferenceFrame"] {
-                  position: fixed !important;
-                  top: 0 !important;
-                  left: 0 !important;
-                  width: 100vw !important;
-                  height: 100vh !important;
-                  z-index: 999999 !important;
-                  border: none !important;
-                  margin: 0 !important;
-                  padding: 0 !important;
-                }
               `;
               document.head.appendChild(style);
             }
 
-            // Target only the upper banners and duplicate header
-            function cleanUpperHeaders() {
-              try {
-                var banners = document.querySelectorAll('div[class*="bg-slate-900/80"], div[class*="bg-slate-900"][class*="border-b"]');
-                for (var i = 0; i < banners.length; i++) {
-                  banners[i].style.setProperty('display', 'none', 'important');
+            // Listen for Jitsi unload or conference left events
+            window.addEventListener('unload', function() {
+              if (window.FlutterClassroomBridge) {
+                window.FlutterClassroomBridge.postMessage('classroom_exit');
+              }
+            });
+
+            // If Jitsi external API is loaded on page
+            if (window.APP && window.APP.conference) {
+              window.APP.conference.addConferenceListener('CONFERENCE_LEFT', function() {
+                if (window.FlutterClassroomBridge) {
+                  window.FlutterClassroomBridge.postMessage('classroom_exit');
                 }
-              } catch (_) {}
-            }
-
-            cleanUpperHeaders();
-            setInterval(cleanUpperHeaders, 300);
-
-            if (!window.__truelernFetchHooked && window.fetch) {
-              window.__truelernFetchHooked = true;
-              var originalFetch = window.fetch;
-              window.fetch = async function() {
-                var url = arguments[0] ? arguments[0].toString() : '';
-                var response = await originalFetch.apply(this, arguments);
-                if (url.indexOf('/api/live-classes/') !== -1 && url.indexOf('/token') !== -1) {
-                  if (window.FlutterClassroomBridge) {
-                    window.FlutterClassroomBridge.postMessage('TOKEN_STATUS:' + response.status);
-                  }
+              });
+              window.APP.conference.addConferenceListener('CONFERENCE_FAILED', function(err) {
+                if (window.FlutterClassroomBridge) {
+                  window.FlutterClassroomBridge.postMessage('AUTH_ERROR:' + (err || 'FAILED'));
                 }
-                return response;
-              };
-            }
-
-            if (!window.__truelernHistoryHooked) {
-              window.__truelernHistoryHooked = true;
-              var checkExitUrl = function(targetUrl) {
-                if (targetUrl && (
-                  targetUrl.indexOf('/parent/dashboard') !== -1 ||
-                  targetUrl.indexOf('/student/dashboard') !== -1 ||
-                  targetUrl.indexOf('/parent/live-classes') !== -1 ||
-                  targetUrl.indexOf('/student/live-classes') !== -1 ||
-                  (targetUrl.indexOf('/parent/') !== -1 && targetUrl.indexOf('/room') === -1)
-                )) {
-                  if (window.FlutterClassroomBridge) {
-                    window.FlutterClassroomBridge.postMessage('classroom_exit');
-                  }
-                }
-              };
-
-              var originalPush = history.pushState;
-              history.pushState = function() {
-                originalPush.apply(this, arguments);
-                checkExitUrl(arguments[2]);
-              };
-
-              var originalReplace = history.replaceState;
-              history.replaceState = function() {
-                originalReplace.apply(this, arguments);
-                checkExitUrl(arguments[2]);
-              };
-
-              window.addEventListener('popstate', function() {
-                checkExitUrl(window.location.href);
               });
             }
           } catch (e) {
-            console.error('Bridge init error:', e);
+            console.error('Classroom bridge error:', e);
           }
         })();
       ''';
       await controller.runJavaScript(jsCode);
     } catch (e) {
-      debugPrint('[WebView Bridge] Script injection error: $e');
+      debugPrint('[Classroom Viewer] Script injection error: $e');
     }
   }
 
-  /// Navigates to native Flutter Class Summary (Revised) with a single-guarded execution
+  /// Handles user-initiated retry with debounce & in-flight guard to prevent duplicate token requests
+  Future<void> _retryConnection() async {
+    if (_isRetrying) return;
+    final now = DateTime.now();
+    if (_lastRetryTime != null &&
+        now.difference(_lastRetryTime!) < const Duration(seconds: 2)) {
+      return; // Debounce rapid repeated taps
+    }
+    _lastRetryTime = now;
+
+    setState(() {
+      _isRetrying = true;
+    });
+
+    try {
+      await _initializeClassroom(forceRefresh: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRetrying = false;
+        });
+      }
+    }
+  }
+
+  /// Cleanly returns to the demo flow or previous screen
+  void _onBackToDemo() {
+    final now = DateTime.now();
+    final isSessionEnded = widget.booking?.isExpired(now) == true ||
+        (widget.session?.scheduledEndTime != null &&
+            now.isAfter(widget.session!.scheduledEndTime!)) ||
+        widget.booking?.status.toLowerCase() == 'completed' ||
+        widget.session?.status?.toLowerCase() == 'completed';
+
+    if (isSessionEnded) {
+      context.go(AppRoutePaths.demoWaitingForAdmin, extra: widget.booking);
+      return;
+    }
+
+    if (context.canPop()) {
+      context.pop();
+    } else if (widget.booking != null) {
+      context.go(AppRoutePaths.demoClassPreJoin, extra: widget.booking);
+    } else if (widget.fromDemo || widget.classId.startsWith('DEMO-')) {
+      context.go('${AppRoutePaths.demoClassPreJoin}?bookingId=${widget.classId}');
+    } else {
+      _navigateToSummary();
+    }
+  }
+
+  /// Navigates to native Flutter Class Summary with single-guarded execution
   void _navigateToSummary() {
     if (_hasNavigatedToSummary || !mounted) return;
     _hasNavigatedToSummary = true;
 
+    final effectiveClassId = _activeJoinData?.classId ?? widget.classId;
     debugPrint(
-      '[Classroom Navigation] Navigating to Class Summary (Revised) for class ${widget.classId}',
+      '[Classroom Navigation] Navigating to Class Summary for class $effectiveClassId',
     );
     try {
       context.go(
-        '/parent/classes/${widget.classId}/summary',
+        '/parent/classes/$effectiveClassId/summary',
         extra: {
           'session': widget.session,
           'childStudentId': widget.childStudentId,
@@ -457,12 +527,19 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDemoFlow = widget.fromDemo ||
+        widget.classId.startsWith('DEMO-') ||
+        widget.session?.title.toLowerCase().contains('demo') == true;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        // Cleanly exit to native Parent Class Summary instead of navigating backwards in WebView history
-        _navigateToSummary();
+        if (isDemoFlow) {
+          _onBackToDemo();
+        } else {
+          _navigateToSummary();
+        }
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF0F172A),
@@ -471,12 +548,42 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Live Classroom WebView Container (Fills the entire available screen)
+                // Live Classroom WebView Container
                 if (_controller != null)
                   Positioned.fill(
                     child: WebViewWidget(
                       key: const Key('live_classroom_webview'),
                       controller: _controller!,
+                    ),
+                  ),
+
+                // Top floating exit button (accessible overlay)
+                if (_controller != null && _errorMessage == null)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        key: const Key('classroom_floating_leave_button'),
+                        onTap: isDemoFlow ? _onBackToDemo : _navigateToSummary,
+                        borderRadius: BorderRadius.circular(24),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B).withValues(alpha: 0.85),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF334155),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
 
@@ -518,8 +625,8 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
                           const SizedBox(height: 8),
                           Text(
                             _loadingProgress > 0
-                                ? 'Securing media channels: $_loadingProgress%'
-                                : 'Establishing encrypted WebRTC session',
+                                ? 'Securing WebRTC stream: $_loadingProgress%'
+                                : 'Authenticating child participant session',
                             style: GoogleFonts.hankenGrotesk(
                               fontSize: 13,
                               fontWeight: FontWeight.w400,
@@ -531,72 +638,158 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
                     ),
                   ),
 
-                // Error State Overlay
+                // In-App Diagnostic Error State Overlay
                 if (_errorMessage != null)
                   Container(
                     color: const Color(0xFF0F172A),
                     padding: const EdgeInsets.all(24),
                     child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.error_outline_rounded,
-                            color: Color(0xFFEF4444),
-                            size: 48,
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: const Color(0xFF334155),
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Connection Notice',
-                            style: GoogleFonts.hankenGrotesk(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _errorMessage!,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.hankenGrotesk(
-                              fontSize: 13,
-                              color: const Color(0xFF94A3B8),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.videocam_off_rounded,
+                                color: Color(0xFFEF4444),
+                                size: 30,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              OutlinedButton(
-                                onPressed: _navigateToSummary,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: const BorderSide(
-                                    color: Color(0xFF334155),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Classroom Connection Error',
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            // Diagnostic Category Badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F172A),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: const Color(0xFF334155),
+                                ),
+                              ),
+                              child: Text(
+                                _errorCategory?.displayName ??
+                                    ClassroomErrorCategory.unknown.displayName,
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF93C5FD),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 13,
+                                height: 1.45,
+                                color: const Color(0xFF94A3B8),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                OutlinedButton(
+                                  key: const Key('classroom_back_to_demo_button'),
+                                  onPressed: isDemoFlow ? _onBackToDemo : _navigateToSummary,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: const BorderSide(
+                                      color: Color(0xFF334155),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
                                   ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 12,
+                                  child: Text(
+                                    isDemoFlow ? 'Back to Demo' : 'Return to Classes',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                                child: const Text('Return to Classes'),
-                              ),
-                              const SizedBox(width: 12),
-                              ElevatedButton(
-                                onPressed: _initializeWebView,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFE11D48),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 12,
+                                ElevatedButton(
+                                  key: const Key('classroom_retry_button'),
+                                  onPressed: _isRetrying ? null : _retryConnection,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFE11D48),
+                                    disabledBackgroundColor:
+                                        const Color(0xFFE11D48).withValues(alpha: 0.5),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
                                   ),
+                                  child: _isRetrying
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                          ),
+                                        )
+                                      : Text(
+                                          'Retry Connection',
+                                          style: GoogleFonts.hankenGrotesk(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
                                 ),
-                                child: const Text('Retry Connection'),
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

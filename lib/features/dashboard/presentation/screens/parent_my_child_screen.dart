@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/router/route_paths.dart';
+import '../../../onboarding/presentation/controllers/onboarding_controller.dart';
 import '../../data/models/add_child_request_dto.dart';
 import '../../data/repositories/dashboard_repository_impl.dart';
 import '../../domain/entities/child_entity.dart';
@@ -1333,6 +1334,17 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
           .read(childrenControllerProvider.notifier)
           .setActiveChild(newChild.studentId);
 
+      final calculatedAge = newChild.age ??
+          (_selectedDob != null
+              ? DateTime.now().year - _selectedDob!.year
+              : 8);
+      ref.read(onboardingControllerProvider.notifier).updateChildDetails(
+            childFirstName: newChild.firstName,
+            childLastName: newChild.lastName ?? '',
+            childName: newChild.displayName,
+            childAge: calculatedAge,
+          );
+
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1344,6 +1356,7 @@ class _AddChildBottomSheetState extends ConsumerState<_AddChildBottomSheet> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+        context.push(AppRoutePaths.onboardingInterests);
       }
     } catch (e) {
       if (mounted) {

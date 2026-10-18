@@ -11,6 +11,7 @@ class CounselorDto {
     this.designation,
     this.specialization,
     this.status,
+    this.bio,
   });
 
   final String id;
@@ -21,6 +22,7 @@ class CounselorDto {
   final String? designation;
   final String? specialization;
   final String? status;
+  final String? bio;
 
   factory CounselorDto.fromJson(Map<String, dynamic> json) {
     // 1. Resolve ID
@@ -73,6 +75,9 @@ class CounselorDto {
             as String?;
 
     final status = json['status']?.toString();
+    final bio =
+        (json['bio'] ?? json['description'] ?? json['about'] ?? json['summary'])
+            as String?;
 
     return CounselorDto(
       id: resolvedId,
@@ -83,6 +88,7 @@ class CounselorDto {
       designation: designation,
       specialization: specialization,
       status: status,
+      bio: bio,
     );
   }
 
@@ -96,6 +102,7 @@ class CounselorDto {
       designation: designation,
       specialization: specialization,
       status: status,
+      bio: bio,
     );
   }
 }

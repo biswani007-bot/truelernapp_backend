@@ -42,6 +42,7 @@ import '../../features/dashboard/presentation/screens/parent_terms_conditions_sc
 import '../../features/dashboard/presentation/screens/parent_invoices_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_invoice_detail_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_payment_successful_screen.dart';
+import '../../features/finance/domain/entities/invoice_entity.dart';
 import '../../features/dashboard/presentation/screens/parent_messages_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_notifications_screen.dart';
 import '../../features/dashboard/presentation/screens/parent_account_settings_screen.dart';
@@ -52,6 +53,9 @@ import '../../features/dashboard/presentation/screens/parent_learning_progress_s
 import '../../features/dashboard/presentation/screens/parent_shell_screen.dart';
 import '../../features/dashboard/presentation/screens/demo_booking_dashboard_screen.dart';
 import '../../features/dashboard/presentation/screens/demo_session_booked_screen.dart';
+import '../../features/dashboard/presentation/screens/demo_class_waiting_screen.dart';
+import '../../features/dashboard/presentation/screens/demo_class_pre_join_screen.dart';
+import '../../features/dashboard/presentation/screens/demo_waiting_for_admin_screen.dart';
 import '../../features/dashboard/domain/entities/demo_booking_entity.dart';
 import '../../features/certificates/presentation/screens/certificates_screen.dart';
 import '../../features/counselor/presentation/screens/counselor_screen.dart';
@@ -131,8 +135,22 @@ class RouterNotifier extends ChangeNotifier {
     final isLogin = location == AppRoutePaths.login;
     final isAuthenticated = authState is Authenticated;
 
-    // 1. Splash lifecycle: allow initialization to complete uninterrupted
+    // Helper: identifies transient routes that must never be restored on cold process start
+    bool isTransientRoute(String path) {
+      if (path.startsWith('/parent/demo-class/')) return true;
+      if (path.startsWith('/parent/classes/') && path.contains('/live')) return true;
+      if (path.startsWith('/parent/classes/') && path.contains('/joining')) return true;
+      if (path.startsWith('/parent/classes/') && path.contains('/preview')) return true;
+      if (path == AppRoutePaths.paymentSuccessful) return true;
+      return false;
+    }
+
+    // 1. Splash lifecycle: allow initialization to complete uninterrupted.
+    // If Android passes a transient route on cold start, redirect to splash.
     if (authState is AuthInitial || authState is AuthCheckingSession) {
+      if (!isSplash && isTransientRoute(location)) {
+        return AppRoutePaths.splash;
+      }
       return null;
     }
 
@@ -145,9 +163,14 @@ class RouterNotifier extends ChangeNotifier {
       return AppRoutePaths.login;
     }
 
-    // 3. Authenticated bounce:
+    // 3. Authenticated transient route protection:
+    // If authenticated user attempts to access an unhydrated transient session route, redirect to parent dashboard.
+    if (isAuthenticated && isTransientRoute(location)) {
+      return AppRoutePaths.parentDashboard;
+    }
+
+    // 4. Authenticated bounce:
     // If authenticated user is on /login or /splash or /onboarding (carousel), redirect appropriately.
-    // Allow password setup, onboarding flow, and demo dashboard to proceed uninterrupted.
     if (isAuthenticated && (isLogin || isSplash || isOnboarding)) {
       switch (authState.destination) {
         case AuthDestination.passwordSetup:
@@ -349,16 +372,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutePaths.parentInvoices,
         name: AppRouteNames.parentInvoices,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const ParentInvoicesScreen(),
       ),
       GoRoute(
         path: AppRoutePaths.paymentSuccessful,
         name: AppRouteNames.paymentSuccessful,
-        builder: (context, state) => const ParentPaymentSuccessfulScreen(),
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final args = state.extra is PaymentSuccessfulArgs
+              ? state.extra as PaymentSuccessfulArgs
+              : null;
+          return ParentPaymentSuccessfulScreen(args: args);
+        },
       ),
       GoRoute(
         path: AppRoutePaths.demoSessionBooked,
         name: AppRouteNames.demoSessionBooked,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
           final booking = state.extra is DemoBookingEntity
               ? state.extra as DemoBookingEntity
@@ -367,9 +398,64 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: AppRoutePaths.demoClassWaiting,
+        name: AppRouteNames.demoClassWaiting,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final booking = state.extra is DemoBookingEntity
+              ? state.extra as DemoBookingEntity
+              : null;
+          final bookingId = state.uri.queryParameters['bookingId'];
+          return DemoClassWaitingScreen(
+            booking: booking,
+            bookingId: bookingId,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutePaths.demoClassPreJoin,
+        name: AppRouteNames.demoClassPreJoin,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final booking = state.extra is DemoBookingEntity
+              ? state.extra as DemoBookingEntity
+              : null;
+          final bookingId = state.uri.queryParameters['bookingId'];
+          return DemoClassPreJoinScreen(
+            booking: booking,
+            bookingId: bookingId,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutePaths.demoWaitingForAdmin,
+        name: AppRouteNames.demoWaitingForAdmin,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final booking = state.extra is DemoBookingEntity
+              ? state.extra as DemoBookingEntity
+              : null;
+          final bookingId = state.uri.queryParameters['bookingId'];
+          return DemoWaitingForAdminScreen(
+            booking: booking,
+            bookingId: bookingId,
+          );
+        },
+      ),
+      GoRoute(
         path: AppRoutePaths.invoiceDetails,
         name: AppRouteNames.invoiceDetails,
-        builder: (context, state) => const ParentInvoiceDetailScreen(),
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final invoice = state.extra is InvoiceEntity
+              ? state.extra as InvoiceEntity
+              : null;
+          final invoiceId = state.pathParameters['invoiceId'];
+          return ParentInvoiceDetailScreen(
+            invoice: invoice,
+            invoiceId: invoiceId,
+          );
+        },
       ),
       GoRoute(
         path: AppRoutePaths.parentSecurityPrivacy,
@@ -568,8 +654,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               final classId = state.pathParameters['classId'] ?? '';
               ClassEntity? session;
               ClassJoinEntity? joinData;
-
               String? childStudentId;
+              bool fromDemo = false;
+              DemoBookingEntity? booking;
+
               if (state.extra is ClassEntity) {
                 session = state.extra as ClassEntity;
               } else if (state.extra is Map<String, dynamic>) {
@@ -577,6 +665,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                 session = map['session'] as ClassEntity?;
                 joinData = map['joinData'] as ClassJoinEntity?;
                 childStudentId = map['childStudentId'] as String?;
+                fromDemo = map['fromDemo'] == true;
+                booking = map['booking'] as DemoBookingEntity?;
               }
 
               return LiveClassroomScreen(
@@ -584,6 +674,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                 session: session,
                 joinData: joinData,
                 childStudentId: childStudentId,
+                fromDemo: fromDemo,
+                booking: booking,
               );
             },
           ),

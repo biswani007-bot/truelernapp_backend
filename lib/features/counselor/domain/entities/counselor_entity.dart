@@ -9,6 +9,7 @@ class CounselorEntity {
     this.designation,
     this.specialization,
     this.status,
+    this.bio,
   });
 
   final String id;
@@ -19,6 +20,7 @@ class CounselorEntity {
   final String? designation;
   final String? specialization;
   final String? status;
+  final String? bio;
 
   String get displayDesignation {
     if (designation != null && designation!.trim().isNotEmpty) {
@@ -43,7 +45,8 @@ class CounselorEntity {
           avatar == other.avatar &&
           designation == other.designation &&
           specialization == other.specialization &&
-          status == other.status;
+          status == other.status &&
+          bio == other.bio;
 
   @override
   int get hashCode =>
@@ -54,5 +57,6 @@ class CounselorEntity {
       avatar.hashCode ^
       designation.hashCode ^
       specialization.hashCode ^
-      status.hashCode;
+      status.hashCode ^
+      bio.hashCode;
 }
