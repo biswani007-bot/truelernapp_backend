@@ -5,6 +5,7 @@ import 'package:truelearn/features/dashboard/presentation/controllers/children_c
 import 'package:truelearn/features/dashboard/presentation/controllers/children_state.dart';
 import 'package:truelearn/features/finance/data/repositories/finance_repository_impl.dart';
 import 'package:truelearn/features/finance/domain/entities/invoice_entity.dart';
+import 'package:truelearn/features/finance/domain/entities/stripe_checkout_entity.dart';
 import 'package:truelearn/features/finance/domain/repositories/finance_repository.dart';
 import 'package:truelearn/features/finance/presentation/controllers/finance_controller.dart';
 
@@ -94,6 +95,39 @@ class MockFinanceRepository implements FinanceRepository {
     lastPayment = payment;
     return payment;
   }
+
+  @override
+  Future<StripeCheckoutSessionEntity> createStripeCheckoutSession({
+    required String invoiceId,
+    required String studentId,
+    required String successUrl,
+    required String cancelUrl,
+  }) async {
+    return StripeCheckoutSessionEntity(
+      sessionId: 'cs_test_mock_123',
+      url: 'https://checkout.stripe.com/c/pay/cs_test_mock_123',
+    );
+  }
+
+  @override
+  Future<InvoiceEntity> verifyInvoiceStatus(String invoiceId) async {
+    final inv = mockInvoices.where((i) => i.id == invoiceId).firstOrNull;
+    if (inv != null) return inv;
+    throw Exception('Invoice not found');
+  }
+
+  @override
+  Future<List<ReceiptEntity>> getReceipts({int limit = 10}) async {
+    return <ReceiptEntity>[];
+  }
+
+  @override
+  Future<List<PaymentRecordEntity>> getPayments({int limit = 10}) async {
+    return lastPayment != null ? [lastPayment!] : <PaymentRecordEntity>[];
+  }
+
+  @override
+  Future<void> refreshEnrollments({int limit = 10}) async {}
 }
 
 void main() {
@@ -104,13 +138,13 @@ void main() {
     'invoiceNumber': 'INV-2026-0001',
     'issueDate': '2026-10-15T10:00:00.000Z',
     'dueDate': '2026-10-25T10:00:00.000Z',
-    'baseAmount': 1000,
-    'taxAmount': 180,
-    'discountAmount': 50,
+    'baseAmount': 100000,
+    'taxAmount': 18000,
+    'discountAmount': 5000,
     'scholarshipAmount': 0,
-    'totalAmount': 1130,
+    'totalAmount': 113000,
     'amountPaid': 0,
-    'amountDue': 1130,
+    'amountDue': 113000,
     'status': 'unpaid',
     'courseName': 'Robotics Level 1',
     'courseCode': 'ROB-101',
@@ -119,7 +153,7 @@ void main() {
     'items': [
       {
         'description': 'Robotics Kit & Tuition',
-        'amount': 1000,
+        'amount': 100000,
         'quantity': 1,
       }
     ],
@@ -141,10 +175,44 @@ void main() {
       expect(invoice.items.first.amount, 1000.0);
     });
 
+    test('Correctly parses and formats INV-000036 from server minor units to web-equivalent major units', () {
+      final inv36Json = {
+        'id': '6ad52bed59fc8560344d91c9',
+        'invoiceNumber': 'INV-000036',
+        'issueDate': '2026-10-19T00:00:00.000Z',
+        'dueDate': '2026-11-02T00:00:00.000Z',
+        'baseAmount': 2290000,
+        'taxAmount': 229000,
+        'discountAmount': 0,
+        'scholarshipAmount': 0,
+        'totalAmount': 2519000,
+        'amountPaid': 0,
+        'amountDue': 2519000,
+        'status': 'issued',
+        'currency': 'USD',
+        'courseName': 'Emotional Intelligence',
+        'studentId': '6ad5215f59fc8560344d89fe',
+        'studentName': 'Tarun Sahoo',
+      };
+
+      final invoice = InvoiceEntity.fromJson(inv36Json);
+
+      expect(invoice.baseAmount, 22900.0);
+      expect(invoice.taxAmount, 2290.0);
+      expect(invoice.totalAmount, 25190.0);
+      expect(invoice.amountDue, 25190.0);
+      expect(invoice.baseAmount + invoice.taxAmount, invoice.totalAmount);
+      expect(invoice.formattedBase, '\$22,900.00');
+      expect(invoice.formattedTax, '\$2,290.00');
+      expect(invoice.formattedTotal, '\$25,190.00');
+      expect(invoice.formattedDue, '\$25,190.00');
+      expect(invoice.currencySymbol, '\$');
+    });
+
     test('Identifies paid and settled invoices properly', () {
       final paidInvoiceJson = Map<String, dynamic>.from(testInvoiceJson);
       paidInvoiceJson['status'] = 'paid';
-      paidInvoiceJson['amountPaid'] = 1130;
+      paidInvoiceJson['amountPaid'] = 113000;
       paidInvoiceJson['amountDue'] = 0;
 
       final invoice = InvoiceEntity.fromJson(paidInvoiceJson);
@@ -179,7 +247,7 @@ void main() {
           'studentId': 'child-02',
           'studentName': 'Emma Smith',
           'status': 'paid',
-          'amountPaid': 500,
+          'amountPaid': 50000,
           'amountDue': 0,
         }),
       ];

@@ -331,11 +331,19 @@ class OnboardingController extends Notifier<OnboardingState> {
   }
 
   /// Restores verified demo session / lead state populated from authoritative server query.
-  void restoreDemoBookingState({String? leadId, String? courseName}) {
+  void restoreDemoBookingState({
+    String? leadId,
+    String? courseName,
+    String? childName,
+  }) {
     state = state.copyWith(
       submissionLeadId: leadId ?? state.submissionLeadId,
       interestedCourse: courseName ?? state.interestedCourse,
-      isSubmitted: true,
+      childName: childName ?? state.childName,
+      // A parent-level or CRM lead without a linked childName must NEVER mark
+      // the onboarding state as a submitted child application.
+      isSubmitted: (childName != null && childName.trim().isNotEmpty) ||
+          (state.childName.trim().isNotEmpty && state.isSubmitted),
     );
   }
 

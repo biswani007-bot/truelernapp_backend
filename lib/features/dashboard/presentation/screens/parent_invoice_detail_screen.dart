@@ -1,41 +1,39 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/widgets/app_refresh_indicator.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../auth/presentation/controllers/auth_state.dart';
+import '../../presentation/controllers/children_controller.dart';
+import '../../presentation/controllers/children_state.dart';
 import '../../../finance/domain/entities/invoice_entity.dart';
+import '../../../finance/domain/entities/stripe_checkout_entity.dart';
+import '../../../finance/data/repositories/finance_repository_impl.dart';
 import '../../../finance/presentation/controllers/finance_controller.dart';
+import '../../../finance/presentation/services/stripe_checkout_launcher.dart';
 import 'parent_payment_successful_screen.dart';
 
-/// Parent Invoice Detail Screen displaying real invoice details and supporting payment.
+/// Parent Invoice Detail Screen displaying real invoice details and supporting
+/// official Stripe Checkout payments with server-authoritative settlement confirmation.
 ///
 /// Figma Source of Truth: `Parent(full app)_TreLern`, Frame: `Invoice Detail` (Node 104:198).
-/// - Top App Bar: Back button and centered title "Invoice Detail" (Node 104:209)
-/// - Background: Linear gradient (Lavender -> Sky Blue -> White)
-/// - Invoice Card (Node 104:217):
-///   - Top decorative accent: Blue to rose horizontal gradient bar (Node 104:293)
-///   - Header: "INVOICE NUMBER", real number, and status badge (Node 104:218)
-///   - Dates: Issued Date, Due Date (Node 104:228)
-///   - Details: Billed To, Student & Program (Node 104:237)
-///   - Breakdown: Program Fee, Discount, Tax, Total, Amount Paid (Node 104:257)
-///   - Total Due box: "Balance Due" & real balance (Node 104:288)
-/// - Bottom Action Buttons (Node 104:199):
-///   - Primary Button: "Pay $X.XX" (or "Paid" if settled)
-///   - Outlined Button: "Download Invoice"
 class ParentInvoiceDetailScreen extends ConsumerStatefulWidget {
   const ParentInvoiceDetailScreen({
     super.key,
     this.invoice,
     this.invoiceId,
+    this.checkoutLauncher = const StripeCheckoutLauncher(),
   });
 
   final InvoiceEntity? invoice;
   final String? invoiceId;
+  final StripeCheckoutLauncher checkoutLauncher;
 
   @override
   ConsumerState<ParentInvoiceDetailScreen> createState() =>
@@ -43,33 +41,91 @@ class ParentInvoiceDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ParentInvoiceDetailScreenState
-    extends ConsumerState<ParentInvoiceDetailScreen> {
+    extends ConsumerState<ParentInvoiceDetailScreen>
+    with WidgetsBindingObserver {
   static const _svgDownload = 'assets/icons/inv_detail_download.svg';
   static const _svgBackArrow = 'assets/icons/inv_detail_back.svg';
   static const _svgUnpaid = 'assets/icons/inv_detail_unpaid.svg';
   static const _svgHeart = 'assets/icons/inv_detail_heart.svg';
 
   InvoiceEntity? _invoice;
-  bool _isProcessingPayment = false;
+  CheckoutUiState _checkoutState = CheckoutUiState.idle;
+  String? _statusBannerMessage;
+  bool _isAwaitingExternalReturn = false;
+  String? _activeStudentId;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _invoice = widget.invoice;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_invoice == null) {
+      _fetchLatestInvoice();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// App lifecycle listener to detect return from external browser checkout.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_isAwaitingExternalReturn) {
+        _isAwaitingExternalReturn = false;
+        final currentInvoice = _invoice ?? widget.invoice;
+        if (currentInvoice != null && mounted) {
+          _verifyPaymentWithPolling(currentInvoice.id);
+        }
+      } else {
+        final currentInvoice = _invoice ?? widget.invoice;
+        if (currentInvoice != null && mounted) {
+          _fetchLatestInvoice();
+        }
+      }
+    }
+  }
+
+  Future<void> _fetchLatestInvoice() async {
+    final targetId = _invoice?.id ?? widget.invoiceId ?? widget.invoice?.id;
+    if (targetId == null || targetId.isEmpty) {
+      _resolveInvoice();
+      return;
+    }
+
+    try {
+      final repo = ref.read(financeRepositoryProvider);
+      final fresh = await repo.getInvoiceDetail(
+        targetId,
+        studentId: _invoice?.studentId ?? _activeStudentId,
+      );
+
+      if (fresh != null && mounted) {
+        setState(() {
+          _invoice = fresh;
+        });
+      } else if (mounted) {
         _resolveInvoice();
       }
-    });
+    } catch (_) {
+      if (mounted) {
+        _resolveInvoice();
+      }
+    }
   }
 
   void _resolveInvoice() {
     final financeState = ref.read(financeControllerProvider);
     if (financeState is FinanceLoaded) {
+      final targetId = widget.invoiceId ?? widget.invoice?.id;
       final found = financeState.invoices
           .where(
-            (i) => i.id == widget.invoiceId || i.invoiceNumber == widget.invoiceId,
+            (i) =>
+                i.id == targetId || i.invoiceNumber == targetId,
           )
           .firstOrNull;
       if (found != null && mounted) {
@@ -80,7 +136,11 @@ class _ParentInvoiceDetailScreenState
     }
   }
 
+  bool _isProcessingPayment = false;
+
+  /// Initiates official Stripe Checkout creation and presentation.
   Future<void> _handlePayment(InvoiceEntity invoice) async {
+    // 1. Check if already settled
     if (invoice.isPaid || invoice.amountDue <= 0.01) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -91,51 +151,213 @@ class _ParentInvoiceDetailScreenState
       return;
     }
 
+    // 2. Prevent duplicate taps while a session is creating, opened, or verifying
+    if (_isProcessingPayment ||
+        _checkoutState == CheckoutUiState.creatingCheckout ||
+        _checkoutState == CheckoutUiState.pendingVerification ||
+        _checkoutState == CheckoutUiState.checkoutOpened) {
+      return;
+    }
+    _isProcessingPayment = true;
+
+    // 3. Resolve and authorize student identifier from linked children context
+    final childrenState = ref.read(childrenControllerProvider);
+    String? resolvedStudentId = invoice.studentId;
+
+    if (resolvedStudentId == null || resolvedStudentId.isEmpty) {
+      if (childrenState is ChildrenLoaded) {
+        resolvedStudentId = childrenState.activeChildId ??
+            (childrenState.children.isNotEmpty
+                ? childrenState.children.first.studentId
+                : null);
+      }
+    }
+
+    if (resolvedStudentId == null || resolvedStudentId.isEmpty) {
+      setState(() {
+        _checkoutState = CheckoutUiState.paymentFailed;
+        _statusBannerMessage =
+            'Linked student context is missing. Please select a child before proceeding.';
+      });
+      return;
+    }
+
+    // Ownership verification: ensure parent owns this child
+    if (childrenState is ChildrenLoaded && childrenState.children.isNotEmpty) {
+      final isLinked =
+          childrenState.children.any((c) => c.studentId == resolvedStudentId);
+      if (!isLinked) {
+        setState(() {
+          _checkoutState = CheckoutUiState.paymentFailed;
+          _statusBannerMessage =
+              'Unauthorized: Student is not linked to your parent account.';
+        });
+        return;
+      }
+    }
+
+    _activeStudentId = resolvedStudentId;
+
     setState(() {
-      _isProcessingPayment = true;
+      _checkoutState = CheckoutUiState.creatingCheckout;
+      _statusBannerMessage = null;
     });
 
     try {
-      final payment = await ref
+      final config = ref.read(appConfigProvider);
+      final serverOrigin = config.serverOrigin;
+      final successUrl = '$serverOrigin/checkout?payment=success';
+      final cancelUrl = '$serverOrigin/checkout?payment=cancelled';
+
+      // 4. Create Stripe Checkout Session through backend API
+      final session = await ref
           .read(financeControllerProvider.notifier)
-          .processPayment(invoice);
+          .createCheckoutSession(
+            invoice: invoice,
+            studentId: resolvedStudentId,
+            successUrl: successUrl,
+            cancelUrl: cancelUrl,
+          );
+
+      if (!session.isValid) {
+        throw ArgumentError(
+          'Untrusted checkout URL returned from server: ${session.url}',
+        );
+      }
 
       if (!mounted) return;
 
       setState(() {
-        _isProcessingPayment = false;
+        _checkoutState = CheckoutUiState.checkoutOpened;
       });
 
-      // Navigate to Payment Successful screen with verified transaction details
-      context.push(
-        AppRoutePaths.paymentSuccessful,
-        extra: PaymentSuccessfulArgs(
-          invoiceNumber: invoice.invoiceNumber,
-          amountPaid: invoice.formattedDue,
-          courseName: invoice.courseName,
-          studentName: invoice.studentName ?? 'Ward',
-          transactionReference: payment?.transactionReference,
-          paymentDate: payment?.paymentDate ?? DateTime.now(),
-          isAwaitingAdminVerification: false,
-        ),
-      );
+      // 5. Open Checkout: attempt external browser launch, fallback to in-app presentation
+      bool launchedExternal = false;
+      try {
+        launchedExternal =
+            await widget.checkoutLauncher.launchExternalBrowser(session.url);
+      } catch (_) {
+        launchedExternal = false;
+      }
+
+      if (launchedExternal) {
+        _isAwaitingExternalReturn = true;
+      } else {
+        // Fallback to approved in-app presentation screen
+        if (!mounted) return;
+        final result = await widget.checkoutLauncher.launchInAppPresentation(
+          context,
+          checkoutUrl: session.url,
+          successUrlPrefix: '$serverOrigin/checkout',
+          cancelUrlPrefix: '$serverOrigin/checkout',
+        );
+
+        if (!mounted) return;
+
+        switch (result) {
+          case CheckoutReturnResult.completed:
+          case CheckoutReturnResult.closed:
+            await _verifyPaymentWithPolling(invoice.id);
+            break;
+          case CheckoutReturnResult.cancelled:
+            await _fetchLatestInvoice();
+            if (!mounted) return;
+            setState(() {
+              _checkoutState = CheckoutUiState.paymentCancelled;
+              _statusBannerMessage =
+                  'Payment was cancelled. Your invoice balance of ${_invoice?.formattedDue ?? invoice.formattedDue} remains outstanding.';
+            });
+            break;
+          case CheckoutReturnResult.error:
+            setState(() {
+              _checkoutState = CheckoutUiState.paymentFailed;
+              _statusBannerMessage =
+                  'Unable to open payment checkout. Please verify your internet connection and retry.';
+            });
+            break;
+        }
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isProcessingPayment = false;
+        _checkoutState = CheckoutUiState.paymentFailed;
+        _statusBannerMessage = 'Checkout initialization failed: $e';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Payment failed: $e'),
-          backgroundColor: const Color(0xFFDC2626),
-        ),
-      );
+    } finally {
+      if (mounted) {
+        _isProcessingPayment = false;
+      }
+    }
+  }
+
+  /// Authoritative bounded polling of GET /api/finance/invoices/{invoiceId}.
+  ///
+  /// Never confirms payment unless the backend reports status == 'paid' or settled.
+  Future<void> _verifyPaymentWithPolling(String invoiceId) async {
+    if (!mounted) return;
+
+    setState(() {
+      _checkoutState = CheckoutUiState.pendingVerification;
+      _statusBannerMessage =
+          'Verifying payment settlement with TrueLern server...';
+    });
+
+    try {
+      final verifiedInvoice = await ref
+          .read(financeControllerProvider.notifier)
+          .verifyAndPollInvoicePayment(
+            invoiceId,
+            maxAttempts: 5,
+            pollInterval: const Duration(seconds: 2),
+            studentId: _activeStudentId,
+          );
+
+      if (!mounted) return;
+
+      if (verifiedInvoice.isPaid) {
+        setState(() {
+          _invoice = verifiedInvoice;
+          _checkoutState = CheckoutUiState.paymentConfirmed;
+          _statusBannerMessage = null;
+        });
+
+        // Navigate to existing Payment Successful screen with server-verified transaction details
+        context.push(
+          AppRoutePaths.paymentSuccessful,
+          extra: PaymentSuccessfulArgs(
+            invoiceNumber: verifiedInvoice.invoiceNumber,
+            amountPaid: verifiedInvoice.formattedPaid.isNotEmpty &&
+                    verifiedInvoice.amountPaid > 0
+                ? verifiedInvoice.formattedPaid
+                : verifiedInvoice.formattedTotal,
+            courseName: verifiedInvoice.courseName,
+            studentName: verifiedInvoice.studentName ?? 'Ward',
+            transactionReference: verifiedInvoice.transactionReference,
+            paymentDate: verifiedInvoice.paidAt ?? DateTime.now(),
+            isAwaitingAdminVerification: false,
+          ),
+        );
+      } else {
+        // Invoice is still unpaid, pending, or cancelled
+        setState(() {
+          _invoice = verifiedInvoice;
+          _checkoutState = CheckoutUiState.verificationUnavailable;
+          _statusBannerMessage =
+              'Payment settlement confirmation is still pending with your payment provider. Your balance remains ${verifiedInvoice.formattedDue}.';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _checkoutState = CheckoutUiState.verificationUnavailable;
+        _statusBannerMessage =
+            'Unable to reach TrueLern server for payment confirmation ($e). Please tap "Verify Payment" to check again.';
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Current invoice resolution
     final invoice = _invoice ?? widget.invoice;
     final authState = ref.watch(authControllerProvider);
     final parentName = (authState is Authenticated && authState.user != null)
@@ -152,9 +374,9 @@ class _ParentInvoiceDetailScreenState
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFFF3E8FF), // rgb(243, 232, 255)
-              Color(0xFFE0F2FE), // rgb(224, 242, 254)
-              Color(0xFFFFFFFF), // rgb(255, 255, 255)
+              Color(0xFFF3E8FF),
+              Color(0xFFE0F2FE),
+              Color(0xFFFFFFFF),
             ],
             stops: [0.0, 0.5, 1.0],
           ),
@@ -174,11 +396,23 @@ class _ParentInvoiceDetailScreenState
                         await ref
                             .read(financeControllerProvider.notifier)
                             .loadFinance();
+                        if (widget.invoiceId != null) {
+                          try {
+                            final refreshed = await ref
+                                .read(financeRepositoryProvider)
+                                .verifyInvoiceStatus(widget.invoiceId!);
+                            if (mounted) {
+                              setState(() {
+                                _invoice = refreshed;
+                              });
+                            }
+                          } catch (_) {}
+                        }
                         _resolveInvoice();
                       },
                       child: SingleChildScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 160),
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 170),
                         child: Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 448),
@@ -193,7 +427,7 @@ class _ParentInvoiceDetailScreenState
                 ],
               ),
 
-              // Fixed Bottom Action Buttons (Node 104:199)
+              // Fixed Bottom Action Area (Node 104:199)
               if (invoice != null)
                 Positioned(
                   left: 0,
@@ -300,7 +534,7 @@ class _ParentInvoiceDetailScreenState
             ),
 
             Padding(
-              padding: const EdgeInsets.fromLTRB(25, 25, 25, 25),
+              padding: const EdgeInsets.all(25),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -313,11 +547,162 @@ class _ParentInvoiceDetailScreenState
                   _buildBreakdownSection(invoice),
                   const SizedBox(height: 24),
                   _buildTotalDueBox(invoice),
+
+                  // Dynamic Checkout Status Banner
+                  if (_checkoutState != CheckoutUiState.idle &&
+                      _checkoutState != CheckoutUiState.paymentConfirmed) ...[
+                    const SizedBox(height: 16),
+                    _buildCheckoutStatusBanner(invoice),
+                  ],
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Dynamic banner reflecting the exact payment / checkout UI state
+  Widget _buildCheckoutStatusBanner(InvoiceEntity invoice) {
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
+    IconData iconData;
+    String title;
+    String subtitle;
+    Widget? actionWidget;
+
+    switch (_checkoutState) {
+      case CheckoutUiState.creatingCheckout:
+        bgColor = const Color(0xFFEFF6FF);
+        borderColor = const Color(0xFFBFDBFE);
+        textColor = const Color(0xFF1E40AF);
+        iconData = Icons.hourglass_top_rounded;
+        title = 'Connecting to Stripe Checkout';
+        subtitle =
+            'Generating secure payment session. Please do not close the app.';
+        break;
+
+      case CheckoutUiState.checkoutOpened:
+        bgColor = const Color(0xFFF0FDF4);
+        borderColor = const Color(0xFFBBF7D0);
+        textColor = const Color(0xFF166534);
+        iconData = Icons.open_in_browser_rounded;
+        title = 'Stripe Checkout Opened';
+        subtitle =
+            'Complete your payment in the browser, then return here to verify settlement.';
+        actionWidget = TextButton.icon(
+          key: const Key('checkout_banner_verify_button'),
+          onPressed: () => _verifyPaymentWithPolling(invoice.id),
+          icon: const Icon(Icons.refresh_rounded, size: 16),
+          label: const Text('Verify Payment Now'),
+          style: TextButton.styleFrom(
+            foregroundColor: const Color(0xFF15803D),
+            visualDensity: VisualDensity.compact,
+          ),
+        );
+        break;
+
+      case CheckoutUiState.pendingVerification:
+        bgColor = const Color(0xFFEFF6FF);
+        borderColor = const Color(0xFF93C5FD);
+        textColor = const Color(0xFF1D4ED8);
+        iconData = Icons.sync_rounded;
+        title = 'Verifying Settlement';
+        subtitle = _statusBannerMessage ??
+            'Polling TrueLern backend for signed payment confirmation...';
+        actionWidget = const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        );
+        break;
+
+      case CheckoutUiState.paymentCancelled:
+        bgColor = const Color(0xFFFEF3C7);
+        borderColor = const Color(0xFFFDE68A);
+        textColor = const Color(0xFF92400E);
+        iconData = Icons.info_outline_rounded;
+        title = 'Payment Cancelled';
+        subtitle = _statusBannerMessage ??
+            'Payment session was cancelled. Your balance remains outstanding.';
+        break;
+
+      case CheckoutUiState.paymentFailed:
+        bgColor = const Color(0xFFFEE2E2);
+        borderColor = const Color(0xFFFECACA);
+        textColor = const Color(0xFF991B1B);
+        iconData = Icons.error_outline_rounded;
+        title = 'Payment Initialization Failed';
+        subtitle = _statusBannerMessage ??
+            'An error occurred while connecting to the payment service. Please try again.';
+        break;
+
+      case CheckoutUiState.verificationUnavailable:
+        bgColor = const Color(0xFFFFFBEB);
+        borderColor = const Color(0xFFFDE68A);
+        textColor = const Color(0xFFB45309);
+        iconData = Icons.pending_actions_rounded;
+        title = 'Settlement Awaiting Confirmation';
+        subtitle = _statusBannerMessage ??
+            'The backend has not confirmed receipt of funds yet. Tap below to check again.';
+        actionWidget = TextButton.icon(
+          key: const Key('checkout_retry_verification_button'),
+          onPressed: () => _verifyPaymentWithPolling(invoice.id),
+          icon: const Icon(Icons.refresh, size: 16),
+          label: const Text('Check Status Again'),
+          style: TextButton.styleFrom(
+            foregroundColor: const Color(0xFFB45309),
+            visualDensity: VisualDensity.compact,
+          ),
+        );
+        break;
+
+      case CheckoutUiState.idle:
+      case CheckoutUiState.paymentConfirmed:
+        return const SizedBox.shrink();
+    }
+
+    return Container(
+      key: const Key('checkout_status_banner'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(iconData, color: textColor, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
+                ),
+              ),
+              ?actionWidget,
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w400,
+              color: textColor.withValues(alpha: 0.9),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -356,8 +741,6 @@ class _ParentInvoiceDetailScreenState
           ),
         ),
         const SizedBox(width: 8),
-
-        // Status Badge (Paid vs Unpaid)
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
@@ -415,7 +798,7 @@ class _ParentInvoiceDetailScreenState
                 invoice.formattedIssueDate,
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 15,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   color: const Color(0xFF1A1B23),
                 ),
               ),
@@ -440,10 +823,8 @@ class _ParentInvoiceDetailScreenState
                 invoice.formattedDueDate,
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: invoice.isPaid
-                      ? const Color(0xFF1A1B23)
-                      : const Color(0xFFBA1A1A),
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1A1B23),
                 ),
               ),
             ],
@@ -453,7 +834,7 @@ class _ParentInvoiceDetailScreenState
     );
   }
 
-  /// Details: Billed To, Student & Program (Node 104:237)
+  /// Details Section: Billed To, Student & Program (Node 104:237)
   Widget _buildDetailsSection(InvoiceEntity invoice, String parentName) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -560,10 +941,11 @@ class _ParentInvoiceDetailScreenState
         ],
         if (invoice.taxAmount > 0) ...[
           const SizedBox(height: 8),
-          _buildBreakdownRow('Tax (5%)', invoice.formattedTax),
+          _buildBreakdownRow('Tax', invoice.formattedTax),
         ],
         const SizedBox(height: 8),
-        _buildBreakdownRow('Total Invoiced', invoice.formattedTotal, isBold: true),
+        _buildBreakdownRow('Total Invoiced', invoice.formattedTotal,
+            isBold: true),
         if (invoice.amountPaid > 0) ...[
           const SizedBox(height: 8),
           _buildBreakdownRow(
@@ -598,8 +980,7 @@ class _ParentInvoiceDetailScreenState
           style: GoogleFonts.hankenGrotesk(
             fontSize: 14,
             fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
-            color: textColor ??
-                (isBold ? const Color(0xFF1A1B23) : const Color(0xFF1A1B23)),
+            color: textColor ?? const Color(0xFF1A1B23),
           ),
         ),
       ],
@@ -629,7 +1010,8 @@ class _ParentInvoiceDetailScreenState
               fontSize: 13,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
-              color: isPaid ? const Color(0xFF166534) : const Color(0xFF1E4ED8),
+              color:
+                  isPaid ? const Color(0xFF166534) : const Color(0xFF1E4ED8),
             ),
           ),
           Text(
@@ -637,7 +1019,8 @@ class _ParentInvoiceDetailScreenState
             style: GoogleFonts.hankenGrotesk(
               fontSize: 22,
               fontWeight: FontWeight.w700,
-              color: isPaid ? const Color(0xFF166534) : const Color(0xFF1E4ED8),
+              color:
+                  isPaid ? const Color(0xFF166534) : const Color(0xFF1E4ED8),
             ),
           ),
         ],
@@ -651,6 +1034,33 @@ class _ParentInvoiceDetailScreenState
     InvoiceEntity invoice,
   ) {
     final isPaid = invoice.isPaid;
+    final isBusy = _checkoutState == CheckoutUiState.creatingCheckout ||
+        _checkoutState == CheckoutUiState.pendingVerification;
+
+    String buttonLabel;
+    IconData buttonIcon;
+    VoidCallback? buttonAction;
+
+    if (isPaid) {
+      buttonLabel = 'Invoice Paid';
+      buttonIcon = Icons.check_circle_outline;
+      buttonAction = null;
+    } else if (isBusy) {
+      buttonLabel = _checkoutState == CheckoutUiState.creatingCheckout
+          ? 'Connecting to Checkout...'
+          : 'Verifying Payment...';
+      buttonIcon = Icons.hourglass_top;
+      buttonAction = null;
+    } else if (_checkoutState == CheckoutUiState.checkoutOpened ||
+        _checkoutState == CheckoutUiState.verificationUnavailable) {
+      buttonLabel = 'Verify Payment Status';
+      buttonIcon = Icons.refresh_rounded;
+      buttonAction = () => _verifyPaymentWithPolling(invoice.id);
+    } else {
+      buttonLabel = 'Pay ${invoice.formattedDue}';
+      buttonIcon = Icons.credit_card_outlined;
+      buttonAction = () => _handlePayment(invoice);
+    }
 
     return Container(
       width: double.infinity,
@@ -668,7 +1078,7 @@ class _ParentInvoiceDetailScreenState
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Primary Pay / Paid Button
+          // Primary Action Button
           SizedBox(
             width: double.infinity,
             height: 50,
@@ -684,10 +1094,8 @@ class _ParentInvoiceDetailScreenState
                 ),
                 elevation: 0,
               ),
-              onPressed: _isProcessingPayment || isPaid
-                  ? null
-                  : () => _handlePayment(invoice),
-              child: _isProcessingPayment
+              onPressed: buttonAction,
+              child: isBusy
                   ? const SizedBox(
                       width: 24,
                       height: 24,
@@ -699,15 +1107,10 @@ class _ParentInvoiceDetailScreenState
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          isPaid
-                              ? Icons.check_circle_outline
-                              : Icons.credit_card_outlined,
-                          size: 20,
-                        ),
+                        Icon(buttonIcon, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          isPaid ? 'Invoice Paid' : 'Pay ${invoice.formattedDue}',
+                          buttonLabel,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,

@@ -145,14 +145,15 @@ class _DemoSessionBookedScreenState
     );
 
     // Reliable Session Time Gate
+    final bookingId = contextualBooking.effectiveClassId;
     if (contextualBooking.isTooEarly(now)) {
       context.push(
-        AppRoutePaths.demoClassWaiting,
+        '${AppRoutePaths.demoClassWaiting}?bookingId=$bookingId',
         extra: contextualBooking,
       );
     } else {
       context.push(
-        AppRoutePaths.demoClassPreJoin,
+        '${AppRoutePaths.demoClassPreJoin}?bookingId=$bookingId',
         extra: contextualBooking,
       );
     }

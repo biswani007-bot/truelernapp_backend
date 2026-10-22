@@ -128,9 +128,10 @@ void main() {
         expect(find.text('Choose Preferred Date & Time'), findsNothing);
         expect(find.text("Can't find a suitable slot?"), findsNothing);
 
-        // 5. Benefits Section (Free live demo replaced with Join Demo Class)
-        expect(find.text('Free live demo'), findsNothing);
-        expect(find.text('Join Demo Class'), findsOneWidget);
+        // 5. Benefits Section (Figma Node 72:578)
+        // For child who has not applied, Free live demo is displayed, NOT Join Demo Class
+        expect(find.text('Free live demo'), findsOneWidget);
+        expect(find.text('Join Demo Class'), findsNothing);
         expect(find.text('Expert faculty'), findsOneWidget);
         expect(find.text('45-minute session'), findsOneWidget);
 

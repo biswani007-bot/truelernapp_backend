@@ -15,6 +15,7 @@ import 'package:truelearn/features/dashboard/presentation/controllers/children_c
 import 'package:truelearn/features/dashboard/presentation/controllers/children_state.dart';
 import 'package:truelearn/features/finance/data/repositories/finance_repository_impl.dart';
 import 'package:truelearn/features/finance/domain/entities/invoice_entity.dart';
+import 'package:truelearn/features/finance/domain/entities/stripe_checkout_entity.dart';
 import 'package:truelearn/features/finance/domain/repositories/finance_repository.dart';
 import 'package:truelearn/features/finance/presentation/controllers/finance_controller.dart';
 
@@ -143,6 +144,39 @@ class FakeFinanceRepo implements FinanceRepository {
   }) async {
     throw UnimplementedError();
   }
+
+  @override
+  Future<StripeCheckoutSessionEntity> createStripeCheckoutSession({
+    required String invoiceId,
+    required String studentId,
+    required String successUrl,
+    required String cancelUrl,
+  }) async {
+    return StripeCheckoutSessionEntity(
+      sessionId: 'cs_fake_123',
+      url: 'https://checkout.stripe.com/c/pay/cs_fake_123',
+    );
+  }
+
+  @override
+  Future<InvoiceEntity> verifyInvoiceStatus(String invoiceId) async {
+    final inv = invoices.where((i) => i.id == invoiceId).firstOrNull;
+    if (inv != null) return inv;
+    throw Exception('Invoice not found: $invoiceId');
+  }
+
+  @override
+  Future<List<ReceiptEntity>> getReceipts({int limit = 10}) async {
+    return <ReceiptEntity>[];
+  }
+
+  @override
+  Future<List<PaymentRecordEntity>> getPayments({int limit = 10}) async {
+    return <PaymentRecordEntity>[];
+  }
+
+  @override
+  Future<void> refreshEnrollments({int limit = 10}) async {}
 }
 
 void main() {

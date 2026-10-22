@@ -371,13 +371,18 @@ ChildEntity? resolveAuthoritativeStudent({
 }) {
   if (linkedChildren.isEmpty) return null;
 
-  // 1. Direct match by internal database identifier
+  // 1. Direct match by internal database identifier or student code
   if (booking.studentId != null && booking.studentId!.isNotEmpty) {
     for (final child in linkedChildren) {
-      if (child.studentId == booking.studentId) {
+      if (child.studentId == booking.studentId ||
+          (child.studentCode != null &&
+              child.studentCode!.toUpperCase() ==
+                  booking.studentId!.toUpperCase())) {
         return child;
       }
     }
+    // Booking explicitly targets a different student ID not linked to this parent
+    return null;
   }
 
   // 2. Match by human-readable student code (e.g., STU-00520397)
@@ -392,6 +397,7 @@ ChildEntity? resolveAuthoritativeStudent({
         return child;
       }
     }
+    return null;
   }
 
   // 3. Match by studentName / displayName (case-insensitive)
@@ -404,19 +410,13 @@ ChildEntity? resolveAuthoritativeStudent({
       }
       final first = child.firstName.trim().toLowerCase();
       final last = (child.lastName ?? '').trim().toLowerCase();
-      if ('$first $last'.trim() == targetName) {
-        return child;
-      }
-      if (childName.contains(targetName) || targetName.contains(childName)) {
+      if ('$first $last'.trim() == targetName || first == targetName) {
         return child;
       }
     }
+    return null;
   }
 
-  // 4. Fallback: If only one child is linked under this parent, that child is the authoritative ward
-  if (linkedChildren.length == 1) {
-    return linkedChildren.first;
-  }
-
+  // Strict governance: do not fall back to an arbitrary child when identifiers do not match
   return null;
 }

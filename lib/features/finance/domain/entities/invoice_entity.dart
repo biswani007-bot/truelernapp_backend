@@ -14,13 +14,18 @@ class InvoiceItemEntity {
   final int quantity;
 
   factory InvoiceItemEntity.fromJson(Map<String, dynamic> json) {
+    double parseAmount(dynamic val) {
+      if (val == null) return 0.0;
+      final num? n = (val is num) ? val : num.tryParse(val.toString());
+      if (n == null) return 0.0;
+      return (n / 100.0).toDouble();
+    }
+
     return InvoiceItemEntity(
       description: json['description']?.toString() ??
           json['name']?.toString() ??
           'Tuition Fee',
-      amount: (json['amount'] is num)
-          ? (json['amount'] as num).toDouble()
-          : double.tryParse(json['amount']?.toString() ?? '0') ?? 0.0,
+      amount: parseAmount(json['amount']),
       quantity: (json['quantity'] is num)
           ? (json['quantity'] as num).toInt()
           : int.tryParse(json['quantity']?.toString() ?? '1') ?? 1,
@@ -52,6 +57,7 @@ class InvoiceEntity {
     this.paymentMethod,
     this.transactionReference,
     this.paidAt,
+    this.currency,
   });
 
   final String id;
@@ -74,6 +80,7 @@ class InvoiceEntity {
   final String? paymentMethod;
   final String? transactionReference;
   final DateTime? paidAt;
+  final String? currency;
 
   bool get isPaid =>
       status.toLowerCase() == 'paid' ||
@@ -82,12 +89,32 @@ class InvoiceEntity {
 
   bool get isDue => !isPaid;
 
-  String get formattedTotal => '\$${totalAmount.toStringAsFixed(2)}';
-  String get formattedDue => '\$${amountDue.toStringAsFixed(2)}';
-  String get formattedPaid => '\$${amountPaid.toStringAsFixed(2)}';
-  String get formattedBase => '\$${baseAmount.toStringAsFixed(2)}';
-  String get formattedDiscount => '-\$${discountAmount.toStringAsFixed(2)}';
-  String get formattedTax => '\$${taxAmount.toStringAsFixed(2)}';
+  String get currencySymbol {
+    final c = (currency ?? '').toUpperCase();
+    if (c == 'INR' || c == '₹') return '₹';
+    if (c == 'EUR' || c == '€') return '€';
+    if (c == 'GBP' || c == '£') return '£';
+    if (c == 'CAD') return 'CA\$';
+    if (c == 'AUD') return 'AU\$';
+    if (c.isNotEmpty && c != 'USD' && c != '\$') return '$c ';
+    return '\$';
+  }
+
+  static String _formatNumber(double value) {
+    final parts = value.toStringAsFixed(2).split('.');
+    final intPart = parts[0];
+    final decPart = parts[1];
+    final reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    final formattedInt = intPart.replaceAllMapped(reg, (Match m) => '${m[1]},');
+    return '$formattedInt.$decPart';
+  }
+
+  String get formattedTotal => '$currencySymbol${_formatNumber(totalAmount)}';
+  String get formattedDue => '$currencySymbol${_formatNumber(amountDue)}';
+  String get formattedPaid => '$currencySymbol${_formatNumber(amountPaid)}';
+  String get formattedBase => '$currencySymbol${_formatNumber(baseAmount)}';
+  String get formattedDiscount => '-$currencySymbol${_formatNumber(discountAmount)}';
+  String get formattedTax => '$currencySymbol${_formatNumber(taxAmount)}';
 
   static const List<String> _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -130,17 +157,20 @@ class InvoiceEntity {
       }
     }
 
-    double parseDouble(dynamic val, double fallback) {
-      if (val is num) return val.toDouble();
+    double parseAmount(dynamic val, [double fallback = 0.0]) {
       if (val == null) return fallback;
-      return double.tryParse(val.toString()) ?? fallback;
+      final num? n = (val is num) ? val : num.tryParse(val.toString());
+      if (n == null) return fallback;
+      // TrueLern backend API authoritatively represents monetary figures
+      // in minor currency units (cents / paise) matching Stripe.
+      return (n / 100.0).toDouble();
     }
 
     final now = DateTime.now();
-    final total = parseDouble(json['totalAmount'], 0.0);
-    final paid = parseDouble(json['amountPaid'], 0.0);
-    final rawDue = json['amountDue'];
-    final due = rawDue != null ? parseDouble(rawDue, 0.0) : (total - paid);
+    final total = parseAmount(json['totalAmount'] ?? json['total'], 0.0);
+    final paid = parseAmount(json['amountPaid'] ?? json['paidAmount'], 0.0);
+    final rawDue = json['amountDue'] ?? json['outstandingAmount'];
+    final due = rawDue != null ? parseAmount(rawDue, 0.0) : (total - paid);
 
     return InvoiceEntity(
       id: json['id']?.toString() ?? json['_id']?.toString() ?? '',
@@ -149,10 +179,10 @@ class InvoiceEntity {
           '#INV-000000',
       issueDate: parseDate(json['issueDate'] ?? json['createdAt'], now),
       dueDate: parseDate(json['dueDate'], now.add(const Duration(days: 14))),
-      baseAmount: parseDouble(json['baseAmount'], total),
-      taxAmount: parseDouble(json['taxAmount'], 0.0),
-      discountAmount: parseDouble(json['discountAmount'], 0.0),
-      scholarshipAmount: parseDouble(json['scholarshipAmount'], 0.0),
+      baseAmount: parseAmount(json['baseAmount'], total),
+      taxAmount: parseAmount(json['taxAmount'], 0.0),
+      discountAmount: parseAmount(json['discountAmount'], 0.0),
+      scholarshipAmount: parseAmount(json['scholarshipAmount'], 0.0),
       totalAmount: total,
       amountPaid: paid,
       amountDue: due > 0 ? due : 0.0,
@@ -169,6 +199,7 @@ class InvoiceEntity {
       paymentMethod: json['paymentMethod']?.toString(),
       transactionReference: json['transactionReference']?.toString(),
       paidAt: json['paidAt'] != null ? parseDate(json['paidAt'], now) : null,
+      currency: json['currency']?.toString(),
     );
   }
 }
@@ -180,27 +211,51 @@ class FinanceOverviewEntity {
     required this.totalInvoiced,
     required this.totalPaid,
     required this.totalDue,
+    this.currency,
   });
 
   final double totalInvoiced;
   final double totalPaid;
   final double totalDue;
+  final String? currency;
 
-  String get formattedDue => '\$${totalDue.toStringAsFixed(2)}';
-  String get formattedInvoiced => '\$${totalInvoiced.toStringAsFixed(2)}';
-  String get formattedPaid => '\$${totalPaid.toStringAsFixed(2)}';
+  String get currencySymbol {
+    final c = (currency ?? '').toUpperCase();
+    if (c == 'INR' || c == '₹') return '₹';
+    if (c == 'EUR' || c == '€') return '€';
+    if (c == 'GBP' || c == '£') return '£';
+    if (c == 'CAD') return 'CA\$';
+    if (c == 'AUD') return 'AU\$';
+    if (c.isNotEmpty && c != 'USD' && c != '\$') return '$c ';
+    return '\$';
+  }
+
+  static String _formatNumber(double value) {
+    final parts = value.toStringAsFixed(2).split('.');
+    final intPart = parts[0];
+    final decPart = parts[1];
+    final reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    final formattedInt = intPart.replaceAllMapped(reg, (Match m) => '${m[1]},');
+    return '$formattedInt.$decPart';
+  }
+
+  String get formattedDue => '$currencySymbol${_formatNumber(totalDue)}';
+  String get formattedInvoiced => '$currencySymbol${_formatNumber(totalInvoiced)}';
+  String get formattedPaid => '$currencySymbol${_formatNumber(totalPaid)}';
 
   factory FinanceOverviewEntity.fromJson(Map<String, dynamic> json) {
-    double parseDouble(dynamic val) {
-      if (val is num) return val.toDouble();
+    double parseAmount(dynamic val) {
       if (val == null) return 0.0;
-      return double.tryParse(val.toString()) ?? 0.0;
+      final num? n = (val is num) ? val : num.tryParse(val.toString());
+      if (n == null) return 0.0;
+      return (n / 100.0).toDouble();
     }
 
     return FinanceOverviewEntity(
-      totalInvoiced: parseDouble(json['totalInvoiced']),
-      totalPaid: parseDouble(json['totalPaid']),
-      totalDue: parseDouble(json['totalDue']),
+      totalInvoiced: parseAmount(json['totalInvoiced']),
+      totalPaid: parseAmount(json['totalPaid']),
+      totalDue: parseAmount(json['totalDue'] ?? json['outstandingBalance']),
+      currency: json['currency']?.toString(),
     );
   }
 
@@ -244,17 +299,18 @@ class PaymentRecordEntity {
       }
     }
 
-    double parseDouble(dynamic val) {
-      if (val is num) return val.toDouble();
+    double parseAmount(dynamic val) {
       if (val == null) return 0.0;
-      return double.tryParse(val.toString()) ?? 0.0;
+      final num? n = (val is num) ? val : num.tryParse(val.toString());
+      if (n == null) return 0.0;
+      return (n / 100.0).toDouble();
     }
 
     return PaymentRecordEntity(
       id: json['id']?.toString() ?? json['_id']?.toString() ?? '',
       paymentNumber: json['paymentNumber']?.toString() ?? '',
       paymentDate: parseDate(json['paymentDate'] ?? json['createdAt']),
-      amount: parseDouble(json['amount']),
+      amount: parseAmount(json['amount']),
       paymentMethod: json['paymentMethod']?.toString() ?? 'online-gateway',
       transactionReference: json['transactionReference']?.toString() ?? '',
       status: json['status']?.toString().toLowerCase() ?? 'success',

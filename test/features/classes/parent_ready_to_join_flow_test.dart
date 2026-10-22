@@ -975,9 +975,11 @@ void main() {
     testWidgets(
       'Test 17 — SCR-17 Live Classroom handles exit transitions cleanly without duplicate navigation',
       (tester) async {
+        final mockRepo = MockClassesRepository();
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              classesRepositoryProvider.overrideWithValue(mockRepo),
               childrenControllerProvider.overrideWith(
                 () => _StaticChildrenController(
                   const ChildrenLoaded(
@@ -996,6 +998,7 @@ void main() {
           ),
         );
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         // Classroom initializes cleanly without upper header
         expect(

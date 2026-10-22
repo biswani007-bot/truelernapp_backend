@@ -30,7 +30,8 @@ class ParentInvoicesScreen extends ConsumerStatefulWidget {
       _ParentInvoicesScreenState();
 }
 
-class _ParentInvoicesScreenState extends ConsumerState<ParentInvoicesScreen> {
+class _ParentInvoicesScreenState extends ConsumerState<ParentInvoicesScreen>
+    with WidgetsBindingObserver {
   static const _svgCalendar = 'assets/icons/inv_calendar.svg';
   static const _svgHeart = 'assets/icons/inv_heart.svg';
   static const _svgDueAlert = 'assets/icons/inv_due_alert.svg';
@@ -57,6 +58,9 @@ class _ParentInvoicesScreenState extends ConsumerState<ParentInvoicesScreen> {
         ),
         extra: invoice,
       );
+      if (mounted) {
+        ref.read(financeControllerProvider.notifier).loadFinance();
+      }
     } finally {
       if (mounted) {
         _isNavigating = false;
@@ -67,10 +71,26 @@ class _ParentInvoicesScreenState extends ConsumerState<ParentInvoicesScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(childrenControllerProvider.notifier).loadChildren();
-      ref.read(financeControllerProvider.notifier).loadFinance();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(childrenControllerProvider.notifier).loadChildren();
+      if (mounted) {
+        await ref.read(financeControllerProvider.notifier).loadFinance();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      ref.read(financeControllerProvider.notifier).loadFinance();
+    }
   }
 
   @override
@@ -107,8 +127,13 @@ class _ParentInvoicesScreenState extends ConsumerState<ParentInvoicesScreen> {
                 child: AppRefreshIndicator(
                   onRefresh: () async {
                     await ref
-                        .read(financeControllerProvider.notifier)
-                        .loadFinance();
+                        .read(childrenControllerProvider.notifier)
+                        .loadChildren(isRefresh: true);
+                    if (mounted) {
+                      await ref
+                          .read(financeControllerProvider.notifier)
+                          .loadFinance();
+                    }
                   },
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -208,7 +233,7 @@ class _ParentInvoicesScreenState extends ConsumerState<ParentInvoicesScreen> {
   /// Section - Top Summary Card matching Figma Node 104:108
   Widget _buildTopSummaryCard(FinanceState state) {
     final overview = state is FinanceLoaded
-        ? state.overview
+        ? state.currentOverview
         : FinanceOverviewEntity.zero;
 
     // Resolve next payment info from due invoices
@@ -284,7 +309,7 @@ class _ParentInvoicesScreenState extends ConsumerState<ParentInvoicesScreen> {
 
                   // Amount $XXX.XX (Node 104:114)
                   Text(
-                    overview.formattedDue,
+                    state is FinanceLoading ? '...' : overview.formattedDue,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 44,
                       fontWeight: FontWeight.w700,

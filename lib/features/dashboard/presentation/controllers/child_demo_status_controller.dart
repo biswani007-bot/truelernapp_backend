@@ -196,13 +196,22 @@ class ChildDemoStatusController extends Notifier<ChildDemoStatusState> {
       }
 
       if (booking != null) {
+        // Direct mismatch check against requested studentId
+        if (booking.studentId != null &&
+            booking.studentId!.isNotEmpty &&
+            booking.studentId != studentId) {
+          booking = null;
+        }
+      }
+
+      if (booking != null) {
         final authoritativeChild = resolveAuthoritativeStudent(
           booking: booking,
           linkedChildren: linkedChildren,
         );
 
-        // If authoritative child does not match the requested child, ignore mismatched booking
-        if (authoritativeChild != null && authoritativeChild.studentId != studentId) {
+        // If authoritative child cannot be verified or does not match requested child, ignore mismatched booking
+        if (authoritativeChild == null || authoritativeChild.studentId != studentId) {
           booking = null;
         }
       }
@@ -248,17 +257,22 @@ class ChildDemoStatusController extends Notifier<ChildDemoStatusState> {
         return;
       }
 
-      // No scheduled booking returned. Check if an application has been submitted for this child
+      // No scheduled booking returned. Check if an application has been explicitly submitted
+      // for THIS specific child in the active session.
+      // Strict governance:
+      // - childName must be non-empty and match this child's name
+      // - a general CRM lead or restored parent-level lead NEVER counts as a submitted demo request
       final onboardingState = ref.read(onboardingControllerProvider);
-      final childMatchesOnboarding = onboardingState.isSubmitted &&
-          (onboardingState.childName.trim().isEmpty ||
-              (currentChild != null &&
-                  (onboardingState.childName.trim().toLowerCase() ==
-                          currentChild.displayName.trim().toLowerCase() ||
-                      onboardingState.childName.trim().toLowerCase() ==
-                          currentChild.firstName.trim().toLowerCase())));
+      final hasSpecificChildSubmission = onboardingState.isSubmitted &&
+          onboardingState.childName.trim().isNotEmpty &&
+          currentChild != null &&
+          onboardingState.submissionLeadId != null &&
+          (onboardingState.childName.trim().toLowerCase() ==
+                  currentChild.displayName.trim().toLowerCase() ||
+              onboardingState.childName.trim().toLowerCase() ==
+                  currentChild.firstName.trim().toLowerCase());
 
-      if (childMatchesOnboarding) {
+      if (hasSpecificChildSubmission) {
         state = ChildDemoPendingConfirmation(
           studentId: studentId,
           leadId: onboardingState.submissionLeadId,
@@ -274,7 +288,26 @@ class ChildDemoStatusController extends Notifier<ChildDemoStatusState> {
       // If 404 "not found" or "no demo found", treat as no booking rather than system failure
       if (errorStr.contains('404') || errorStr.contains('not found')) {
         final onboardingState = ref.read(onboardingControllerProvider);
-        if (onboardingState.isSubmitted) {
+        final childrenState = ref.read(childrenControllerProvider);
+        ChildEntity? currentChild;
+        if (childrenState is ChildrenLoaded) {
+          for (final child in childrenState.children) {
+            if (child.studentId == studentId) {
+              currentChild = child;
+              break;
+            }
+          }
+        }
+        final hasSpecificChildSubmission = onboardingState.isSubmitted &&
+            onboardingState.childName.trim().isNotEmpty &&
+            currentChild != null &&
+            onboardingState.submissionLeadId != null &&
+            (onboardingState.childName.trim().toLowerCase() ==
+                    currentChild.displayName.trim().toLowerCase() ||
+                onboardingState.childName.trim().toLowerCase() ==
+                    currentChild.firstName.trim().toLowerCase());
+
+        if (hasSpecificChildSubmission) {
           state = ChildDemoPendingConfirmation(
             studentId: studentId,
             leadId: onboardingState.submissionLeadId,

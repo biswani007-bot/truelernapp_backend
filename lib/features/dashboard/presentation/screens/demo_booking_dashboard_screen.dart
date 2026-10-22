@@ -91,9 +91,24 @@ class _DemoBookingDashboardScreenState
       if (next is ChildrenLoaded && next.activeChildId != null) {
         final prevId = prev is ChildrenLoaded ? prev.activeChildId : null;
         if (prevId != next.activeChildId) {
+          ref.read(childDemoStatusControllerProvider.notifier).reset();
           ref
               .read(childDemoStatusControllerProvider.notifier)
-              .resolveStatusForChild(studentId: next.activeChildId!);
+              .resolveStatusForChild(
+                studentId: next.activeChildId!,
+                forceRefresh: true,
+              );
+
+          final onboardingState = ref.read(onboardingControllerProvider);
+          final activeCourse =
+              onboardingState.selectedCourse ??
+              (onboardingState.availableCourses.isNotEmpty
+                  ? onboardingState.availableCourses.first
+                  : null);
+          final effectiveCourseId = widget.courseId ?? activeCourse?.id;
+          ref
+              .read(demoSlotsControllerProvider.notifier)
+              .loadSlots(courseId: effectiveCourseId, studentId: next.activeChildId);
         }
       }
     });
@@ -226,15 +241,15 @@ class _DemoBookingDashboardScreenState
     if (demoStatus is! ChildDemoPendingConfirmation) {
       return const SizedBox.shrink();
     }
-    final courseName =
+    final courseName = demoStatus.courseName ??
         onboardingState.effectiveCourseName ??
         (onboardingState.availableCourses.isNotEmpty
             ? onboardingState.availableCourses.first.courseName
             : 'Selected Course');
+    final resolvedLead = demoStatus.leadId ?? onboardingState.submissionLeadId;
     final leadRefText =
-        (onboardingState.submissionLeadId != null &&
-            onboardingState.submissionLeadId!.isNotEmpty)
-        ? ' (Lead Ref: #${onboardingState.submissionLeadId})'
+        (resolvedLead != null && resolvedLead.isNotEmpty)
+        ? ' (Lead Ref: #$resolvedLead)'
         : '';
 
     return Container(
@@ -1097,12 +1112,16 @@ class _DemoBookingDashboardScreenState
         ref
             .read(childrenControllerProvider.notifier)
             .setActiveChild(child.studentId);
+        ref.read(childDemoStatusControllerProvider.notifier).reset();
         ref
             .read(demoSlotsControllerProvider.notifier)
             .loadSlots(courseId: effectiveCourseId, studentId: child.studentId);
         ref
             .read(childDemoStatusControllerProvider.notifier)
-            .resolveStatusForChild(studentId: child.studentId);
+            .resolveStatusForChild(
+              studentId: child.studentId,
+              forceRefresh: true,
+            );
         Navigator.of(context).pop();
       },
       child: Padding(
@@ -1500,6 +1519,14 @@ class _DemoBookingDashboardScreenState
                               studentName: studentName,
                             );
                         if (!success) return null;
+                        if (studentId.isNotEmpty) {
+                          ref
+                              .read(childDemoStatusControllerProvider.notifier)
+                              .resolveStatusForChild(
+                                studentId: studentId,
+                                forceRefresh: true,
+                              );
+                        }
                         final currentState = ref.read(
                           demoSlotsControllerProvider,
                         );
@@ -1581,10 +1608,24 @@ class _DemoBookingDashboardScreenState
   }
 
   Widget _buildBenefitsSection(ChildDemoStatusState childDemoStatus) {
+    final bool showJoinCard = childDemoStatus is ChildDemoEligibleToJoin ||
+        childDemoStatus is ChildDemoScheduledTooEarly;
+
     return Column(
       children: [
-        // 1. Join Demo Class (Node 72:579 replacement)
-        _buildJoinDemoClassCard(context, childDemoStatus),
+        if (showJoinCard)
+          _buildJoinDemoClassCard(context, childDemoStatus)
+        else
+          // 1. Free live demo (Node 72:579)
+          _buildBenefitCard(
+            bgColor: const Color(0x336CF8BB), // rgba(108, 248, 187, 0.2)
+            borderColor: const Color(0x4D6CF8BB), // rgba(108, 248, 187, 0.3)
+            circleBgColor: const Color(0x666CF8BB), // rgba(108, 248, 187, 0.4)
+            iconAsset: 'assets/icons/demo_video.svg',
+            iconWidth: 20.0,
+            iconHeight: 16.0,
+            title: 'Free live demo',
+          ),
 
         const SizedBox(height: 8.0),
 
@@ -1796,8 +1837,9 @@ class _DemoBookingDashboardScreenState
     if (status is ChildDemoEligibleToJoin) {
       _isNavigating = true;
       final contextualBooking = _buildContextualBooking(status.booking, childrenState);
+      final bookingId = contextualBooking.effectiveClassId;
       context.push(
-        AppRoutePaths.demoClassPreJoin,
+        '${AppRoutePaths.demoClassPreJoin}?bookingId=$bookingId',
         extra: contextualBooking,
       ).then((_) {
         _isNavigating = false;
@@ -1811,8 +1853,9 @@ class _DemoBookingDashboardScreenState
     } else if (status is ChildDemoScheduledTooEarly) {
       _isNavigating = true;
       final contextualBooking = _buildContextualBooking(status.booking, childrenState);
+      final bookingId = contextualBooking.effectiveClassId;
       context.push(
-        AppRoutePaths.demoClassWaiting,
+        '${AppRoutePaths.demoClassWaiting}?bookingId=$bookingId',
         extra: contextualBooking,
       ).then((_) {
         _isNavigating = false;
@@ -1884,15 +1927,13 @@ class _DemoBookingDashboardScreenState
       booking: booking,
       linkedChildren: linkedChildren,
     );
-    final activeChild = childrenState is ChildrenLoaded
-        ? childrenState.activeChild
-        : null;
 
     final resolvedStudentName = authoritativeChild?.displayName ??
-        booking.studentName ??
-        activeChild?.displayName;
+        booking.studentName;
     final resolvedStudentId =
-        authoritativeChild?.studentId ?? booking.studentId ?? activeChild?.studentId;
+        authoritativeChild?.studentId ?? booking.studentId;
+    final resolvedStudentCode =
+        authoritativeChild?.studentCode ?? booking.studentCode;
 
     return DemoBookingEntity(
       bookingId: booking.bookingId,
@@ -1901,7 +1942,7 @@ class _DemoBookingDashboardScreenState
       courseName: booking.courseName,
       studentName: resolvedStudentName,
       studentId: resolvedStudentId,
-      studentCode: authoritativeChild?.studentCode ?? booking.studentCode ?? activeChild?.studentCode,
+      studentCode: resolvedStudentCode,
       startDateTime: booking.startDateTime,
       endDateTime: booking.endDateTime,
       teacherName: booking.teacherName,

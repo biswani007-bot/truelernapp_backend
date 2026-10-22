@@ -98,7 +98,7 @@ void _setupTestScreen(WidgetTester tester) {
 void main() {
   group('Dashboard Join Demo Class Flow — Comprehensive Tests', () {
     testWidgets(
-      'Scenario 1: Dashboard displays Join Demo Class instead of Free live demo, Expert faculty remains untouched',
+      'Scenario 1: Dashboard displays Free live demo benefit card instead of Join Demo Class for unapplied child',
       (WidgetTester tester) async {
         _setupTestScreen(tester);
         final statusCtrl = _FakeChildDemoStatusController(
@@ -117,12 +117,12 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Must display "Join Demo Class"
-        expect(find.text('Join Demo Class'), findsOneWidget);
-        expect(find.byKey(const Key('dashboard_join_demo_class_card')), findsOneWidget);
+        // Must NOT display "Join Demo Class"
+        expect(find.text('Join Demo Class'), findsNothing);
+        expect(find.byKey(const Key('dashboard_join_demo_class_card')), findsNothing);
 
-        // Must NOT display old "Free live demo"
-        expect(find.text('Free live demo'), findsNothing);
+        // Must display "Free live demo" (Node 72:579)
+        expect(find.text('Free live demo'), findsOneWidget);
 
         // Unrelated benefit cards must remain unchanged
         expect(find.text('Expert faculty'), findsOneWidget);
@@ -192,7 +192,7 @@ void main() {
     );
 
     testWidgets(
-      'Scenario 4: A child with a pending application does NOT receive a duplicate application CTA',
+      'Scenario 4: A child with a pending application does NOT receive duplicate application CTA, shows banner, and does not show join action prematurely',
       (WidgetTester tester) async {
         _setupTestScreen(tester);
         final statusCtrl = _FakeChildDemoStatusController(
@@ -218,21 +218,33 @@ void main() {
         // FAB is hidden
         expect(find.byKey(const Key('apply_for_demo_class_button')), findsNothing);
 
-        // Join Demo Class card subtitle indicates awaiting confirmation
-        expect(find.text('Application submitted • Awaiting counselor'), findsOneWidget);
-        expect(find.text('PENDING'), findsOneWidget);
+        // Banner shows demo request received
+        expect(find.text('Demo Request Received'), findsOneWidget);
+        expect(find.textContaining('LEAD-9876'), findsOneWidget);
+
+        // Join action is NOT shown prematurely
+        expect(find.text('Join Demo Class'), findsNothing);
       },
     );
 
     testWidgets(
-      'Scenario 5: A pending application opens its status dialog rather than attempting invalid classroom join',
+      'Scenario 5: A scheduled session displays the Join Demo Class card with SCHEDULED badge',
       (WidgetTester tester) async {
         _setupTestScreen(tester);
+        final scheduledBooking = DemoBookingEntity(
+          bookingId: 'demo-b-sched',
+          demoCode: 'DEMO-100200',
+          courseName: 'Emotional Intelligence',
+          studentName: 'Freddy Sahoo',
+          studentId: 'child-101',
+          startDateTime: DateTime.now().add(const Duration(hours: 3)),
+          status: 'scheduled',
+        );
+
         final statusCtrl = _FakeChildDemoStatusController(
-          const ChildDemoPendingConfirmation(
+          ChildDemoScheduledTooEarly(
             studentId: 'child-101',
-            leadId: 'LEAD-9876',
-            courseName: 'Emotional Intelligence',
+            booking: scheduledBooking,
           ),
         );
 
@@ -249,22 +261,9 @@ void main() {
         await tester.pumpAndSettle();
 
         final joinCard = find.byKey(const Key('dashboard_join_demo_class_card'));
-        await tester.ensureVisible(joinCard);
-        await tester.tap(joinCard);
-        await tester.pumpAndSettle();
-
-        // Status Dialog appears explaining review status
-        expect(find.text('Application Submitted'), findsOneWidget);
-        expect(find.text('Reference ID: #LEAD-9876'), findsOneWidget);
-        expect(
-          find.textContaining('is currently awaiting academic counselor scheduling and confirmation'),
-          findsOneWidget,
-        );
-
-        // Tap Understood dismisses dialog
-        await tester.tap(find.text('Understood'));
-        await tester.pumpAndSettle();
-        expect(find.text('Application Submitted'), findsNothing);
+        expect(joinCard, findsOneWidget);
+        expect(find.text('Join Demo Class'), findsOneWidget);
+        expect(find.text('SCHEDULED'), findsOneWidget);
       },
     );
 
@@ -448,19 +447,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Subtitle shows session completed
-        expect(find.text('Session completed'), findsOneWidget);
-
-        // Tap card
-        final joinCard = find.byKey(const Key('dashboard_join_demo_class_card'));
-        await tester.ensureVisible(joinCard);
-        await tester.tap(joinCard);
-        await tester.pumpAndSettle();
-
-        // Terminal dialog shown
-        expect(find.text('Demo Class Concluded'), findsOneWidget);
-        expect(find.textContaining('This demo class has ended'), findsOneWidget);
-        expect(find.text('Book New Demo'), findsOneWidget);
+        // Terminal session does NOT display active Join Demo Class card
+        expect(find.text('Join Demo Class'), findsNothing);
+        expect(find.byKey(const Key('dashboard_join_demo_class_card')), findsNothing);
+        expect(find.text('Free live demo'), findsOneWidget);
       },
     );
 
@@ -527,17 +517,9 @@ void main() {
         // CRITICAL: Floating action button must NOT be exposed on API failure!
         expect(find.byKey(const Key('apply_for_demo_class_button')), findsNothing);
 
-        // Card shows error subtitle
-        expect(find.text('Unable to check status • Tap to retry'), findsOneWidget);
-
-        // Tap card triggers retry snackbar
-        final joinCard = find.byKey(const Key('dashboard_join_demo_class_card'));
-        await tester.ensureVisible(joinCard);
-        await tester.tap(joinCard);
-        await tester.pump();
-
-        expect(find.textContaining('Status check failed'), findsOneWidget);
-        expect(find.text('Retry'), findsOneWidget);
+        // Does NOT show false Join Demo Class action
+        expect(find.text('Join Demo Class'), findsNothing);
+        expect(find.text('Free live demo'), findsOneWidget);
       },
     );
 
@@ -577,9 +559,12 @@ void main() {
         // Floating action button must now be hidden
         expect(find.byKey(const Key('apply_for_demo_class_button')), findsNothing);
 
-        // Join Demo Class card reflects the pending application
-        expect(find.text('Application submitted • Awaiting counselor'), findsOneWidget);
-        expect(find.text('PENDING'), findsOneWidget);
+        // Demo Request Received banner is displayed
+        expect(find.text('Demo Request Received'), findsOneWidget);
+        expect(find.textContaining('LEAD-999'), findsOneWidget);
+
+        // Join Demo Class card is NOT shown prematurely
+        expect(find.text('Join Demo Class'), findsNothing);
       },
     );
 

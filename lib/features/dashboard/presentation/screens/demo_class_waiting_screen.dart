@@ -213,8 +213,9 @@ class _DemoClassWaitingScreenState extends ConsumerState<DemoClassWaitingScreen>
     if (!mounted) return;
 
     try {
+      final bookingId = booking.effectiveClassId;
       context.pushReplacement(
-        AppRoutePaths.demoClassPreJoin,
+        '${AppRoutePaths.demoClassPreJoin}?bookingId=$bookingId',
         extra: booking,
       );
     } catch (_) {

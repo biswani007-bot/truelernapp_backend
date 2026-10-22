@@ -8,6 +8,7 @@ import '../../../../core/router/route_paths.dart';
 import '../../../../core/widgets/app_refresh_indicator.dart';
 import '../../../auth/data/repositories/auth_repository_impl.dart';
 import '../../domain/entities/demo_booking_entity.dart';
+import '../controllers/child_demo_status_controller.dart';
 import '../controllers/children_controller.dart';
 import '../controllers/children_state.dart';
 import '../controllers/demo_slots_controller.dart';
@@ -41,6 +42,8 @@ class _DemoWaitingForAdminScreenState
   DemoBookingEntity? _booking;
   bool _isLoading = false;
   String? _errorMessage;
+  Timer? _statusPollTimer;
+  bool _hasNavigatedAway = false;
 
   // Status flags resolved from backend
   bool _isEnrollmentApproved = false;
@@ -60,6 +63,17 @@ class _DemoWaitingForAdminScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreenData();
     });
+
+    _startPolling();
+  }
+
+  void _startPolling() {
+    _statusPollTimer?.cancel();
+    _statusPollTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      if (mounted && !_isEnrollmentActive && !_hasNavigatedAway) {
+        _checkEnrollmentStatus();
+      }
+    });
   }
 
   @override
@@ -71,6 +85,8 @@ class _DemoWaitingForAdminScreenState
 
   @override
   void dispose() {
+    _statusPollTimer?.cancel();
+    _statusPollTimer = null;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -83,8 +99,11 @@ class _DemoWaitingForAdminScreenState
 
     try {
       final childrenState = ref.read(childrenControllerProvider);
-      final studentId =
-          childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+      final studentId = (childrenState is ChildrenLoaded
+              ? childrenState.activeChildId
+              : null) ??
+          _booking?.studentId ??
+          widget.booking?.studentId;
 
       if (_booking == null) {
         final fetched = await ref
@@ -92,6 +111,16 @@ class _DemoWaitingForAdminScreenState
             .fetchConfirmedDemo(studentId: studentId);
         if (mounted && fetched != null) {
           _booking = fetched;
+        }
+      }
+
+      if (childrenState is ChildrenLoaded &&
+          studentId != null &&
+          childrenState.activeChildId != studentId) {
+        final hasChild =
+            childrenState.children.any((c) => c.studentId == studentId);
+        if (hasChild) {
+          ref.read(childrenControllerProvider.notifier).setActiveChild(studentId);
         }
       }
 
@@ -113,8 +142,11 @@ class _DemoWaitingForAdminScreenState
 
   Future<void> _checkEnrollmentStatus() async {
     final childrenState = ref.read(childrenControllerProvider);
-    final studentId =
-        childrenState is ChildrenLoaded ? childrenState.activeChildId : null;
+    final studentId = (childrenState is ChildrenLoaded
+            ? childrenState.activeChildId
+            : null) ??
+        _booking?.studentId ??
+        widget.booking?.studentId;
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
@@ -124,17 +156,30 @@ class _DemoWaitingForAdminScreenState
         final stateCode = statusMap['state']?.toString().toUpperCase();
         final action = statusMap['action']?.toString().toLowerCase();
 
-        setState(() {
-          if (stateCode == 'STATE_5' || action == 'dashboard') {
+        if (stateCode == 'STATE_5' || action == 'dashboard') {
+          _statusPollTimer?.cancel();
+          setState(() {
             _isEnrollmentActive = true;
             _isEnrollmentApproved = true;
-          } else if (stateCode == 'STATE_4' || action == 'payment') {
-            _isEnrollmentApproved = true;
+          });
+
+          // Invalidate finished demo-session state so ended classroom does not reopen
+          ref.read(childDemoStatusControllerProvider.notifier).reset();
+          ref.read(demoSlotsControllerProvider.notifier).reset();
+
+          if (!_hasNavigatedAway && mounted) {
+            _hasNavigatedAway = true;
+            context.go(AppRoutePaths.parentDashboard);
           }
-        });
+          return;
+        } else if (stateCode == 'STATE_4' || action == 'payment') {
+          setState(() {
+            _isEnrollmentApproved = true;
+          });
+        }
       }
     } catch (_) {
-      // Non-blocking status probe fallback
+      // Non-blocking status probe fallback: remain on waiting screen on temporary network errors
     }
   }
 
@@ -153,6 +198,7 @@ class _DemoWaitingForAdminScreenState
         'Student';
     final bookingRef = _booking?.demoCode ??
         _booking?.bookingId ??
+        widget.bookingId ??
         _resolvedDemoCode ??
         'DEMO-SESSION';
     final scheduleDetails = _booking != null
@@ -419,7 +465,7 @@ class _DemoWaitingForAdminScreenState
                     ? 'Your child has been successfully enrolled into the class cohort. Tap below to access your dashboard and schedule.'
                     : (_isEnrollmentApproved
                         ? 'Great news! Our academic team has approved the enrollment. Your tuition invoice is now ready for payment to activate the class cohort.'
-                        : 'Your demo session has ended. Our academic team will review the session and update your enrollment status. Your invoice will become available once enrollment is approved.'),
+                        : 'Your demo session has ended. Our academic team will review the session and update your enrollment status. Please wait while the admin reviews your demo and confirms enrollment. Your invoice will become available once enrollment is approved.'),
                 textAlign: TextAlign.center,
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 14,

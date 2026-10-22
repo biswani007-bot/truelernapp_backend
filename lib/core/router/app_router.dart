@@ -135,9 +135,10 @@ class RouterNotifier extends ChangeNotifier {
     final isLogin = location == AppRoutePaths.login;
     final isAuthenticated = authState is Authenticated;
 
-    // Helper: identifies transient routes that must never be restored on cold process start
+    // Helper: identifies transient routes that must never be restored unhydrated on cold process start
     bool isTransientRoute(String path) {
-      if (path.startsWith('/parent/demo-class/')) return true;
+      if (path == AppRoutePaths.demoClassPreJoin) return true;
+      if (path == AppRoutePaths.demoClassWaiting) return true;
       if (path.startsWith('/parent/classes/') && path.contains('/live')) return true;
       if (path.startsWith('/parent/classes/') && path.contains('/joining')) return true;
       if (path.startsWith('/parent/classes/') && path.contains('/preview')) return true;
@@ -164,8 +165,13 @@ class RouterNotifier extends ChangeNotifier {
     }
 
     // 3. Authenticated transient route protection:
-    // If authenticated user attempts to access an unhydrated transient session route, redirect to parent dashboard.
-    if (isAuthenticated && isTransientRoute(location)) {
+    // If authenticated user attempts to access an unhydrated transient session route
+    // (no state.extra payload and no session/booking query identifier), redirect to parent dashboard.
+    final hasHydrationData = state.extra != null ||
+        (location.startsWith('/parent/demo-class/') &&
+            (state.uri.queryParameters['bookingId']?.isNotEmpty ?? false));
+
+    if (isAuthenticated && isTransientRoute(location) && !hasHydrationData) {
       return AppRoutePaths.parentDashboard;
     }
 
@@ -455,6 +461,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             invoice: invoice,
             invoiceId: invoiceId,
           );
+        },
+      ),
+      GoRoute(
+        path: AppRoutePaths.checkout,
+        name: AppRouteNames.checkout,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final invoiceId = state.uri.queryParameters['invoiceId'] ??
+              state.uri.queryParameters['invoice_id'];
+          if (invoiceId != null && invoiceId.isNotEmpty) {
+            return ParentInvoiceDetailScreen(invoiceId: invoiceId);
+          }
+          return const ParentInvoicesScreen();
         },
       ),
       GoRoute(

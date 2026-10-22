@@ -75,8 +75,15 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
   ClassroomErrorCategory? _errorCategory;
   ClassJoinEntity? _activeJoinData;
   bool _hasNavigatedToSummary = false;
+  bool _hasExitedClassroom = false;
   bool _isRetrying = false;
   DateTime? _lastRetryTime;
+
+  bool get _isDemoSession =>
+      widget.fromDemo ||
+      widget.booking != null ||
+      widget.classId.startsWith('DEMO-') ||
+      (widget.session?.title.toLowerCase().contains('demo') ?? false);
 
   @override
   void initState() {
@@ -87,6 +94,15 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
         _initializeClassroom();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _hasExitedClassroom = true;
+    try {
+      _controller?.loadRequest(Uri.parse('about:blank'));
+    } catch (_) {}
+    super.dispose();
   }
 
   Future<void> _initializeClassroom({bool forceRefresh = false}) async {
@@ -247,7 +263,7 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
             final msg = message.message;
             if (msg == 'classroom_exit' || msg == 'hangup') {
               debugPrint('[Classroom Viewer] Hangup received from viewer bridge');
-              _navigateToSummary();
+              _handleClassroomExit();
             } else if (msg.startsWith('AUTH_ERROR:')) {
               debugPrint('[Classroom Viewer] Viewer authorization error reported by Jitsi');
               if (mounted) {
@@ -313,15 +329,15 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
               final uri = Uri.tryParse(request.url);
               if (uri != null && request.isMainFrame) {
                 final path = uri.path.toLowerCase();
-                // If Jitsi redirects to goodbye or static exit page, transition to summary
+                // If Jitsi redirects to goodbye or static exit page, transition to exit handler
                 if (path.contains('/static/close') ||
                     path.contains('/close') ||
                     path.contains('/goodbye') ||
                     path.contains('/feedback')) {
                   debugPrint(
-                    '[Classroom Viewer] Detected terminal conference URL ($path) -> Transitioning to summary',
+                    '[Classroom Viewer] Detected terminal conference URL ($path) -> Transitioning to exit handler',
                   );
-                  _navigateToSummary();
+                  _handleClassroomExit();
                   return NavigationDecision.prevent;
                 }
               }
@@ -422,26 +438,64 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
               document.head.appendChild(style);
             }
 
-            // Listen for Jitsi unload or conference left events
-            window.addEventListener('unload', function() {
+            function notifyExit() {
               if (window.FlutterClassroomBridge) {
                 window.FlutterClassroomBridge.postMessage('classroom_exit');
               }
-            });
-
-            // If Jitsi external API is loaded on page
-            if (window.APP && window.APP.conference) {
-              window.APP.conference.addConferenceListener('CONFERENCE_LEFT', function() {
-                if (window.FlutterClassroomBridge) {
-                  window.FlutterClassroomBridge.postMessage('classroom_exit');
-                }
-              });
-              window.APP.conference.addConferenceListener('CONFERENCE_FAILED', function(err) {
-                if (window.FlutterClassroomBridge) {
-                  window.FlutterClassroomBridge.postMessage('AUTH_ERROR:' + (err || 'FAILED'));
-                }
-              });
             }
+
+            // 1. Listen for window unload or pagehide
+            window.addEventListener('unload', notifyExit);
+            window.addEventListener('beforeunload', notifyExit);
+            window.addEventListener('pagehide', notifyExit);
+
+            // 2. Poll for Jitsi APP.conference to attach event listeners
+            var pollCount = 0;
+            var checkInterval = setInterval(function() {
+              pollCount++;
+              if (window.APP && window.APP.conference) {
+                clearInterval(checkInterval);
+                try {
+                  window.APP.conference.addConferenceListener('CONFERENCE_LEFT', function() {
+                    notifyExit();
+                  });
+                  window.APP.conference.addConferenceListener('CONFERENCE_FAILED', function(err) {
+                    if (window.FlutterClassroomBridge) {
+                      window.FlutterClassroomBridge.postMessage('AUTH_ERROR:' + (err || 'FAILED'));
+                    }
+                  });
+                } catch (e) {}
+              }
+              if (pollCount > 60) {
+                clearInterval(checkInterval);
+              }
+            }, 500);
+
+            // 3. Intercept clicks on any hangup / leave / end call buttons in the DOM
+            document.addEventListener('click', function(e) {
+              var target = e.target;
+              while (target && target !== document.body && target !== document.documentElement) {
+                var ariaLabel = (target.getAttribute && target.getAttribute('aria-label')) || '';
+                var testId = (target.getAttribute && target.getAttribute('data-testid')) || '';
+                var className = (target.className && typeof target.className === 'string') ? target.className : '';
+                var lowerAria = ariaLabel.toLowerCase();
+                var lowerTestId = testId.toLowerCase();
+                var lowerClass = className.toLowerCase();
+
+                if (
+                  lowerAria.includes('leave') ||
+                  lowerAria.includes('hang up') ||
+                  lowerAria.includes('hangup') ||
+                  lowerAria.includes('end call') ||
+                  lowerTestId.includes('hangup') ||
+                  lowerClass.includes('hangup-button')
+                ) {
+                  setTimeout(notifyExit, 250);
+                  break;
+                }
+                target = target.parentElement;
+              }
+            }, true);
           } catch (e) {
             console.error('Classroom bridge error:', e);
           }
@@ -478,19 +532,50 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
     }
   }
 
-  /// Cleanly returns to the demo flow or previous screen
-  void _onBackToDemo() {
-    final now = DateTime.now();
-    final isSessionEnded = widget.booking?.isExpired(now) == true ||
-        (widget.session?.scheduledEndTime != null &&
-            now.isAfter(widget.session!.scheduledEndTime!)) ||
-        widget.booking?.status.toLowerCase() == 'completed' ||
-        widget.session?.status?.toLowerCase() == 'completed';
+  /// Unified exit handler for the classroom session.
+  /// Cleans up WebRTC and controller resources and navigates to the
+  /// appropriate destination (Wait for Admin to Enroll for demo classes,
+  /// or Class Summary for regular cohort classes).
+  void _handleClassroomExit() {
+    if (_hasExitedClassroom || !mounted) return;
+    _hasExitedClassroom = true;
 
-    if (isSessionEnded) {
-      context.go(AppRoutePaths.demoWaitingForAdmin, extra: widget.booking);
-      return;
+    // Clean up WebRTC / audio / video resources immediately to stop media playback
+    try {
+      _controller?.loadRequest(Uri.parse('about:blank'));
+    } catch (_) {}
+
+    if (_isDemoSession) {
+      final effectiveBookingId = widget.booking?.bookingId ??
+          widget.booking?.effectiveClassId ??
+          widget.classId;
+
+      debugPrint(
+        '[Classroom Navigation] Demo call ended. Navigating to waiting screen for booking $effectiveBookingId',
+      );
+
+      // Preserve authenticated session, selected child identity, and demo booking info
+      try {
+        context.go(
+          '${AppRoutePaths.demoWaitingForAdmin}?bookingId=$effectiveBookingId',
+          extra: widget.booking,
+        );
+      } catch (e) {
+        debugPrint('[Classroom Navigation] Navigation to waiting screen failed: $e');
+      }
+    } else {
+      _navigateToSummary();
     }
+  }
+
+  /// Cleanly returns to the demo flow or previous screen when user cancels or error occurs before joining
+  void _onBackToDemo() {
+    if (_hasExitedClassroom || !mounted) return;
+    _hasExitedClassroom = true;
+
+    try {
+      _controller?.loadRequest(Uri.parse('about:blank'));
+    } catch (_) {}
 
     if (context.canPop()) {
       context.pop();
@@ -499,7 +584,7 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
     } else if (widget.fromDemo || widget.classId.startsWith('DEMO-')) {
       context.go('${AppRoutePaths.demoClassPreJoin}?bookingId=${widget.classId}');
     } else {
-      _navigateToSummary();
+      _handleClassroomExit();
     }
   }
 
@@ -527,19 +612,11 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDemoFlow = widget.fromDemo ||
-        widget.classId.startsWith('DEMO-') ||
-        widget.session?.title.toLowerCase().contains('demo') == true;
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        if (isDemoFlow) {
-          _onBackToDemo();
-        } else {
-          _navigateToSummary();
-        }
+        _handleClassroomExit();
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF0F172A),
@@ -554,36 +631,6 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
                     child: WebViewWidget(
                       key: const Key('live_classroom_webview'),
                       controller: _controller!,
-                    ),
-                  ),
-
-                // Top floating exit button (accessible overlay)
-                if (_controller != null && _errorMessage == null)
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        key: const Key('classroom_floating_leave_button'),
-                        onTap: isDemoFlow ? _onBackToDemo : _navigateToSummary,
-                        borderRadius: BorderRadius.circular(24),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B).withValues(alpha: 0.85),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFF334155),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.close_rounded,
-                            color: Colors.white70,
-                            size: 20,
-                          ),
-                        ),
-                      ),
                     ),
                   ),
 
@@ -634,6 +681,36 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+
+                // Top floating exit button (accessible overlay - always on top of loading & classroom)
+                if (_errorMessage == null)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        key: const Key('classroom_floating_leave_button'),
+                        onTap: _handleClassroomExit,
+                        borderRadius: BorderRadius.circular(24),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B).withValues(alpha: 0.85),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF334155),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -728,7 +805,7 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
                               children: [
                                 OutlinedButton(
                                   key: const Key('classroom_back_to_demo_button'),
-                                  onPressed: isDemoFlow ? _onBackToDemo : _navigateToSummary,
+                                  onPressed: _isDemoSession ? _onBackToDemo : _navigateToSummary,
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.white,
                                     side: const BorderSide(
@@ -743,7 +820,7 @@ class _LiveClassroomScreenState extends ConsumerState<LiveClassroomScreen> {
                                     ),
                                   ),
                                   child: Text(
-                                    isDemoFlow ? 'Back to Demo' : 'Return to Classes',
+                                    _isDemoSession ? 'Back to Demo' : 'Return to Classes',
                                     style: GoogleFonts.hankenGrotesk(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
